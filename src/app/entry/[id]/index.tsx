@@ -29,8 +29,11 @@ export default function EntryDetail() {
   }
 
   const edit = () => {
-    dispatch({ type: 'draft', patch: { text: entry.body, feelings: entry.feelings, gratitude: entry.gratitude ?? '', editingId: entry.id } });
-    router.push('/write');
+    dispatch({
+      type: 'draft',
+      patch: { text: entry.body, feelings: entry.feelings, gratitude: entry.gratitude ?? '', compassIds: entry.compassIds ?? [], editingId: entry.id, style: undefined },
+    });
+    router.push(`/write?edit=${entry.id}`);
   };
 
   const minutes = Math.max(1, Math.round(entry.body.split(/\s+/).length / 200));
@@ -51,8 +54,7 @@ export default function EntryDetail() {
         {entry.title}
       </Text>
       <Text variant="labelSmall">
-        {entry.feelings.length > 0 ? `${entry.feelings.join(', ')} · ` : ''}
-        {minutes} min read
+        {[...entry.feelings, ...(entry.compassIds ?? []).map((c) => state.compass.find((v) => v.id === c)?.area).filter(Boolean), `${minutes} min read`].join(' · ')}
       </Text>
 
       <View style={styles.words}>
@@ -75,16 +77,16 @@ export default function EntryDetail() {
 
       <SwitchRow
         title="Use in insights and as context"
-        detail={entry.excludeFromAnalysis ? 'Kept out. Weekly insights and other reflections won’t read this entry.' : 'Weekly insights and related reflections may read this entry.'}
+        detail={entry.excludeFromAnalysis ? 'Kept out. Patterns and other entries’ reflections won’t use this entry.' : 'Patterns and other entries’ reflections may use its tags and links.'}
         value={!entry.excludeFromAnalysis}
         onChange={(v) => dispatch({ type: 'updateEntry', id: entry.id, patch: { excludeFromAnalysis: !v } })}
       />
 
-      <Button
-        variant="text"
-        label="Export this entry"
-        icon="export-variant"
-        onPress={() => snack({ message: 'Export isn’t connected in this demo. Nothing was exported.' })}
+      <SwitchRow
+        title="Come back to this"
+        detail="Listed under “Still open” in Patterns until you turn it off."
+        value={!!entry.revisit}
+        onChange={(revisit) => dispatch({ type: 'updateEntry', id: entry.id, patch: { revisit } })}
       />
 
       <Dialog
@@ -98,7 +100,7 @@ export default function EntryDetail() {
           setConfirmDelete(false);
           dispatch({ type: 'deleteEntry', id: entry.id });
           router.back();
-          snack({ message: 'Entry deleted from this demo session.' });
+          snack({ message: 'Entry deleted from this device.' });
         }}
       />
     </Screen>

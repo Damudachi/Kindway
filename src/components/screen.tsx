@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactNode, Ref } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/button';
@@ -50,13 +50,16 @@ type ScreenProps = {
   contentStyle?: StyleProp<ViewStyle>;
   /** Screens inside the tab navigator: the native bar handles the bottom inset. */
   inTabs?: boolean;
+  /** For screens that need to scroll themselves, e.g. back to the top when content is replaced. */
+  scrollRef?: Ref<ScrollViewInstance>;
 };
 
-export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs }: ScreenProps) {
+export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const bottom = inTabs ? 0 : insets.bottom;
   const body = scroll ? (
     <ScrollView
+      ref={scrollRef}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[styles.content, { paddingBottom: footer ? space.lg : space.xxl + bottom }, contentStyle]}>
       {children}

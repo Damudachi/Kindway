@@ -1,12 +1,12 @@
 import type { DemoAi } from '@/data/types';
 
+import { mockFollowUp } from './mock-follow-up';
 import { mockReflection } from './mock-reflection';
-import { mockWeeklyReview } from './mock-weekly';
 import type { AiError, AiService } from './types';
 
 export type * from './types';
 
-const ERRORS: Record<Exclude<DemoAi, 'ok'>, AiError> = { fail: 'failed', rate: 'rate', offline: 'offline' };
+export const SIMULATED_ERRORS: Record<Exclude<DemoAi, 'ok'>, AiError> = { fail: 'failed', rate: 'rate', offline: 'offline' };
 
 /**
  * Local stand-in for the AI backend. `simulate` comes from Settings → Preview states so reviewers
@@ -17,11 +17,11 @@ export function createMockAiService({ simulate = 'ok', latencyMs = 1400 }: { sim
   return {
     async reflect(req) {
       await wait();
-      return simulate === 'ok' ? { ok: true, reflection: mockReflection(req) } : { ok: false, error: ERRORS[simulate] };
+      return simulate === 'ok' ? { ok: true, reflection: mockReflection(req) } : { ok: false, error: SIMULATED_ERRORS[simulate] };
     },
-    async weeklyReview(req) {
+    async followUp(req) {
       await wait();
-      return simulate === 'ok' ? mockWeeklyReview(req) : { status: 'error', error: ERRORS[simulate] };
+      return simulate === 'ok' ? { ok: true, message: mockFollowUp(req) } : { ok: false, error: SIMULATED_ERRORS[simulate] };
     },
   };
 }

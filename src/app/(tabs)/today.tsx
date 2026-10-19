@@ -9,25 +9,18 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
-import { DEMO_NOW, daysAgo, longDate, partOfDay, relativeDay } from '@/data/dates';
+import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
-import type { TomorrowStep } from '@/data/types';
 import { useEntries, useStore } from '@/state/demo-store';
+import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
 import { space } from '@/theme/tokens';
-
-const CHECK_INS: { id: TomorrowStep['status']; label: string; reply: string }[] = [
-  { id: 'helped', label: 'It helped', reply: 'Good to know. Small steps count.' },
-  { id: 'not-really', label: 'Not really', reply: "Thanks for noticing. That's useful information, not a failure." },
-  { id: 'changed', label: 'I changed my mind', reply: 'Plans can change. Nothing is lost.' },
-  { id: 'later', label: 'Ask me later', reply: "Okay, we'll leave it open." },
-];
 
 export default function Today() {
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
   const [focused, setFocused] = useState(false);
-  const [checkingIn, setCheckingIn] = useState(false);
+  const [stepOpen, setStepOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
@@ -36,17 +29,18 @@ export default function Today() {
   );
 
   const when = partOfDay() === 'evening' ? 'tonight' : 'today';
-  const prompt = HOME_PROMPTS[DEMO_NOW.getDate() % HOME_PROMPTS.length];
+  const today = now();
+  const prompt = HOME_PROMPTS[today.getDate() % HOME_PROMPTS.length];
   const todays = entries.filter((e) => daysAgo(e.date) === 0);
   const earlier = entries.filter((e) => daysAgo(e.date) > 0).slice(0, 2);
   const step = state.tomorrow;
-  const checkInDue = step && step.status === 'open' && daysAgo(step.savedOn) >= 1;
-  const plannedTonight = step && step.status === 'open' && daysAgo(step.savedOn) === 0;
-  // A theme from a weekly review the user asked for, unless they rejected or hid it.
-  const thread =
-    state.weeklyPatterns && state.weekly.status === 'ready'
-      ? state.weekly.review.themes.find((t) => state.insightFeedback[t.id] !== 'not' && state.insightFeedback[t.id] !== 'hidden')
-      : undefined;
+  const view = stepView(step, today);
+  const setStep = (next: typeof step, message: string, undo = true) => {
+    const before = step;
+    dispatch({ type: 'tomorrow', step: next });
+    setStepOpen(false);
+    snack({ message, action: undo ? { label: 'Undo', onPress: () => dispatch({ type: 'tomorrow', step: before }) } : undefined });
+  };
   const hasDraft = state.draft.text.trim().length > 0 && !state.draft.editingId;
 
   const usePrompt = () => {
@@ -71,7 +65,7 @@ export default function Today() {
         Start anywhere. It doesn’t need to make sense yet.
       </Text>
       <Text variant="small" style={styles.date}>
-        {longDate(DEMO_NOW.toISOString())}
+        {longDate(today.toISOString())}
       </Text>
 
       <Button
@@ -112,35 +106,45 @@ export default function Today() {
               </TrailStop>
             ))
           )}
-          {(checkInDue || plannedTonight) && step && (
-            <TrailStop blaze="next" accessibilityLabel={`${checkInDue ? 'Yesterday' : 'Tomorrow'}, optional step: ${step.text}`}>
-              <Text variant="labelSmall">{checkInDue ? 'Yesterday’s small step' : 'Tomorrow'} · optional</Text>
+          {step && view !== 'hidden' && (
+            <TrailStop
+              blaze={view === 'done' ? 'painted' : 'next'}
+              accessibilityLabel={`${view === 'done' ? 'Done today' : view === 'due' ? 'Today' : 'Tomorrow'}, optional step: ${step.text}`}>
+              <Text variant="labelSmall">{view === 'done' ? 'Done today' : view === 'due' ? 'Your small step · optional' : 'Tomorrow · optional'}</Text>
               <Text variant="entryTitle">{step.text}</Text>
-              {checkInDue &&
-                (checkingIn ? (
+              {view === 'due' &&
+                (stepOpen ? (
                   <>
                     <Text variant="small" style={styles.stepAsk}>
-                      Did it help? There’s no wrong answer.
+                      However it went is fine. There’s nothing to keep up.
                     </Text>
                     <ChipRow>
-                      {CHECK_INS.map((c) => (
-                        <Chip
-                          key={c.id}
-                          kind="assist"
-                          label={c.label}
-                          onPress={() => {
-                            dispatch({ type: 'patch', patch: { tomorrow: { ...step, status: c.id } } });
-                            setCheckingIn(false);
-                            snack({ message: c.reply });
-                          }}
-                        />
-                      ))}
+                      <Chip kind="assist" icon="check" label="Done" onPress={() => setStep(markDone(step), 'Marked done. Small steps count.')} />
+                      <Chip kind="assist" icon="calendar-arrow-right" label="Move to tomorrow" onPress={() => setStep(postpone(step), 'Moved to tomorrow. Nothing is lost.')} />
+                      <Chip kind="assist" icon="pencil-outline" label="Edit" onPress={() => router.push('/tomorrow')} />
+                      <Chip kind="assist" label="Let it go" onPress={() => setStep({ ...step, status: 'dismissed' }, 'Let go. That’s a fine choice too.')} />
                     </ChipRow>
                   </>
                 ) : (
-                  <Button variant="text" label="Did it help?" onPress={() => setCheckingIn(true)} />
+                  <Button variant="text" label="Update this step" onPress={() => setStepOpen(true)} />
                 ))}
-              {plannedTonight && <Button variant="text" label="Change or remove" onPress={() => router.push('/tomorrow')} />}
+              {view === 'done' &&
+                (step.outcome ? (
+                  <Text variant="small" style={styles.stepAsk}>
+                    {step.outcome === 'helped' ? 'You said it helped.' : 'You said it didn’t really help. That’s useful to know, not a failure.'}
+                  </Text>
+                ) : (
+                  <>
+                    <Text variant="small" style={styles.stepAsk}>
+                      Did it help? Only if you want to say.
+                    </Text>
+                    <ChipRow>
+                      <Chip kind="assist" label="It helped" onPress={() => setStep(setOutcome(step, 'helped'), 'Good to know.', false)} />
+                      <Chip kind="assist" label="Not really" onPress={() => setStep(setOutcome(step, 'not-really'), 'Thanks for noticing. That’s useful information.', false)} />
+                    </ChipRow>
+                  </>
+                ))}
+              {view === 'upcoming' && <Button variant="text" label="Change or remove" onPress={() => router.push('/tomorrow')} />}
             </TrailStop>
           )}
           {earlier.map((e, i) => (
@@ -152,11 +156,6 @@ export default function Today() {
               accessibilityLabel={`${relativeDay(e.date)}: ${e.title}. Open entry.`}>
               <Text variant="labelSmall">{relativeDay(e.date)}</Text>
               <Text variant="entryTitle">{e.title}</Text>
-              {thread && e.id === earlier.find((x) => thread.evidence.includes(x.id))?.id && (
-                <Text variant="pencil" style={styles.thread}>
-                  A thread you might be noticing: {thread.title.toLowerCase()}
-                </Text>
-              )}
             </TrailStop>
           ))}
         </Trail>
@@ -167,7 +166,8 @@ export default function Today() {
         )}
         <View style={styles.links}>
           <Button variant="text" label="See your whole journal" onPress={() => router.navigate('/journal')} />
-          {!checkInDue && !plannedTonight && <Button variant="text" label="Plan a small step for tomorrow" onPress={() => router.push('/tomorrow')} />}
+          <Button variant="text" label="Look back across your entries" onPress={() => router.navigate('/patterns')} />
+          {view === 'hidden' && <Button variant="text" label="Plan a small step for tomorrow" onPress={() => router.push('/tomorrow')} />}
         </View>
       </View>
 
@@ -195,7 +195,6 @@ const styles = StyleSheet.create({
   section: { marginTop: space.lg },
   stepAsk: { marginTop: space.xxs },
   trailTitle: { marginBottom: space.xs },
-  thread: { marginTop: 2, fontSize: 14, lineHeight: 20 },
   emptyNote: { marginTop: space.xs },
   links: { marginTop: space.xs },
 });

@@ -64,6 +64,9 @@ export default function Account() {
               setMode(signup ? 'signin' : 'signup');
             }}
           />
+          {!state.onboarded && (
+            <Button variant="text" style={styles.center} label="Continue without an account" onPress={() => router.push('/consent')} />
+          )}
         </>
       }>
       {signup && <OnboardingProgress step={3} />}
@@ -104,7 +107,7 @@ export default function Account() {
         onSubmitEditing={submit}
       />
       <Notice tone="demo" title="Demo only">
-        No account is created and nothing leaves this device. Any email and password that pass the checks will continue.
+        No account is created and nothing leaves this device. Any email and password that pass the checks will continue, or you can skip this step.
       </Notice>
     </Screen>
   );

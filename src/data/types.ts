@@ -3,6 +3,8 @@ export type ChallengeLevel = 'gentle' | 'balanced' | 'direct';
 export type ContextScope = 'relevant' | 'current';
 export type AiConsent = 'unset' | 'ai' | 'journal-only';
 export type InsightFeedback = 'fits' | 'partly' | 'not' | 'hidden';
+/** How the user said a daily reflection landed. Stored on the reflection and shown back to them. */
+export type ReflectionFeedback = 'fits' | 'not-quite';
 
 /** Demo switches that let reviewers see states the real backend would produce. */
 export type DemoAi = 'ok' | 'fail' | 'rate' | 'offline';
@@ -15,9 +17,9 @@ export type Reflection = {
   clarify?: string;
   /** A possible alternative perspective. */
   perspective?: string;
-  /** A compass value, only when it relates to this entry; the user can mark it not relevant. */
+  /** A compass value the user linked to this entry; they can mark it not relevant. */
   longGame?: { value: string; text: string };
-  /** Earlier entries the reflection drew on, by id, so the user can check them. */
+  /** Earlier entries with a feeling tag in common, by id, so the user can check them. */
   related?: string[];
   /** An optional practical next step. */
   nextStep?: string;
@@ -25,6 +27,9 @@ export type Reflection = {
   question?: string;
   /** Entry text the reflection was written for, to flag edits made afterwards. */
   basedOn: string;
+  /** Which pre-written perspective was used; "Try another perspective" moves to the next. */
+  variant?: number;
+  feedback?: ReflectionFeedback;
 };
 
 export type Entry = {
@@ -37,9 +42,14 @@ export type Entry = {
   gratitude?: string;
   reflection?: Reflection;
   reflectionStatus: 'none' | 'loading' | 'ready' | 'failed' | 'rate' | 'offline';
+  /** True only for fictional entries in the sample-insights demo. Never stored with real entries. */
   sample: boolean;
-  /** Kept out of weekly insights and out of the context for other entries' reflections. */
+  /** Kept out of insight reviews and out of the context for other entries' reflections. */
   excludeFromAnalysis?: boolean;
+  /** Compass values the user chose to connect this entry to. */
+  compassIds?: string[];
+  /** The user marked this to come back to; listed under "Still open" in Patterns. */
+  revisit?: boolean;
 };
 
 export type CompassValue = {
@@ -51,10 +61,18 @@ export type CompassValue = {
 
 export type Memory = { id: string; text: string; source: string };
 
+/** Tomorrow Bridge: one optional small step. Dismissing or postponing it carries no penalty. */
 export type TomorrowStep = {
   text: string;
   savedOn: string;
-  status: 'open' | 'helped' | 'not-really' | 'changed' | 'later';
+  /** Local midnight of the day the step is meant for. */
+  dueOn: string;
+  status: 'open' | 'done' | 'dismissed';
+  doneOn?: string;
+  /** Optional answer to "Did it help?" after marking it done. */
+  outcome?: 'helped' | 'not-really';
+  /** Where the step came from, for display only. */
+  source?: { kind: 'reflection'; entryId: string } | { kind: 'insights' };
 };
 
 export type Draft = {
@@ -63,6 +81,8 @@ export type Draft = {
   gratitude: string;
   /** Support style for this entry only; falls back to the default. */
   style?: SupportStyle;
+  /** Optional compass values this entry connects to. */
+  compassIds: string[];
   /** When set, the composer edits this entry instead of creating one. */
   editingId?: string;
 };

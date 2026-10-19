@@ -9,8 +9,8 @@ import { useSnackbar } from '@/components/feedback';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Blaze } from '@/components/trail';
-import { DEMO_NOW, daysAgo } from '@/data/dates';
 import { useStore } from '@/state/demo-store';
+import { editText, newStep } from '@/state/tomorrow';
 import { color, radius, space } from '@/theme/tokens';
 
 const IDEAS = ['Start with 10 minutes', 'Ask someone for help', 'Rest first', 'Send one message I’ve been putting off'];
@@ -20,12 +20,14 @@ export default function Tomorrow() {
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const source = state.entries.find((e) => e.id === from);
-  const current = state.tomorrow?.status === 'open' && daysAgo(state.tomorrow.savedOn) === 0 ? state.tomorrow : null;
+  // Any open step is edited in place and keeps its day; otherwise a new one is planned for tomorrow.
+  const current = state.tomorrow?.status === 'open' ? state.tomorrow : null;
   const [text, setText] = useState(current?.text ?? '');
 
   const save = () => {
-    dispatch({ type: 'patch', patch: { tomorrow: { text: text.trim(), savedOn: DEMO_NOW.toISOString(), status: 'open' } } });
-    snack({ message: "Saved. Tomorrow we'll ask whether it helped, not whether you did it." });
+    if (!text.trim()) return;
+    dispatch({ type: 'tomorrow', step: current ? editText(current, text) : newStep(text, source ? { kind: 'reflection', entryId: source.id } : undefined) });
+    snack({ message: current ? 'Step updated.' : 'Saved for tomorrow. Marking it done, moving it or letting it go are all fine.' });
     router.back();
   };
 
@@ -40,7 +42,7 @@ export default function Tomorrow() {
             style={styles.center}
             label={current ? 'Remove this step' : "I'd rather leave this open"}
             onPress={() => {
-              if (current) dispatch({ type: 'patch', patch: { tomorrow: null } });
+              if (current) dispatch({ type: 'tomorrow', step: null });
               router.back();
             }}
           />
@@ -62,6 +64,7 @@ export default function Tomorrow() {
         <View style={styles.from}>
           <Text variant="labelSmall">From your reflection on “{source.title}”</Text>
           <Text variant="pencil">{source.reflection.nextStep ?? source.reflection.question}</Text>
+          {source.reflection.nextStep && !text && <Button variant="text" label="Use this" onPress={() => setText(source.reflection?.nextStep?.slice(0, 120) ?? '')} />}
         </View>
       )}
 
@@ -76,7 +79,7 @@ export default function Tomorrow() {
       <View style={styles.field}>
         <Field label="Or in your own words" value={text} onChangeText={setText} placeholder="One small step" maxLength={120} />
       </View>
-      <Text variant="small">Tomorrow, Kindway will ask whether this was useful, not whether you “passed.” Changing your mind is always fine.</Text>
+      <Text variant="small">It will show on Today. You can mark it done, move it, edit it or let it go, and Kindway won’t count anything. No notification is sent in this prototype.</Text>
     </Screen>
   );
 }

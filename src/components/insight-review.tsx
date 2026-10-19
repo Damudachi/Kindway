@@ -1,0 +1,162 @@
+import { StyleSheet, View } from 'react-native';
+
+import { Button } from '@/components/button';
+import { Chip, ChipRow } from '@/components/chip';
+import { useSnackbar } from '@/components/feedback';
+import { Text } from '@/components/text';
+import { shortDate } from '@/data/dates';
+import type { InsightFeedback } from '@/data/types';
+import type { Insight, InsightReview, SourceRef, SuggestedAction } from '@/services/insights';
+import { useStore } from '@/state/demo-store';
+import { color, space } from '@/theme/tokens';
+
+const RESPONSES: { id: InsightFeedback; label: string }[] = [
+  { id: 'fits', label: 'Fits' },
+  { id: 'partly', label: 'Partly fits' },
+  { id: 'not', label: 'Doesn’t fit' },
+];
+
+const SECTIONS: { key: 'themes' | 'patterns' | 'strengths' | 'concerns'; title: string; none: string }[] = [
+  { key: 'themes', title: 'Recurring themes', none: 'Nothing came up more than once.' },
+  { key: 'patterns', title: 'Possible patterns', none: 'No tags showed up together often enough to mention.' },
+  { key: 'strengths', title: 'Strengths and progress', none: 'Nothing to count here this time. That doesn’t mean there wasn’t any.' },
+  { key: 'concerns', title: 'Still open', none: 'Nothing marked to come back to. Use “Come back to this” on an entry if you want it here.' },
+];
+
+type Props = {
+  review: InsightReview;
+  /** Turns a source into a tappable chip, or null when it no longer exists or is kept out. */
+  resolve: (ref: SourceRef) => { onPress: () => void } | null;
+  /** Saves a suggestion as the Tomorrow Bridge step. Omitted for the sample demo. */
+  onSaveStep?: (action: SuggestedAction) => void;
+};
+
+/** One insight review, shared by the user's own Patterns and the fictional sample demo. */
+export function InsightReviewView({ review, resolve, onSaveStep }: Props) {
+  return (
+    <View style={styles.block}>
+      {SECTIONS.map((s) => (
+        <InsightSection key={s.key} title={s.title} none={s.none} insights={review[s.key]} resolve={resolve} />
+      ))}
+      <ActionSection actions={review.actions} resolve={resolve} onSaveStep={onSaveStep} />
+    </View>
+  );
+}
+
+function Sources({ refs, resolve }: { refs: SourceRef[]; resolve: Props['resolve'] }) {
+  return (
+    <ChipRow>
+      {refs.flatMap((ref) => {
+        const target = resolve(ref);
+        if (!target) return [];
+        const label = `${ref.kind === 'sample' ? 'Sample · ' : ''}${shortDate(ref.date)}`;
+        return [<Chip key={`${ref.kind}:${ref.id}`} kind="assist" icon="notebook-outline" label={label} onPress={target.onPress} />];
+      })}
+    </ChipRow>
+  );
+}
+
+const live = (refs: SourceRef[], resolve: Props['resolve']) => refs.some((r) => resolve(r));
+
+function InsightSection({ title, none, insights, resolve }: { title: string; none: string; insights: Insight[]; resolve: Props['resolve'] }) {
+  const { state } = useStore();
+  // An insight whose sources were all deleted or kept out has nothing left to stand on.
+  const shown = insights.filter((i) => state.insightFeedback[i.id] !== 'hidden' && live(i.sources, resolve));
+  return (
+    <View style={styles.section}>
+      <Text variant="title" accessibilityRole="header">
+        {title}
+      </Text>
+      {shown.length === 0 ? <Text variant="bodyMuted">{none}</Text> : shown.map((i) => <InsightItem key={i.id} insight={i} resolve={resolve} />)}
+    </View>
+  );
+}
+
+function InsightItem({ insight: ins, resolve }: { insight: Insight; resolve: Props['resolve'] }) {
+  const { state, dispatch } = useStore();
+  const snack = useSnackbar();
+  const fb = state.insightFeedback[ins.id];
+  const inked = fb === 'fits' || fb === 'partly';
+  const rejected = fb === 'not';
+  return (
+    <View style={styles.insight}>
+      {/* Pencil until the user confirms it; ink once they say it fits. */}
+      <Text variant={inked ? 'title' : 'pencil'} style={!inked && styles.pencilTitle}>
+        {ins.title}
+      </Text>
+      {rejected ? (
+        <Text variant="small">You said this doesn’t fit. It won’t be offered again.</Text>
+      ) : (
+        <>
+          <Text variant="body">{ins.body}</Text>
+          {ins.compassValue && <Text variant="labelSmall">Connects to a compass value: {ins.compassValue}</Text>}
+          <Text variant="label" style={styles.evidenceLabel}>
+            From
+          </Text>
+          <Sources refs={ins.sources} resolve={resolve} />
+        </>
+      )}
+      <ChipRow>
+        {RESPONSES.map((r) => (
+          <Chip key={r.id} label={r.label} selected={fb === r.id} onPress={() => dispatch({ type: 'insight', id: ins.id, feedback: fb === r.id ? undefined : r.id })} />
+        ))}
+      </ChipRow>
+      <Button
+        variant="text"
+        label="Hide"
+        onPress={() => {
+          dispatch({ type: 'insight', id: ins.id, feedback: 'hidden' });
+          snack({ message: 'Hidden.', action: { label: 'Undo', onPress: () => dispatch({ type: 'insight', id: ins.id, feedback: fb }) } });
+        }}
+      />
+    </View>
+  );
+}
+
+function ActionSection({ actions, resolve, onSaveStep }: { actions: SuggestedAction[]; resolve: Props['resolve']; onSaveStep?: Props['onSaveStep'] }) {
+  const { state, dispatch } = useStore();
+  const snack = useSnackbar();
+  const shown = actions.filter((a) => state.insightFeedback[a.id] !== 'hidden' && live(a.sources, resolve));
+  return (
+    <View style={styles.section}>
+      <Text variant="title" accessibilityRole="header">
+        If you want a next step
+      </Text>
+      {shown.length === 0 ? (
+        <Text variant="bodyMuted">No suggestions this time. Nothing needs fixing.</Text>
+      ) : (
+        shown.map((a) => (
+          <View key={a.id} style={styles.insight}>
+            <Text variant="pencil" style={styles.pencilTitle}>
+              {a.text}
+            </Text>
+            <Text variant="small">{a.why}</Text>
+            <Sources refs={a.sources} resolve={resolve} />
+            <View style={styles.row}>
+              {onSaveStep && <Button variant="secondary" label="Save as tomorrow’s step" onPress={() => onSaveStep(a)} />}
+              <Button
+                variant="text"
+                label="Not for me"
+                onPress={() => {
+                  dispatch({ type: 'insight', id: a.id, feedback: 'hidden' });
+                  snack({ message: 'Removed. It won’t be suggested again.', action: { label: 'Undo', onPress: () => dispatch({ type: 'insight', id: a.id, feedback: undefined }) } });
+                }}
+              />
+            </View>
+          </View>
+        ))
+      )}
+      <Text variant="small">Rest, waiting, or leaving things be are all reasonable choices too.</Text>
+      {onSaveStep && state.tomorrow?.status === 'open' && shown.length > 0 && <Text variant="small">Saving one replaces your current small step.</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  block: { gap: space.md },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, alignItems: 'center' },
+  section: { gap: space.xxs, paddingTop: space.md },
+  insight: { paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: color.sand, gap: space.xxs },
+  pencilTitle: { fontSize: 20, lineHeight: 28 },
+  evidenceLabel: { marginTop: space.sm },
+});

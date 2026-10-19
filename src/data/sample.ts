@@ -1,5 +1,6 @@
-// Clearly fictional sample content for the UX foundation. No real person or account.
-import type { ChatMessage, CompassValue, Entry, Memory, SupportStyle, TomorrowStep } from './types';
+// Option lists, plus clearly fictional sample content used only by the sample-insights demo and tests.
+// Sample entries are never added to a user's journal.
+import type { CompassValue, Entry, SupportStyle } from './types';
 
 export const SUPPORT_STYLES: { id: SupportStyle; title: string; detail: string }[] = [
   { id: 'listen', title: 'Just listen', detail: 'Let me get it out before we try to solve anything.' },
@@ -46,10 +47,6 @@ export const SAMPLE_COMPASS: CompassValue[] = [
   { id: 'c2', area: 'Career & purpose', note: 'Build useful things and become a thoughtful engineer.', aiMayReference: true },
 ];
 
-export const SAMPLE_MEMORIES: Memory[] = [
-  { id: 'm1', text: 'Learning and career growth are important to you.', source: 'From your compass' },
-  { id: 'm2', text: 'Comparing yourself with classmates tends to come up after group projects.', source: 'Suggested from entries on Oct 12 and Oct 15' },
-];
 
 export const SAMPLE_ENTRIES: Entry[] = [
   {
@@ -106,31 +103,4 @@ export const SAMPLE_ENTRIES: Entry[] = [
     reflectionStatus: 'none',
     sample: true,
   },
-];
-
-export const SAMPLE_TOMORROW: TomorrowStep = {
-  text: 'Start with 10 minutes on the hardest task',
-  savedOn: '2026-10-16T21:50:00',
-  status: 'open',
-};
-
-export const SAMPLE_CHAT: ChatMessage[] = [
-  {
-    id: 'k1',
-    from: 'kindway',
-    text: "Let's take this one step at a time. You said slowing down feels like falling behind. Is there a specific deadline you're worried about, or is it more a general feeling that you should always be doing more?",
-  },
-  { id: 'u1', from: 'me', text: "It's more the feeling that I'm never doing enough." },
-  {
-    id: 'k2',
-    from: 'kindway',
-    text: "That sounds exhausting. We don't have to argue with the feeling to question its rule. What would enough for today look like, if it were based on what you care about rather than the pressure to do everything?",
-  },
-];
-
-/** Pre-written stand-in replies for the demo follow-up chat. */
-export const DEMO_REPLIES = [
-  'Thank you for saying that. What part of it feels most true right now?',
-  "That's worth noticing. If a friend told you this, what would you want them to hear?",
-  'We can leave it there for tonight if you like. Nothing has to be solved right now.',
 ];

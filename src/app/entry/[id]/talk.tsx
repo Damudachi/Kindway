@@ -10,12 +10,13 @@ import { Notice } from '@/components/notice';
 import { TopBar } from '@/components/screen';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
-import { DEMO_REPLIES, SUPPORT_STYLES } from '@/data/sample';
+import { SUPPORT_STYLES } from '@/data/sample';
 import type { ChatMessage, SupportStyle } from '@/data/types';
+import { useSendFollowUp } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
 import { color, radius, space, type } from '@/theme/tokens';
 
-/** Entry-linked follow-up chat. Replies are pre-written stand-ins; no AI is connected. */
+/** Entry-linked follow-up chat. Replies come from the mock conversation service; no AI is connected. */
 export default function Talk() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useStore();
@@ -25,22 +26,21 @@ export default function Talk() {
   const [text, setText] = useState('');
   const [style, setStyle] = useState<SupportStyle>(entry?.reflection?.style ?? state.supportStyle);
   const [thinking, setThinking] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const sendFollowUp = useSendFollowUp();
   const [confirmClear, setConfirmClear] = useState(false);
   const list = useRef<FlatList<ChatMessage>>(null);
 
   const send = () => {
     const body = text.trim();
-    if (!body || thinking) return;
-    const mine: ChatMessage = { id: `u${Date.now()}`, from: 'me', text: body };
-    const next = [...messages, mine];
-    dispatch({ type: 'chat', entryId: id, messages: next });
+    if (!body || thinking || !entry) return;
     setText('');
+    setFailed(false);
     setThinking(true);
-    setTimeout(() => {
-      const reply: ChatMessage = { id: `k${Date.now()}`, from: 'kindway', text: DEMO_REPLIES[next.length % DEMO_REPLIES.length] };
-      dispatch({ type: 'chat', entryId: id, messages: [...next, reply] });
+    sendFollowUp(entry, body, style, (error) => {
       setThinking(false);
-    }, 1100);
+      setFailed(!!error);
+    });
   };
 
   return (
@@ -90,7 +90,12 @@ export default function Talk() {
                 Kindway is writing…
               </Text>
             )}
-            <Text variant="small">Demo replies are pre-written. Kindway is a reflection aid, not a therapist.</Text>
+            {failed && (
+              <Notice tone="warn" title="No reply this time">
+                Your message is saved here. The simulated reply didn’t come through; send another message to try again.
+              </Notice>
+            )}
+            <Text variant="small">Simulated replies: pre-written by style, not generated from your words. Kindway is a reflection aid, not a therapist.</Text>
           </View>
         }
       />

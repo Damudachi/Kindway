@@ -17,7 +17,7 @@ const MAX = 3;
 export default function CompassSetup() {
   const { state, dispatch } = useStore();
   const [picked, setPicked] = useState<string[]>(state.compass.map((c) => c.area).slice(0, MAX));
-  const [goal, setGoal] = useState('');
+  const [goals, setGoals] = useState<Record<string, string>>(Object.fromEntries(state.compass.map((c) => [c.area, c.note])));
 
   const toggle = (area: string) =>
     setPicked((p) => (p.includes(area) ? p.filter((a) => a !== area) : p.length < MAX ? [...p, area] : p));
@@ -25,10 +25,9 @@ export default function CompassSetup() {
   const save = () => {
     dispatch({
       type: 'compass',
-      compass: picked.map((area, i) => {
+      compass: picked.map((area) => {
         const existing = state.compass.find((c) => c.area === area);
-        const note = i === 0 && goal.trim() ? goal.trim() : (existing?.note ?? '');
-        return { id: existing?.id ?? `c-${area}`, area, note, aiMayReference: existing?.aiMayReference ?? true };
+        return { id: existing?.id ?? `c-${area}`, area, note: (goals[area] ?? '').trim(), aiMayReference: existing?.aiMayReference ?? true };
       }),
     });
     router.push('/account');
@@ -66,12 +65,15 @@ export default function CompassSetup() {
       <Text variant="small" style={styles.count} accessibilityLiveRegion="polite">
         {picked.length} of {MAX} chosen
       </Text>
-      <Field
-        label="Anything specific you're working toward? (optional)"
-        placeholder="For example: finish my portfolio this term"
-        value={goal}
-        onChangeText={setGoal}
-      />
+      {picked.map((area) => (
+        <Field
+          key={area}
+          label={`${area}: anything you're working toward? (optional)`}
+          placeholder="For example: finish my portfolio this term"
+          value={goals[area] ?? ''}
+          onChangeText={(t) => setGoals((g) => ({ ...g, [area]: t }))}
+        />
+      ))}
     </Screen>
   );
 }

@@ -16,6 +16,10 @@ export default function FirstEntry() {
           router.replace('/today');
         }
       }}
+      onSkip={() => {
+        dispatch({ type: 'patch', patch: { onboarded: true } });
+        router.replace('/today');
+      }}
     />
   );
 }

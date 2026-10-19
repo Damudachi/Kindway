@@ -38,8 +38,8 @@ export default function AiMemory() {
 
       <Section first>
         <SwitchRow
-          title="AI reflections"
-          detail={aiOn ? 'On. Entries are sent only when you ask for a reflection.' : 'Off. Your journal works fully without AI.'}
+          title="Reflection previews"
+          detail={aiOn ? 'On. Simulated on this device in this prototype; nothing is sent anywhere.' : 'Off. Your journal works fully without them.'}
           value={aiOn}
           onChange={(v) => patch({ aiConsent: v ? 'ai' : 'journal-only' })}
         />
@@ -78,16 +78,16 @@ export default function AiMemory() {
         />
       </Section>
 
-      <Section title="Weekly insights">
+      <Section title="Patterns">
         <SwitchRow
-          title="Weekly patterns"
-          detail="Look back across the week when you ask, with dates you can check."
+          title="Patterns & insights"
+          detail="Look across entries, with dates you can check. In this prototype it only counts tags and marks you added."
           value={state.weeklyPatterns}
-          onChange={(weeklyPatterns) => patch({ weeklyPatterns, weekly: { status: 'idle' } })}
+          onChange={(weeklyPatterns) => patch({ weeklyPatterns })}
         />
         <SwitchRow
-          title="Consider my compass"
-          detail="Only values you let AI reference. Any suggestion stays optional."
+          title="Count my compass links"
+          detail="Only values you let reflections reference. Any suggestion stays optional."
           value={state.insightsUseCompass}
           disabled={!state.weeklyPatterns}
           onChange={(insightsUseCompass) => patch({ insightsUseCompass })}
@@ -96,7 +96,7 @@ export default function AiMemory() {
 
       <Section title="Entries available for analysis">
         <Text variant="small">
-          Unchecked entries stay in your journal but are never used for weekly insights or as context for other reflections.
+          Unchecked entries stay in your journal but are never used in Patterns or as context for other entries’ reflections.
         </Text>
         {entries.length === 0 ? (
           <Text variant="bodyMuted" style={styles.gap}>
@@ -115,7 +115,7 @@ export default function AiMemory() {
       </Section>
 
       <Section title="Saved memory">
-        <Text variant="small">Things Kindway may remember between reflections. Correct or delete anything.</Text>
+        <Text variant="small">Things Kindway may remember between reflections. Correct or delete anything. This prototype doesn’t create memories yet.</Text>
         {state.memories.length === 0 ? (
           <Text variant="bodyMuted" style={styles.gap}>
             Nothing saved.
@@ -151,7 +151,7 @@ export default function AiMemory() {
                         label="Delete"
                         onPress={() => {
                           dispatch({ type: 'patch', patch: { memories: state.memories.filter((x) => x.id !== m.id) } });
-                          snack({ message: 'Memory deleted from this demo session.' });
+                          snack({ message: 'Memory deleted from this device.' });
                         }}
                       />
                     </View>
@@ -176,7 +176,7 @@ export default function AiMemory() {
         onConfirm={() => {
           patch({ memories: [] });
           setConfirmClear(false);
-          snack({ message: 'Saved memory cleared in this demo. No server data exists yet.' });
+          snack({ message: 'Saved memory cleared on this device.' });
         }}
       />
     </Screen>

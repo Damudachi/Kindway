@@ -19,9 +19,11 @@ type Props = {
   /** First entry during onboarding uses warmer copy and its own exit routes. */
   first?: boolean;
   onSaved: (id: string, reflected: boolean) => void;
+  /** Onboarding only: finish without writing anything. */
+  onSkip?: () => void;
 };
 
-export function Composer({ first, onSaved }: Props) {
+export function Composer({ first, onSaved, onSkip }: Props) {
   const { state, dispatch } = useStore();
   const { draft, aiConsent } = state;
   const save = useSaveDraft();
@@ -30,6 +32,8 @@ export function Composer({ first, onSaved }: Props) {
   const [showGratitude, setShowGratitude] = useState(draft.gratitude.length > 0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Guards against a double tap saving the same entry twice.
+  const saving = useRef(false);
   const reduce = useReducedMotion();
 
   useEffect(() => () => clearTimeout(typingTimer.current), []);
@@ -66,9 +70,18 @@ export function Composer({ first, onSaved }: Props) {
   const canReflect = aiConsent === 'ai' && !editing;
   const style = draft.style ?? state.supportStyle;
 
+  const toggleCompass = (id: string) =>
+    dispatch({
+      type: 'draft',
+      patch: { compassIds: draft.compassIds.includes(id) ? draft.compassIds.filter((x) => x !== id) : [...draft.compassIds, id] },
+    });
+
   const doSave = (reflect: boolean) => {
+    if (saving.current || empty) return;
+    saving.current = true;
     const id = save({ reflect });
     if (id) onSaved(id, reflect && canReflect);
+    else saving.current = false;
   };
 
   return (
@@ -91,6 +104,7 @@ export function Composer({ first, onSaved }: Props) {
           ) : (
             <Button label={editing ? 'Save changes' : 'Save entry'} disabled={empty} onPress={() => doSave(false)} />
           )}
+          {onSkip && empty && <Button variant="text" label="Skip for now, I'll write later" onPress={onSkip} />}
         </View>
       }>
       <Animated.View style={recede}>
@@ -118,7 +132,7 @@ export function Composer({ first, onSaved }: Props) {
         style={styles.page}
       />
       <Text variant="labelSmall" style={styles.status} accessibilityLiveRegion="polite">
-        {empty ? 'No minimum length. No required questions.' : 'Draft kept on this device while you move around the app'}
+        {empty ? 'No minimum length. No required questions.' : 'Draft saved on this device, even if you close the app'}
       </Text>
 
       <Animated.View style={recede}>
@@ -140,6 +154,19 @@ export function Composer({ first, onSaved }: Props) {
           ))}
           <Chip kind="assist" icon="microphone-outline" label="Speak instead" onPress={() => router.push('/voice?from=write')} />
         </ChipRow>
+
+        {state.compass.length > 0 && (
+          <>
+            <Text variant="label" style={styles.groupLabel}>
+              Connect to your compass, if it fits
+            </Text>
+            <ChipRow>
+              {state.compass.map((c) => (
+                <Chip key={c.id} label={c.area} selected={draft.compassIds.includes(c.id)} onPress={() => toggleCompass(c.id)} />
+              ))}
+            </ChipRow>
+          </>
+        )}
 
         {showGratitude ? (
           <View style={styles.gratitude}>
@@ -166,13 +193,13 @@ export function Composer({ first, onSaved }: Props) {
                 <Chip key={s.id} label={s.title} selected={style === s.id} onPress={() => dispatch({ type: 'draft', patch: { style: s.id } })} />
               ))}
             </ChipRow>
-            <Text variant="small">Default: {STYLE_LABEL[state.supportStyle]}. Only this entry is sent when you choose to reflect.</Text>
+            <Text variant="small">Default: {STYLE_LABEL[state.supportStyle]}. The reflection is a simulated preview made on this device; nothing is sent anywhere.</Text>
           </>
         )}
         {!canReflect && !editing && (
           <View style={styles.notice}>
             <Notice title="Journal-only mode">
-              Your entry stays in your journal. AI reflections are off until you turn them on in AI & memory.
+              Your entry stays in your journal. Reflection previews are off until you turn them on in AI & memory.
             </Notice>
           </View>
         )}

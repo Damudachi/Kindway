@@ -22,6 +22,7 @@ const AI_STATES: { id: DemoAi; title: string; detail: string }[] = [
 export default function Settings() {
   const { state, dispatch } = useStore();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   return (
     <Screen top={{ back: true, title: 'Settings' }}>
@@ -35,8 +36,18 @@ export default function Settings() {
 
       <Section title="Account">
         <Text variant="body">{state.account ? state.account.email : 'Not signed in'}</Text>
-        <Text variant="small">Demo account. Nothing is synced or stored on a server.</Text>
-        <Button variant="secondary" label="Sign out" onPress={() => setConfirmSignOut(true)} style={styles.gap} />
+        <Text variant="small">Prototype only: no real account exists and nothing is synced or stored on a server.</Text>
+        {state.account && <Button variant="secondary" label="Sign out" onPress={() => setConfirmSignOut(true)} style={styles.gap} />}
+      </Section>
+
+      <Section title="Start over">
+        <Text variant="body">
+          Erase everything this prototype saved on this device: your entries, reflections, compass, preferences, small step and feedback. You’ll see onboarding again.
+        </Text>
+        <Text variant="small" style={styles.gapSm}>
+          Sample insights are fictional and built into the app, so they aren’t part of your data either way.
+        </Text>
+        <Button variant="danger" label="Reset everything on this device" onPress={() => setConfirmReset(true)} style={styles.gap} />
       </Section>
 
       <Section title="Preview states">
@@ -49,19 +60,30 @@ export default function Settings() {
         ))}
         <SwitchRow title="Sign-in fails" detail="Account screen shows an error" value={state.demo.signInError} onChange={(signInError) => dispatch({ type: 'demo', patch: { signInError } })} />
         <SwitchRow title="Session expired" detail="Today asks you to sign in again" value={state.demo.sessionExpired} onChange={(sessionExpired) => dispatch({ type: 'demo', patch: { sessionExpired } })} />
-        <SwitchRow title="Hide sample entries" detail="See the empty journal" value={state.demo.emptyJournal} onChange={(emptyJournal) => dispatch({ type: 'demo', patch: { emptyJournal } })} />
         <Button variant="text" label="Open the extra support path" onPress={() => router.push('/support')} />
-        <Button variant="text" label="Restart onboarding" onPress={() => { dispatch({ type: 'reset' }); router.replace('/welcome'); }} />
+        <Button variant="text" label="Preview sample insights" onPress={() => router.push('/sample')} />
       </Section>
 
       <Dialog
         visible={confirmSignOut}
         title="Sign out?"
-        body="In the real app, entries stay in your account. In this demo, signing out resets everything to the start."
+        body="This only forgets the prototype account. Your entries stay on this device."
         confirmLabel="Sign out"
         onCancel={() => setConfirmSignOut(false)}
         onConfirm={() => {
           setConfirmSignOut(false);
+          dispatch({ type: 'patch', patch: { account: null } });
+        }}
+      />
+      <Dialog
+        visible={confirmReset}
+        title="Reset everything?"
+        body="All entries, reflections, conversations, compass values and settings saved on this device will be erased. This can’t be undone."
+        confirmLabel="Erase and start over"
+        destructive
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => {
+          setConfirmReset(false);
           dispatch({ type: 'reset' });
           router.replace('/welcome');
         }}
@@ -72,4 +94,5 @@ export default function Settings() {
 
 const styles = StyleSheet.create({
   gap: { marginTop: space.md },
+  gapSm: { marginTop: space.xs },
 });

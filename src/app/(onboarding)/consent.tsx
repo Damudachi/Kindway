@@ -29,8 +29,8 @@ export default function Consent() {
       top={{ back: true }}
       footer={
         <>
-          <Button label="Continue with AI reflections" disabled={!understood} onPress={() => choose('ai')} />
-          <Button variant="secondary" label="Use my journal without AI" onPress={() => choose('journal-only')} />
+          <Button label="Continue with reflection previews" disabled={!understood} onPress={() => choose('ai')} />
+          <Button variant="secondary" label="Use my journal without them" onPress={() => choose('journal-only')} />
         </>
       }>
       {!toToday && <OnboardingProgress step={4} />}
@@ -38,16 +38,15 @@ export default function Consent() {
         Your thoughts deserve care.
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>
-        Two different things happen to your words. Here is each one, separately.
+        Two different things could happen to your words. Here is each one, and what this prototype actually does.
       </Text>
 
       <View style={styles.block}>
         <MaterialCommunityIcons name="notebook-outline" size={24} color={color.trail} />
         <View style={styles.flex}>
           <Text variant="title">Storing your journal</Text>
-          <Text variant="body">
-            Entries are saved to your private account. Access is limited to you by per-user database rules.
-          </Text>
+          <Text variant="body">In this prototype, entries are saved only on this device.</Text>
+          <Text variant="small">A private account with server-side access rules is planned, not built.</Text>
         </View>
       </View>
       <View style={[styles.block, styles.rule]}>
@@ -55,16 +54,18 @@ export default function Consent() {
         <View style={styles.flex}>
           <Text variant="title">Reflecting with AI</Text>
           <Text variant="body">
-            Only when you ask for a reflection, that entry and a small amount of context you control are sent to an AI service to write a response.
+            In this prototype, nothing is sent anywhere. Reflections are simulated previews, pre-written and chosen on this device.
           </Text>
-          <Text variant="small">The AI provider hasn’t been chosen yet. Its name and how long it keeps data will be shown here before launch.</Text>
+          <Text variant="small">
+            Planned: only when you ask, that entry and a little context you control would go to an AI service through a secure server. The provider and how long it keeps data will be named before that happens.
+          </Text>
         </View>
       </View>
 
-      <CheckRow label="I understand that reflections send my entry to an AI service." checked={understood} onChange={setUnderstood} />
+      <CheckRow label="I understand reflections are simulated for now, and how they’re planned to work later." checked={understood} onChange={setUnderstood} />
       <Button variant="text" label="Read full privacy details" onPress={() => router.push('/settings/privacy')} />
       <View style={styles.gap}>
-        <Notice tone="demo">Nothing is stored on a server or sent to AI in this demo. You can change this choice later in AI & memory.</Notice>
+        <Notice tone="demo">This is a prototype acknowledgement, not a production consent record. You can change this choice later in AI & memory.</Notice>
       </View>
     </Screen>
   );

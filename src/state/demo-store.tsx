@@ -1,6 +1,6 @@
-import { createContext, use, useReducer, type Dispatch, type ReactNode } from 'react';
+import { createContext, use, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
-import { SAMPLE_CHAT, SAMPLE_COMPASS, SAMPLE_ENTRIES, SAMPLE_MEMORIES, SAMPLE_TOMORROW } from '@/data/sample';
 import type {
   AiConsent,
   ChallengeLevel,
@@ -17,11 +17,12 @@ import type {
   SupportStyle,
   TomorrowStep,
 } from '@/data/types';
-import type { AiError, WeeklyReview } from '@/services/ai';
+import { deviceStorage, type StateStorage } from '@/storage/persistence';
 
 /**
- * Local-only, in-memory state for the UX foundation. Nothing here is persisted or synced.
- * TODO(backend): replace with Supabase-backed data once auth, schema and RLS exist.
+ * Prototype state, saved to this device's app storage between launches. Nothing is synced.
+ * Real entries start empty; fictional sample data lives only in the sample-insights demo.
+ * TODO(backend): replace persistence with Supabase-backed data once auth, schema and RLS exist.
  */
 export type DemoState = {
   onboarded: boolean;
@@ -31,7 +32,7 @@ export type DemoState = {
   challengeLevel: ChallengeLevel;
   contextScope: ContextScope;
   weeklyPatterns: boolean;
-  /** Whether weekly reviews may consider compass values the user allowed AI to reference. */
+  /** Whether insight reviews may count compass links the user added. */
   insightsUseCompass: boolean;
   aiConsent: AiConsent;
   compass: CompassValue[];
@@ -40,25 +41,16 @@ export type DemoState = {
   draft: Draft;
   tomorrow: TomorrowStep | null;
   chats: Record<string, ChatMessage[]>;
+  /** Feedback on insights, by insight id. Sample-demo ids start with `sample:`. */
   insightFeedback: Record<string, InsightFeedback>;
-  /** Weekly review, only generated when the user asks for it. */
-  weekly: WeeklyState;
   reminders: Reminders;
-  /** Entry whose blaze should play the paint animation once. */
+  /** Entry whose blaze should play the paint animation once. Not saved. */
   justPainted?: string;
-  demo: { ai: DemoAi; signInError: boolean; sessionExpired: boolean; emptyJournal: boolean };
+  /** Reviewer switches for simulated conditions. Not saved. */
+  demo: { ai: DemoAi; signInError: boolean; sessionExpired: boolean };
 };
 
-export type WeeklyState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  /** `entryIds`: what the review was based on, to flag it once entries change. */
-  | { status: 'ready'; review: WeeklyReview; entryIds: string[] }
-  | { status: 'empty' }
-  | { status: 'insufficient'; entryCount: number; needed: number }
-  | { status: 'error'; error: AiError };
-
-export const emptyDraft: Draft = { text: '', feelings: [], gratitude: '' };
+export const emptyDraft: Draft = { text: '', feelings: [], gratitude: '', compassIds: [] };
 
 export const initialState: DemoState = {
   onboarded: false,
@@ -70,16 +62,15 @@ export const initialState: DemoState = {
   weeklyPatterns: true,
   insightsUseCompass: true,
   aiConsent: 'unset',
-  compass: SAMPLE_COMPASS,
-  memories: SAMPLE_MEMORIES,
-  entries: SAMPLE_ENTRIES,
+  compass: [],
+  memories: [],
+  entries: [],
   draft: emptyDraft,
-  tomorrow: SAMPLE_TOMORROW,
-  chats: { e4: SAMPLE_CHAT },
+  tomorrow: null,
+  chats: {},
   insightFeedback: {},
-  weekly: { status: 'idle' },
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
-  demo: { ai: 'ok', signInError: false, sessionExpired: false, emptyJournal: false },
+  demo: { ai: 'ok', signInError: false, sessionExpired: false },
 };
 
 export type Action =
@@ -90,11 +81,12 @@ export type Action =
   | { type: 'saveEntry'; entry: Entry }
   | { type: 'updateEntry'; id: string; patch: Partial<Entry> }
   | { type: 'setReflection'; id: string; status: Entry['reflectionStatus']; reflection?: Reflection }
+  | { type: 'removeReflection'; id: string }
   | { type: 'deleteEntry'; id: string }
   | { type: 'compass'; compass: CompassValue[] }
   | { type: 'chat'; entryId: string; messages: ChatMessage[] }
   | { type: 'insight'; id: string; feedback: InsightFeedback | undefined }
-  | { type: 'weekly'; weekly: WeeklyState }
+  | { type: 'tomorrow'; step: TomorrowStep | null }
   | { type: 'reminders'; patch: Partial<Reminders> }
   | { type: 'reset' };
 
@@ -109,8 +101,11 @@ export function reducer(state: DemoState, action: Action): DemoState {
     case 'clearDraft':
       return { ...state, draft: emptyDraft };
     case 'saveEntry':
+      // Never store a blank entry, or a fictional one.
+      if (!action.entry.body.trim() || action.entry.sample) return state;
       return { ...state, entries: [action.entry, ...state.entries], draft: emptyDraft, justPainted: action.entry.id };
     case 'updateEntry':
+      if (action.patch.body !== undefined && !action.patch.body.trim()) return state;
       return { ...state, entries: state.entries.map((e) => (e.id === action.id ? { ...e, ...action.patch } : e)) };
     case 'setReflection':
       return {
@@ -119,13 +114,36 @@ export function reducer(state: DemoState, action: Action): DemoState {
           e.id === action.id ? { ...e, reflectionStatus: action.status, reflection: action.reflection ?? e.reflection } : e,
         ),
       };
+    case 'removeReflection':
+      return { ...state, entries: state.entries.map((e) => (e.id === action.id ? { ...e, reflection: undefined, reflectionStatus: 'none' } : e)) };
     case 'deleteEntry': {
+      const { id } = action;
       const chats = { ...state.chats };
-      delete chats[action.id];
-      return { ...state, entries: state.entries.filter((e) => e.id !== action.id), chats };
+      delete chats[id];
+      const insightFeedback = { ...state.insightFeedback };
+      delete insightFeedback[`revisit:${id}`];
+      return {
+        ...state,
+        chats,
+        insightFeedback,
+        // Other reflections stop pointing at it, and the Tomorrow step loses its link but stays.
+        entries: state.entries
+          .filter((e) => e.id !== id)
+          .map((e) => (e.reflection?.related?.includes(id) ? { ...e, reflection: { ...e.reflection, related: e.reflection.related.filter((r) => r !== id) } } : e)),
+        tomorrow:
+          state.tomorrow?.source?.kind === 'reflection' && state.tomorrow.source.entryId === id ? { ...state.tomorrow, source: undefined } : state.tomorrow,
+        draft: state.draft.editingId === id ? emptyDraft : state.draft,
+      };
     }
-    case 'compass':
-      return { ...state, compass: action.compass };
+    case 'compass': {
+      // Entries keep only links to values that still exist.
+      const ids = new Set(action.compass.map((c) => c.id));
+      return {
+        ...state,
+        compass: action.compass,
+        entries: state.entries.map((e) => (e.compassIds?.some((c) => !ids.has(c)) ? { ...e, compassIds: e.compassIds.filter((c) => ids.has(c)) } : e)),
+      };
+    }
     case 'chat':
       return { ...state, chats: { ...state.chats, [action.entryId]: action.messages } };
     case 'insight': {
@@ -134,8 +152,8 @@ export function reducer(state: DemoState, action: Action): DemoState {
       else delete insightFeedback[action.id];
       return { ...state, insightFeedback };
     }
-    case 'weekly':
-      return { ...state, weekly: action.weekly };
+    case 'tomorrow':
+      return { ...state, tomorrow: action.step };
     case 'reminders':
       return { ...state, reminders: { ...state.reminders, ...action.patch } };
     case 'reset':
@@ -143,11 +161,84 @@ export function reducer(state: DemoState, action: Action): DemoState {
   }
 }
 
+const VERSION = 1;
+
+/** What is written to device storage: everything except reviewer switches and one-shot animation flags. */
+export function toSnapshot(state: DemoState) {
+  const { demo: _demo, justPainted: _painted, ...saved } = state;
+  return { version: VERSION, state: saved };
+}
+
+/** Rebuilds state from storage. Anything unreadable starts fresh rather than half-loading. */
+export function fromSnapshot(raw: unknown): DemoState {
+  if (!raw || typeof raw !== 'object' || (raw as { version?: number }).version !== VERSION) return initialState;
+  const saved = (raw as { state?: Partial<DemoState> }).state;
+  if (!saved || typeof saved !== 'object') return initialState;
+  return {
+    ...initialState,
+    ...saved,
+    demo: initialState.demo,
+    draft: { ...emptyDraft, ...saved.draft },
+    reminders: { ...initialState.reminders, ...saved.reminders },
+    entries: (saved.entries ?? [])
+      .filter((e) => !e.sample)
+      // A reflection that was still "loading" when the app closed never arrived.
+      .map((e) => (e.reflectionStatus === 'loading' ? { ...e, reflectionStatus: e.reflection ? 'ready' : 'failed' } : e)),
+  };
+}
+
 const StoreContext = createContext<{ state: DemoState; dispatch: Dispatch<Action> } | null>(null);
 
-export function DemoStoreProvider({ children, initial = initialState }: { children: ReactNode; initial?: DemoState }) {
-  const [state, dispatch] = useReducer(reducer, initial);
-  return <StoreContext value={{ state, dispatch }}>{children}</StoreContext>;
+type ProviderProps = {
+  children: ReactNode;
+  /** Skip loading and start from this state (tests, previews). It is still saved. */
+  initial?: DemoState;
+  storage?: StateStorage;
+};
+
+export function DemoStoreProvider({ children, initial, storage = deviceStorage }: ProviderProps) {
+  const [state, dispatch] = useReducer(reducer, initial ?? initialState);
+  const [hydrated, setHydrated] = useState(!!initial);
+  const latest = useRef(state);
+  useEffect(() => {
+    latest.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (initial) return;
+    let cancelled = false;
+    storage
+      .load()
+      .catch(() => null)
+      .then((raw) => {
+        if (cancelled) return;
+        dispatch({ type: 'patch', patch: fromSnapshot(raw) });
+        setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Load once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save shortly after changes, and right away when the app goes to the background.
+  useEffect(() => {
+    if (!hydrated) return;
+    const t = setTimeout(() => void storage.save(toSnapshot(state)).catch(() => {}), 250);
+    return () => clearTimeout(t);
+  }, [state, hydrated, storage]);
+  useEffect(() => {
+    if (!hydrated) return;
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s !== 'active') void storage.save(toSnapshot(latest.current)).catch(() => {});
+    });
+    return () => sub.remove();
+  }, [hydrated, storage]);
+
+  const value = useMemo(() => ({ state, dispatch }), [state]);
+  if (!hydrated) return null;
+  return <StoreContext value={value}>{children}</StoreContext>;
 }
 
 export function useStore() {
@@ -156,8 +247,8 @@ export function useStore() {
   return ctx;
 }
 
-/** Entries as the UI should see them, honoring the "empty journal" demo state. */
+/** The user's entries, newest first. */
 export function useEntries() {
   const { state } = useStore();
-  return state.demo.emptyJournal ? state.entries.filter((e) => !e.sample) : state.entries;
+  return useMemo(() => [...state.entries].sort((a, b) => b.date.localeCompare(a.date)), [state.entries]);
 }
