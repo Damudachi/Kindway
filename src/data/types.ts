@@ -7,13 +7,22 @@ export type InsightFeedback = 'fits' | 'partly' | 'not' | 'hidden';
 /** Demo switches that let reviewers see states the real backend would produce. */
 export type DemoAi = 'ok' | 'fail' | 'rate' | 'offline';
 
+/** A daily reflection. Only `acknowledge` is always present; every other part depends on the support style. */
 export type Reflection = {
   style: SupportStyle;
   acknowledge: string;
-  clarify: string;
-  perspective: string;
+  /** Facts vs. conclusions. A gentle challenge, so only when the style or settings invite one. */
+  clarify?: string;
+  /** A possible alternative perspective. */
+  perspective?: string;
+  /** A compass value, only when it relates to this entry; the user can mark it not relevant. */
   longGame?: { value: string; text: string };
-  question: string;
+  /** Earlier entries the reflection drew on, by id, so the user can check them. */
+  related?: string[];
+  /** An optional practical next step. */
+  nextStep?: string;
+  /** An optional reflection question. */
+  question?: string;
   /** Entry text the reflection was written for, to flag edits made afterwards. */
   basedOn: string;
 };
@@ -29,6 +38,8 @@ export type Entry = {
   reflection?: Reflection;
   reflectionStatus: 'none' | 'loading' | 'ready' | 'failed' | 'rate' | 'offline';
   sample: boolean;
+  /** Kept out of weekly insights and out of the context for other entries' reflections. */
+  excludeFromAnalysis?: boolean;
 };
 
 export type CompassValue = {
@@ -64,4 +75,8 @@ export type Reminders = {
   time: string;
   days: boolean[];
   pausedUntil?: string;
+  /** Optional weekly nudge to look back on the week. */
+  weekly: boolean;
+  /** 0 = Monday … 6 = Sunday. */
+  weeklyDay: number;
 };

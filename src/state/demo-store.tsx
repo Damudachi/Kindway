@@ -17,6 +17,7 @@ import type {
   SupportStyle,
   TomorrowStep,
 } from '@/data/types';
+import type { AiError, WeeklyReview } from '@/services/ai';
 
 /**
  * Local-only, in-memory state for the UX foundation. Nothing here is persisted or synced.
@@ -30,6 +31,8 @@ export type DemoState = {
   challengeLevel: ChallengeLevel;
   contextScope: ContextScope;
   weeklyPatterns: boolean;
+  /** Whether weekly reviews may consider compass values the user allowed AI to reference. */
+  insightsUseCompass: boolean;
   aiConsent: AiConsent;
   compass: CompassValue[];
   memories: Memory[];
@@ -38,11 +41,22 @@ export type DemoState = {
   tomorrow: TomorrowStep | null;
   chats: Record<string, ChatMessage[]>;
   insightFeedback: Record<string, InsightFeedback>;
+  /** Weekly review, only generated when the user asks for it. */
+  weekly: WeeklyState;
   reminders: Reminders;
   /** Entry whose blaze should play the paint animation once. */
   justPainted?: string;
   demo: { ai: DemoAi; signInError: boolean; sessionExpired: boolean; emptyJournal: boolean };
 };
+
+export type WeeklyState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  /** `entryIds`: what the review was based on, to flag it once entries change. */
+  | { status: 'ready'; review: WeeklyReview; entryIds: string[] }
+  | { status: 'empty' }
+  | { status: 'insufficient'; entryCount: number; needed: number }
+  | { status: 'error'; error: AiError };
 
 export const emptyDraft: Draft = { text: '', feelings: [], gratitude: '' };
 
@@ -54,6 +68,7 @@ export const initialState: DemoState = {
   challengeLevel: 'gentle',
   contextScope: 'relevant',
   weeklyPatterns: true,
+  insightsUseCompass: true,
   aiConsent: 'unset',
   compass: SAMPLE_COMPASS,
   memories: SAMPLE_MEMORIES,
@@ -62,7 +77,8 @@ export const initialState: DemoState = {
   tomorrow: SAMPLE_TOMORROW,
   chats: { e4: SAMPLE_CHAT },
   insightFeedback: {},
-  reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false] },
+  weekly: { status: 'idle' },
+  reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
   demo: { ai: 'ok', signInError: false, sessionExpired: false, emptyJournal: false },
 };
 
@@ -78,6 +94,7 @@ export type Action =
   | { type: 'compass'; compass: CompassValue[] }
   | { type: 'chat'; entryId: string; messages: ChatMessage[] }
   | { type: 'insight'; id: string; feedback: InsightFeedback | undefined }
+  | { type: 'weekly'; weekly: WeeklyState }
   | { type: 'reminders'; patch: Partial<Reminders> }
   | { type: 'reset' };
 
@@ -117,6 +134,8 @@ export function reducer(state: DemoState, action: Action): DemoState {
       else delete insightFeedback[action.id];
       return { ...state, insightFeedback };
     }
+    case 'weekly':
+      return { ...state, weekly: action.weekly };
     case 'reminders':
       return { ...state, reminders: { ...state.reminders, ...action.patch } };
     case 'reset':

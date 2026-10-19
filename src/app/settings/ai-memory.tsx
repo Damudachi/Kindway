@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { Field, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
+import { CheckRow, Field, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { relativeDay } from '@/data/dates';
 import { STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import type { ChallengeLevel, Memory } from '@/data/types';
-import { useStore, type DemoState } from '@/state/demo-store';
+import { useEntries, useStore, type DemoState } from '@/state/demo-store';
 import { color, space } from '@/theme/tokens';
 
 const LEVELS: { id: ChallengeLevel; label: string }[] = [
@@ -21,6 +22,7 @@ const LEVELS: { id: ChallengeLevel; label: string }[] = [
 
 export default function AiMemory() {
   const { state, dispatch } = useStore();
+  const entries = useEntries();
   const snack = useSnackbar();
   const [editing, setEditing] = useState<Memory | null>(null);
   const [editText, setEditText] = useState('');
@@ -64,7 +66,7 @@ export default function AiMemory() {
       <Section title="What reflections can see">
         <RadioRow
           title="This entry and a few related ones"
-          detail="Past entries are named with their dates when used."
+          detail="Up to two weeks back, named with their dates when used. Compass values only when relevant."
           selected={state.contextScope === 'relevant'}
           onPress={() => patch({ contextScope: 'relevant' })}
         />
@@ -74,12 +76,42 @@ export default function AiMemory() {
           selected={state.contextScope === 'current'}
           onPress={() => patch({ contextScope: 'current' })}
         />
+      </Section>
+
+      <Section title="Weekly insights">
         <SwitchRow
           title="Weekly patterns"
-          detail="Suggest possible themes across entries, with dates you can check."
+          detail="Look back across the week when you ask, with dates you can check."
           value={state.weeklyPatterns}
-          onChange={(weeklyPatterns) => patch({ weeklyPatterns })}
+          onChange={(weeklyPatterns) => patch({ weeklyPatterns, weekly: { status: 'idle' } })}
         />
+        <SwitchRow
+          title="Consider my compass"
+          detail="Only values you let AI reference. Any suggestion stays optional."
+          value={state.insightsUseCompass}
+          disabled={!state.weeklyPatterns}
+          onChange={(insightsUseCompass) => patch({ insightsUseCompass })}
+        />
+      </Section>
+
+      <Section title="Entries available for analysis">
+        <Text variant="small">
+          Unchecked entries stay in your journal but are never used for weekly insights or as context for other reflections.
+        </Text>
+        {entries.length === 0 ? (
+          <Text variant="bodyMuted" style={styles.gap}>
+            No entries yet.
+          </Text>
+        ) : (
+          entries.map((e) => (
+            <CheckRow
+              key={e.id}
+              label={`${relativeDay(e.date)} · ${e.title}`}
+              checked={!e.excludeFromAnalysis}
+              onChange={(v) => dispatch({ type: 'updateEntry', id: e.id, patch: { excludeFromAnalysis: !v } })}
+            />
+          ))
+        )}
       </Section>
 
       <Section title="Saved memory">

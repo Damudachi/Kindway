@@ -1,5 +1,4 @@
-import { demoReflection, looksHighRisk } from '@/data/demo-reflection';
-import { SAMPLE_COMPASS } from '@/data/sample';
+import { looksHighRisk } from '@/data/safety';
 import type { Entry } from '@/data/types';
 import { emptyDraft, initialState, reducer } from '@/state/demo-store';
 
@@ -45,18 +44,7 @@ describe('demo store', () => {
   });
 });
 
-describe('demo reflection', () => {
-  it('references a compass value only when the user allows it', () => {
-    const allowed = demoReflection('text', 'honest', SAMPLE_COMPASS);
-    expect(allowed.longGame?.value).toBe('Growth & learning');
-    const none = demoReflection('text', 'honest', SAMPLE_COMPASS.map((c) => ({ ...c, aiMayReference: false })));
-    expect(none.longGame).toBeUndefined();
-  });
-
-  it('remembers which text it was written for', () => {
-    expect(demoReflection('original', 'listen', []).basedOn).toBe('original');
-  });
-
+describe('safety placeholder', () => {
   it('routes possible high-risk text away from AI reflection', () => {
     expect(looksHighRisk('Some days I want to hurt myself')).toBe(true);
     expect(looksHighRisk('Work hurt my feelings today')).toBe(false);

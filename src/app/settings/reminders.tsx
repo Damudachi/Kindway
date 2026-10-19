@@ -22,12 +22,13 @@ export default function Reminders() {
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const r = state.reminders;
-  const [asking, setAsking] = useState(false);
+  // Which reminder is waiting on the permission prompt.
+  const [asking, setAsking] = useState<'enabled' | 'weekly' | null>(null);
   const set = (patch: Partial<typeof r>) => dispatch({ type: 'reminders', patch });
 
-  const toggle = (on: boolean) => {
-    if (on && r.permission !== 'granted') setAsking(true);
-    else set({ enabled: on });
+  const toggle = (which: 'enabled' | 'weekly') => (on: boolean) => {
+    if (on && r.permission !== 'granted') setAsking(which);
+    else set({ [which]: on });
   };
 
   return (
@@ -40,7 +41,7 @@ export default function Reminders() {
       </Text>
 
       <Section first>
-        <SwitchRow title="Evening reminder" detail={r.enabled ? `On · ${r.time}` : 'Off'} value={r.enabled} onChange={toggle} />
+        <SwitchRow title="Evening reminder" detail={r.enabled ? `On · ${r.time}` : 'Off'} value={r.enabled} onChange={toggle('enabled')} />
         {r.permission === 'denied' && (
           <Notice tone="warn" title="Notifications are blocked">
             Android isn’t allowing Kindway to send notifications. You can change that in system settings, or skip reminders entirely.
@@ -88,21 +89,43 @@ export default function Reminders() {
           />
         </Section>
       </View>
+      <Section title="Weekly look-back">
+        <SwitchRow
+          title="Remind me to look back on my week"
+          detail={r.weekly ? `On · ${DAYS[r.weeklyDay]} evenings` : 'Off. Patterns are always there when you open them.'}
+          value={r.weekly}
+          onChange={toggle('weekly')}
+        />
+        {r.weekly && (
+          <>
+            <ChipRow>
+              {DAYS.map((d, i) => (
+                <Chip key={d} label={d.slice(0, 3)} selected={r.weeklyDay === i} onPress={() => set({ weeklyDay: i })} />
+              ))}
+            </ChipRow>
+            <View style={styles.preview} accessibilityLabel="Notification preview: Kindway. Your week is here to look back on, whenever you like.">
+              <Text variant="labelSmall">Kindway · {DAYS[r.weeklyDay]}</Text>
+              <Text variant="body">Your week is here to look back on, whenever you like.</Text>
+            </View>
+          </>
+        )}
+      </Section>
+
       <Notice tone="demo">Reminders aren’t scheduled in this demo. No notifications will appear.</Notice>
 
       <Dialog
-        visible={asking}
+        visible={asking !== null}
         title="Allow notifications?"
         body="Kindway will send one quiet reminder at the time you pick. Next, Android will ask for permission (simulated here)."
         confirmLabel="Allow"
         cancelLabel="Don't allow"
         onCancel={() => {
-          setAsking(false);
-          set({ permission: 'denied', enabled: false });
+          setAsking(null);
+          set({ permission: 'denied', enabled: false, weekly: false });
         }}
         onConfirm={() => {
-          setAsking(false);
-          set({ permission: 'granted', enabled: true });
+          if (asking) set({ permission: 'granted', [asking]: true });
+          setAsking(null);
         }}
       />
     </Screen>

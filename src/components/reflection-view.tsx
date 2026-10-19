@@ -8,6 +8,7 @@ import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Text } from '@/components/text';
+import { shortDate } from '@/data/dates';
 import { STYLE_LABEL } from '@/data/sample';
 import type { Entry } from '@/data/types';
 import { useRequestReflection } from '@/state/actions';
@@ -18,7 +19,7 @@ type Props = { entry: Entry; onRest: () => void };
 
 /** The AI layer of an entry, kept visibly separate from the user's own words. */
 export function ReflectionView({ entry, onRest }: Props) {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   const request = useRequestReflection();
   const snack = useSnackbar();
   const reduce = useReducedMotion();
@@ -76,12 +77,19 @@ export function ReflectionView({ entry, onRest }: Props) {
   const edited = r.basedOn !== entry.body;
   // Interpretations stay in pencil until the user says they fit.
   const inked = feedback === 'Helpful';
-  const usedCompass = r.longGame && state.contextScope !== 'current';
+  const related = (r.related ?? []).map((id) => state.entries.find((e) => e.id === id)).filter((e) => !!e);
+  const used = ['this entry', r.longGame && 'one compass value', related.length > 0 && `${related.length} earlier ${related.length === 1 ? 'entry' : 'entries'}`].filter(Boolean);
+  const listening = r.style === 'listen';
+
+  const notRelevant = () => {
+    dispatch({ type: 'updateEntry', id: entry.id, patch: { reflection: { ...r, longGame: undefined } } });
+    snack({ message: 'Removed. Your compass stays as it is; this entry just isn’t linked to it.' });
+  };
 
   return (
     <Animated.View entering={reduce ? undefined : FadeIn.duration(360)} style={styles.wrap}>
-      <Notice tone="demo" title="Example reflection">
-        AI isn’t connected in this demo. This text is pre-written to show how a reflection would read.
+      <Notice tone="demo" title="Simulated reflection">
+        No AI is connected. This was assembled on your device from pre-written text to show how a reflection would read. It isn’t real AI analysis.
       </Notice>
 
       {edited && (
@@ -92,17 +100,21 @@ export function ReflectionView({ entry, onRest }: Props) {
 
       <Text variant="entry">{r.acknowledge}</Text>
 
-      <View style={styles.part}>
-        <Text variant="title" accessibilityRole="header">What happened, and what you concluded</Text>
-        <Text variant={inked ? 'body' : 'pencil'}>{r.clarify}</Text>
-      </View>
+      {r.clarify && (
+        <View style={styles.part}>
+          <Text variant="title" accessibilityRole="header">What happened, and what you concluded</Text>
+          <Text variant={inked ? 'body' : 'pencil'}>{r.clarify}</Text>
+        </View>
+      )}
 
-      <View style={styles.part}>
-        <Text variant="title" accessibilityRole="header">Another way to see it</Text>
-        <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
-      </View>
+      {r.perspective && (
+        <View style={styles.part}>
+          <Text variant="title" accessibilityRole="header">Another way to see it</Text>
+          <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
+        </View>
+      )}
 
-      {usedCompass && r.longGame && (
+      {r.longGame && (
         <View style={styles.compass}>
           <Text variant="labelSmall" style={{ color: color.onTrailContainer }}>
             From your compass: {r.longGame.value}
@@ -110,20 +122,41 @@ export function ReflectionView({ entry, onRest }: Props) {
           <Text variant="body" style={{ color: color.onTrailContainer }}>
             {r.longGame.text}
           </Text>
+          <Button variant="text" label="Not relevant here" onPress={notRelevant} />
         </View>
       )}
 
-      <Text variant="pencil" style={styles.question}>
-        {r.question}
-      </Text>
+      {related.length > 0 && (
+        <View style={styles.part}>
+          <Text variant="label">You wrote about something similar</Text>
+          <ChipRow>
+            {related.map((e) => (
+              <Chip key={e.id} kind="assist" icon="notebook-outline" label={shortDate(e.date)} onPress={() => router.push(`/entry/${e.id}`)} />
+            ))}
+          </ChipRow>
+        </View>
+      )}
+
+      {r.nextStep && (
+        <View style={styles.part}>
+          <Text variant="title" accessibilityRole="header">If you want a next step</Text>
+          <Text variant="pencil">{r.nextStep}</Text>
+        </View>
+      )}
+
+      {r.question && (
+        <Text variant="pencil" style={styles.question}>
+          {r.question}
+        </Text>
+      )}
 
       <Text variant="small">
-        Reflected as “{STYLE_LABEL[r.style]}”. Used: this entry{usedCompass ? ' and one compass value' : ''}. Past entries: not used.
+        Reflected as “{STYLE_LABEL[r.style]}”. Used: {used.join(', ')}.{related.length === 0 ? ' Past entries: not used.' : ''}
       </Text>
 
       <View style={styles.choices}>
         <Button label="Talk this through" trailingIcon="arrow-right" onPress={() => router.push(`/entry/${entry.id}/talk`)} />
-        <Button variant="secondary" label="Plan one small step for tomorrow" onPress={() => router.push(`/tomorrow?from=${entry.id}`)} />
+        {!listening && <Button variant="secondary" label="Plan one small step for tomorrow" onPress={() => router.push(`/tomorrow?from=${entry.id}`)} />}
         <Button variant="text" label="Let this sit for tonight" onPress={onRest} />
       </View>
 

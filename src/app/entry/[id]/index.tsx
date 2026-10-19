@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
+import { SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { StateView } from '@/components/notice';
 import { ReflectionView } from '@/components/reflection-view';
@@ -71,6 +72,13 @@ export default function EntryDetail() {
         </Text>
         <ReflectionView entry={entry} onRest={() => router.back()} />
       </View>
+
+      <SwitchRow
+        title="Use in insights and as context"
+        detail={entry.excludeFromAnalysis ? 'Kept out. Weekly insights and other reflections won’t read this entry.' : 'Weekly insights and related reflections may read this entry.'}
+        value={!entry.excludeFromAnalysis}
+        onChange={(v) => dispatch({ type: 'updateEntry', id: entry.id, patch: { excludeFromAnalysis: !v } })}
+      />
 
       <Button
         variant="text"

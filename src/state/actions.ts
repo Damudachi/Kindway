@@ -2,34 +2,42 @@ import { router } from 'expo-router';
 import { useCallback } from 'react';
 
 import { nowIso } from '@/data/dates';
-import { demoReflection, looksHighRisk } from '@/data/demo-reflection';
+import { looksHighRisk } from '@/data/safety';
 import type { Entry } from '@/data/types';
-import { useStore } from '@/state/demo-store';
+import { getAiService } from '@/services/ai';
+import { reflectionRequest, weeklyEntries, weeklyRequest } from '@/state/ai-context';
+import { useEntries, useStore } from '@/state/demo-store';
 
-const SIMULATED_LATENCY = 1400;
-
-/** Simulates requesting an AI reflection; the outcome follows the "Preview states" demo setting. */
+/** Requests a (simulated) reflection; the outcome follows the "Preview states" demo setting. */
 export function useRequestReflection() {
   const { state, dispatch } = useStore();
+  const entries = useEntries();
   return useCallback(
-    (entry: Pick<Entry, 'id' | 'body'>, style = state.supportStyle) => {
+    // Fire-and-forget: the result lands in the store, so press handlers never hold a pending promise.
+    (entry: Entry, style = state.supportStyle) => {
       dispatch({ type: 'setReflection', id: entry.id, status: 'loading' });
-      setTimeout(() => {
-        const outcome = state.demo.ai;
-        if (outcome === 'ok') {
-          dispatch({
-            type: 'setReflection',
-            id: entry.id,
-            status: 'ready',
-            reflection: demoReflection(entry.body, style, state.contextScope === 'current' ? [] : state.compass),
-          });
-        } else {
-          dispatch({ type: 'setReflection', id: entry.id, status: outcome === 'fail' ? 'failed' : outcome });
-        }
-      }, SIMULATED_LATENCY);
+      void getAiService(state.demo.ai)
+        .reflect(reflectionRequest(state, entry, style, entries))
+        .then((result) => {
+          if (result.ok) dispatch({ type: 'setReflection', id: entry.id, status: 'ready', reflection: result.reflection });
+          else dispatch({ type: 'setReflection', id: entry.id, status: result.error });
+        });
     },
-    [dispatch, state.demo.ai, state.supportStyle, state.contextScope, state.compass],
+    [state, dispatch, entries],
   );
+}
+
+/** Generates the weekly review on demand. Nothing is analysed until the user asks. */
+export function useRequestWeeklyReview() {
+  const { state, dispatch } = useStore();
+  const entries = useEntries();
+  return useCallback(() => {
+    const entryIds = weeklyEntries(entries).map((e) => e.id);
+    dispatch({ type: 'weekly', weekly: { status: 'loading' } });
+    void getAiService(state.demo.ai)
+      .weeklyReview(weeklyRequest(state, entries))
+      .then((result) => dispatch({ type: 'weekly', weekly: result.status === 'ready' ? { ...result, entryIds } : result }));
+  }, [state, dispatch, entries]);
 }
 
 function titleFrom(text: string) {

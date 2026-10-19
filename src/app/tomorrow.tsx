@@ -58,10 +58,10 @@ export default function Tomorrow() {
         You don’t need a grand plan. One small, kind step is enough, and choosing rest counts.
       </Text>
 
-      {source?.reflection && (
+      {(source?.reflection?.nextStep || source?.reflection?.question) && (
         <View style={styles.from}>
           <Text variant="labelSmall">From your reflection on “{source.title}”</Text>
-          <Text variant="pencil">{source.reflection.question}</Text>
+          <Text variant="pencil">{source.reflection.nextStep ?? source.reflection.question}</Text>
         </View>
       )}
 

@@ -10,7 +10,7 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
 import { DEMO_NOW, daysAgo, longDate, partOfDay, relativeDay } from '@/data/dates';
-import { HOME_PROMPTS, SAMPLE_INSIGHTS } from '@/data/sample';
+import { HOME_PROMPTS } from '@/data/sample';
 import type { TomorrowStep } from '@/data/types';
 import { useEntries, useStore } from '@/state/demo-store';
 import { space } from '@/theme/tokens';
@@ -42,8 +42,11 @@ export default function Today() {
   const step = state.tomorrow;
   const checkInDue = step && step.status === 'open' && daysAgo(step.savedOn) >= 1;
   const plannedTonight = step && step.status === 'open' && daysAgo(step.savedOn) === 0;
-  const i1 = state.insightFeedback.i1;
-  const thread = state.weeklyPatterns && i1 !== 'not' && i1 !== 'hidden' ? SAMPLE_INSIGHTS[0] : null;
+  // A theme from a weekly review the user asked for, unless they rejected or hid it.
+  const thread =
+    state.weeklyPatterns && state.weekly.status === 'ready'
+      ? state.weekly.review.themes.find((t) => state.insightFeedback[t.id] !== 'not' && state.insightFeedback[t.id] !== 'hidden')
+      : undefined;
   const hasDraft = state.draft.text.trim().length > 0 && !state.draft.editingId;
 
   const usePrompt = () => {
@@ -151,7 +154,7 @@ export default function Today() {
               <Text variant="entryTitle">{e.title}</Text>
               {thread && e.id === earlier.find((x) => thread.evidence.includes(x.id))?.id && (
                 <Text variant="pencil" style={styles.thread}>
-                  A thread you might be noticing: comparison
+                  A thread you might be noticing: {thread.title.toLowerCase()}
                 </Text>
               )}
             </TrailStop>

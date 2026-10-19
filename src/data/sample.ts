@@ -114,23 +114,6 @@ export const SAMPLE_TOMORROW: TomorrowStep = {
   status: 'open',
 };
 
-export const SAMPLE_INSIGHTS = [
-  {
-    id: 'i1',
-    kind: 'A recurring situation',
-    title: 'Comparing your progress with others',
-    body: 'In each of these entries, seeing other people\'s progress seemed to make your own feel smaller.',
-    evidence: ['e1', 'e3', 'e4'],
-  },
-  {
-    id: 'i2',
-    kind: 'A strength you described',
-    title: 'You keep returning to learning',
-    body: 'Even on discouraging days, you wrote about wanting to understand what happened and improve.',
-    evidence: ['e2', 'e3'],
-  },
-];
-
 export const SAMPLE_CHAT: ChatMessage[] = [
   {
     id: 'k1',
