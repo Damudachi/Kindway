@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F1EFEA;--raised:#F8F7F3;--ink:#25272B;--ink2:#5A5C60;--pencil:#8B8D90;--trail:#4D6474;--sand:#CFC8BB;--lichen:#7E8A70}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:390px;height:844px;overflow:hidden;background:var(--paper);color:var(--ink);font-family:Roboto,sans-serif}
+.status{height:32px;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:13px;color:var(--ink2)}
+.bar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 20px}
+.word{font-family:Literata,serif;font-size:20px;font-weight:500;letter-spacing:-.2px}
+.icon{width:48px;height:48px;display:grid;place-items:center;color:var(--ink2);font-size:20px}
+main{padding:12px 20px 0}
+.date{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-weight:500}
+h1{font-family:Literata,serif;font-weight:400;font-size:32px;line-height:40px;letter-spacing:-.4px;margin:10px 0 8px}
+.lede{font-size:16px;line-height:24px;color:var(--ink2);max-width:320px}
+.write{margin-top:24px;height:56px;border-radius:16px;background:var(--ink);color:#F8F7F3;display:flex;align-items:center;padding:0 20px;font-size:16px;font-weight:500;justify-content:space-between}
+.alt{display:flex;gap:8px;margin-top:12px}
+.chip{height:40px;border:1px solid var(--sand);border-radius:8px;padding:0 14px;display:flex;align-items:center;font-size:14px;color:var(--ink)}
+.trail{position:relative;margin-top:36px;padding-left:28px}
+.trail:before{content:"";position:absolute;left:7px;top:6px;bottom:-40px;width:2px;background:var(--trail);opacity:.55}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-weight:500;margin-bottom:12px}
+.stop{position:relative;padding:12px 0 14px;border-bottom:1px solid var(--sand)}
+.stop:last-child{border-bottom:0}
+.blaze{position:absolute;left:-25px;top:16px;width:6px;height:16px;border-radius:1px;background:var(--trail)}
+.blaze.open{background:var(--paper);border:2px dashed var(--trail)}
+.blaze.next{background:var(--paper);border:2px solid var(--lichen)}
+.meta{font-size:12px;color:var(--ink2)}
+.t{font-family:Literata,serif;font-size:17px;line-height:24px;margin-top:2px}
+.pencil{font-size:14px;color:var(--pencil);font-style:italic;margin-top:2px}
+nav{position:absolute;bottom:0;left:0;right:0;height:80px;background:#E9E6DF;display:flex;justify-content:space-around;align-items:center;border-top:1px solid var(--sand)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--ink2);font-weight:500}
+.pill{width:64px;height:32px;border-radius:16px;display:grid;place-items:center;font-size:18px}
+.tab.on{color:var(--ink)}.tab.on .pill{background:#D7DEE3}
+</style></head><body>
+<div class="status"><span>9:41</span><span>▾ ▴ ▮</span></div>
+<div class="bar"><span class="word">Kindway</span><span class="icon">⚙</span></div>
+<main>
+<div class="date">Saturday · Oct 17 · Evening</div>
+<h1>How are you arriving tonight?</h1>
+<p class="lede">Start anywhere. It doesn't need to make sense yet.</p>
+<div class="write"><span>Write a thought</span><span>→</span></div>
+<div class="alt"><span class="chip">◉ Speak</span><span class="chip">A small prompt</span></div>
+<section class="trail">
+<div class="label">Your trail</div>
+<div class="stop"><span class="blaze open"></span><div class="meta">Tonight</div><div class="t">Not written yet. Whenever you're ready.</div></div>
+<div class="stop"><span class="blaze next"></span><div class="meta">Tomorrow Bridge · optional</div><div class="t">Start with 10 minutes on the hard part</div></div>
+<div class="stop"><span class="blaze"></span><div class="meta">Thu · Oct 15</div><div class="t">When I started comparing</div><div class="pencil">A thread you might be noticing: comparison</div></div>
+</section>
+</main>
+<nav>
+<div class="tab on"><span class="pill">⌂</span>Today</div>
+<div class="tab"><span class="pill">▤</span>Journal</div>
+<div class="tab"><span class="pill">◌</span>Patterns</div>
+<div class="tab"><span class="pill">↗</span>Compass</div>
+</nav>
+</body></html>

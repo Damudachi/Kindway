@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F6F5F1;--ink:#25272B;--ink2:#5E6064;--grid:#D8D6CF;--slate:#566B7B}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:390px;height:844px;overflow:hidden;background:var(--paper);color:var(--ink);font-family:Roboto,sans-serif}
+.status{height:32px;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:13px;color:var(--ink2)}
+.datebar{display:flex;align-items:stretch;margin:12px 20px 0;border:1px solid var(--ink)}
+.day{width:84px;border-right:1px solid var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0}
+.day b{font-family:Literata,serif;font-size:40px;font-weight:400;line-height:44px}
+.day span{font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.dmeta{padding:10px 14px;display:flex;flex-direction:column;justify-content:center}
+.dmeta .m{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.dmeta .q{font-family:Literata,serif;font-size:18px;line-height:24px;margin-top:4px}
+.page{margin:16px 20px 0;height:430px;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:14px 14px;border:1px solid var(--grid);padding:18px 16px}
+.ghost{font-family:Literata,serif;font-size:18px;line-height:28px;color:#9A9B9D}
+.foot{margin:12px 20px 0;display:flex;justify-content:space-between;align-items:center}
+.foot .line{font-size:13px;color:var(--ink2);font-style:italic}
+.btn{height:48px;padding:0 20px;border-radius:24px;background:var(--slate);color:#fff;display:flex;align-items:center;font-size:15px;font-weight:500}
+nav{position:absolute;bottom:0;left:0;right:0;height:80px;background:#ECEBE6;display:flex;justify-content:space-around;align-items:center}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--ink2)}
+.pill{width:64px;height:32px;border-radius:16px;display:grid;place-items:center;font-size:18px}
+.tab.on{color:var(--ink)}.tab.on .pill{background:#DCE2E6}
+</style></head><body>
+<div class="status"><span>9:41</span><span>▾ ▴ ▮</span></div>
+<div class="datebar"><div class="day"><b>17</b><span>Sat</span></div><div class="dmeta"><span class="m">October · Kindway</span><span class="q">What are you carrying into tonight?</span></div></div>
+<div class="page"><p class="ghost">Today was…</p></div>
+<div class="foot"><span class="line">No streaks. Skip any day.</span><span class="btn">Save page</span></div>
+<nav>
+<div class="tab on"><span class="pill">⌂</span>Today</div>
+<div class="tab"><span class="pill">▤</span>Journal</div>
+<div class="tab"><span class="pill">◌</span>Patterns</div>
+<div class="tab"><span class="pill">↗</span>Compass</div>
+</nav>
+</body></html>

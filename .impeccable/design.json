@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T00:00:00Z",
+  "title": "Design System: Kindway",
+  "extensions": {
+    "colorMeta": {
+      "paper": { "role": "neutral", "displayName": "Map Paper", "canonical": "#F1EFEA", "tonalRamp": ["#2E2A1F","#504835","#74694E","#998A66","#B1A68B","#CAC2AF","#E0DCD1","#F5F3F0"] },
+      "raised": { "role": "neutral", "displayName": "Raised Paper", "canonical": "#F8F7F3", "tonalRamp": ["#302C1C","#544D31","#7A7047","#A1945E","#B8AD85","#CEC7AB","#E3DFCF","#F6F4EF"] },
+      "sunk": { "role": "neutral", "displayName": "Sunk Paper", "canonical": "#E8E5DE", "tonalRamp": ["#2D291F","#4E4736","#726850","#968969","#AFA58D","#C9C1B1","#E0DBD2","#F5F3F0"] },
+      "ink": { "role": "neutral", "displayName": "Charcoal Ink", "canonical": "#25272B", "tonalRamp": ["#232529","#3D4147","#5A5E68","#767C89","#979CA5","#B8BBC2","#D6D8DC","#F1F2F3"] },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#55575B", "tonalRamp": ["#252628","#404245","#5E6064","#7B7E84","#9B9DA1","#BABCBF","#D7D8DA","#F2F2F3"] },
+      "pencil": { "role": "neutral", "displayName": "Graphite Pencil", "canonical": "#66686B", "tonalRamp": ["#252627","#414244","#5F6063","#7C7F83","#9C9EA0","#BBBCBE","#D8D9DA","#F2F2F3"] },
+      "on-ink": { "role": "neutral", "displayName": "On Ink", "canonical": "#F8F7F3", "tonalRamp": ["#302C1C","#544D31","#7A7047","#A1945E","#B8AD85","#CEC7AB","#E3DFCF","#F6F4EF"] },
+      "trail": { "role": "primary", "displayName": "Slate Trail", "canonical": "#4D6474", "tonalRamp": ["#1F282E","#354550","#4D6474","#668499","#8BA2B2","#AFBFCA","#D1DAE0","#F0F3F5"] },
+      "trail-container": { "role": "primary", "displayName": "Pale Slate Wash", "canonical": "#D9E0E4", "tonalRamp": ["#20282D","#37454E","#516571","#6A8595","#8EA3AE","#B1C0C8","#D2DBDF","#F0F3F4"] },
+      "on-trail-container": { "role": "primary", "displayName": "Deep Slate", "canonical": "#22323D", "tonalRamp": ["#1B2831","#2F4655","#45667C","#5B86A4","#83A3BA","#AAC0D0","#CEDBE4","#EFF3F6"] },
+      "sand": { "role": "neutral", "displayName": "Sand Hairline", "canonical": "#CFC8BB", "tonalRamp": ["#2D2820","#4E4637","#726650","#95866A","#AFA38D","#C8C0B1","#DFDBD2","#F4F3F0"] },
+      "outline": { "role": "neutral", "displayName": "Field Outline", "canonical": "#8A857B", "tonalRamp": ["#292724","#46443E","#67635B","#878278","#A4A098","#C1BEB9","#DBDAD6","#F3F3F1"] },
+      "lichen": { "role": "secondary", "displayName": "Lichen", "canonical": "#6F7C61", "tonalRamp": ["#262B22","#434A3A","#616D55","#808F70","#9FAA92","#BDC5B5","#D9DDD4","#F2F4F1"] },
+      "lichen-ink": { "role": "secondary", "displayName": "Lichen Ink", "canonical": "#4E5A43", "tonalRamp": ["#262C21","#424C39","#606F53","#7F926D","#9DAC90","#BCC6B3","#D9DED3","#F2F4F0"] },
+      "danger": { "role": "tertiary", "displayName": "Rust", "canonical": "#9A3B2E", "tonalRamp": ["#3B1712","#66271E","#95392D","#C44B3B","#D2766A","#E1A299","#EDC9C4","#F9EDEB"] },
+      "danger-container": { "role": "tertiary", "displayName": "Rust Wash", "canonical": "#F3E1DC", "tonalRamp": ["#391C14","#633022","#904631","#BE5C41","#CE836F","#DDAA9C","#EBCEC6","#F8EFEC"] },
+      "scrim": { "role": "neutral", "displayName": "Dialog Scrim", "canonical": "rgba(37,39,43,0.42)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The one invitation question on Today. Font scaling capped at 1.5x." },
+      "headline": { "displayName": "Headline", "purpose": "Screen questions; 22/30 in empty states, 22/28 in dialog titles. Scaling capped at 1.6x." },
+      "title": { "displayName": "Title", "purpose": "Section headings and the Kindway wordmark." },
+      "entry": { "displayName": "Entry", "purpose": "The user's own entry text and the reflection's acknowledging sentence." },
+      "entry-title": { "displayName": "Entry Title", "purpose": "Entry titles on trail stops and journal rows." },
+      "body": { "displayName": "Body", "purpose": "Interface prose; Muted Ink for ledes and secondary copy." },
+      "small": { "displayName": "Small", "purpose": "Helper text, dates, notice bodies, disclosures (Muted Ink)." },
+      "label": { "displayName": "Label", "purpose": "Buttons (16sp on primary), chips, field and group labels, top-bar titles." },
+      "label-small": { "displayName": "Label Small", "purpose": "Sentence-case metadata attached to a specific item (a stop's day, feeling and read time, a memory's source). Never a section kicker." },
+      "pencil": { "displayName": "Pencil", "purpose": "Literata Italic in Graphite Pencil for AI-proposed or tentative content until the user confirms it." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "short", "value": "150ms", "purpose": "Snackbar fade in and out." },
+      { "name": "medium", "value": "240ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Painting a blaze: fill grows bottom to top with an exponential ease-out." },
+      { "name": "long", "value": "360ms", "purpose": "Composer chrome receding to 38% opacity while typing; reflection fade-in." },
+      { "name": "reduced-motion", "value": "0ms", "purpose": "Every animation is instant when the system requests reduced motion." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The screen's main act: full-width charcoal, 56dp, optional trailing arrow at the far edge.",
+      "html": "<button class=\"ds-btn-primary\"><span>Write a thought</span><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z\"/></svg></button>",
+      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 320px; min-height: 56px; padding: 0 20px; background: #25272B; color: #F8F7F3; border: 1px solid #25272B; border-radius: 16px; font: 500 16px/20px Roboto, system-ui, sans-serif; cursor: pointer; } .ds-btn-primary:hover { background: #3A3D42; } .ds-btn-primary:active { opacity: 0.92; } .ds-btn-primary:focus-visible { outline: 2px solid #4D6474; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Alternative action: transparent with a 1dp outline border for 3:1 contrast.",
+      "html": "<button class=\"ds-btn-secondary\">Save without AI</button>",
+      "css": ".ds-btn-secondary { min-height: 48px; padding: 0 20px; background: transparent; color: #25272B; border: 1px solid #8A857B; border-radius: 16px; font: 500 14px/20px Roboto, system-ui, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { background: rgba(37,39,43,0.06); } .ds-btn-secondary:active { background: rgba(37,39,43,0.08); } .ds-btn-secondary:focus-visible { outline: 2px solid #4D6474; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Slate label with 12dp touch padding offset -12dp so the label sits on the 20dp gutter.",
+      "html": "<div style=\"padding-left:20px\"><button class=\"ds-btn-text\">Did it help?</button></div>",
+      "css": ".ds-btn-text { min-height: 48px; padding: 0 12px; margin-left: -12px; background: transparent; color: #4D6474; border: 1px solid transparent; border-radius: 16px; font: 500 14px/20px Roboto, system-ui, sans-serif; cursor: pointer; } .ds-btn-text:hover { background: rgba(77,100,116,0.08); } .ds-btn-text:active { background: rgba(77,100,116,0.12); } .ds-btn-text:focus-visible { outline: 2px solid #4D6474; outline-offset: 2px; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "36dp visible chip in a 48dp target; filter chips gain a check on Pale Slate Wash when selected.",
+      "html": "<div class=\"ds-chip-row\"><button class=\"ds-chip\">Tired</button><button class=\"ds-chip ds-chip-selected\" aria-pressed=\"true\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M21 7 9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z\"/></svg>Worried</button></div>",
+      "css": ".ds-chip-row { display: flex; flex-wrap: wrap; column-gap: 8px; } .ds-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin: 6px 0; padding: 6px 12px; background: transparent; color: #25272B; border: 1px solid #8A857B; border-radius: 8px; font: 500 14px/20px Roboto, system-ui, sans-serif; cursor: pointer; } .ds-chip:hover { background: rgba(37,39,43,0.06); } .ds-chip:focus-visible { outline: 2px solid #4D6474; outline-offset: 2px; } .ds-chip-selected { background: #D9E0E4; border-color: #D9E0E4; color: #22323D; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Outlined field with a persistent label, Raised Paper fill, pencil placeholder.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">One good thing (optional)</span><input class=\"ds-field-input\" placeholder=\"A warm cup of tea\"></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; width: 320px; } .ds-field-label { color: #55575B; font: 500 14px/20px Roboto, system-ui, sans-serif; } .ds-field-input { min-height: 56px; padding: 12px 16px; background: #F8F7F3; color: #25272B; border: 1px solid #8A857B; border-radius: 12px; font: 400 16px/24px Roboto, system-ui, sans-serif; caret-color: #4D6474; } .ds-field-input::placeholder { color: #66686B; } .ds-field-input:focus-visible { outline: none; border: 2px solid #4D6474; padding: 11px 15px; } .ds-field-input[aria-invalid=\"true\"] { border: 2px solid #9A3B2E; }"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": "navigation-bar",
+      "description": "Native Material navigation bar on Sunk Paper, four labelled destinations, Pale Slate Wash indicator.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" aria-current=\"page\"><span class=\"ds-nav-pill\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M2 18h20v2H2zm10-9a7 7 0 0 1 7 7H5a7 7 0 0 1 7-7zM11 2h2v4h-2z\"/></svg></span>Today</a><a class=\"ds-nav-item\"><span class=\"ds-nav-pill\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M21 5c-1.1-.35-2.3-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c1.45-1.1 3.55-1.5 5.5-1.5s4.05.4 5.5 1.5c1.45-1.1 3.55-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5V5z\"/></svg></span>Journal</a><a class=\"ds-nav-item\"><span class=\"ds-nav-pill\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M3 17l6-6 4 4 7-7 1.4 1.4L13 17.8l-4-4-4.6 4.6z\"/></svg></span>Patterns</a><a class=\"ds-nav-item\"><span class=\"ds-nav-pill\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm2.2 12.2L6.5 17.5l3.3-7.7 7.7-3.3-3.3 7.7zM12 10.9a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z\"/></svg></span>Compass</a></nav>",
+      "css": ".ds-nav { display: flex; justify-content: space-around; width: 360px; padding: 12px 0 16px; background: #E8E5DE; } .ds-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 64px; color: #55575B; font: 500 12px/16px Roboto, system-ui, sans-serif; text-decoration: none; cursor: pointer; } .ds-nav-pill { display: flex; align-items: center; justify-content: center; width: 64px; height: 32px; border-radius: 16px; } .ds-nav-item:hover .ds-nav-pill { background: rgba(37,39,43,0.06); } .ds-nav-item:focus-visible { outline: 2px solid #4D6474; outline-offset: 2px; } .ds-nav-active { color: #25272B; } .ds-nav-active .ds-nav-pill { background: #D9E0E4; color: #22323D; }"
+    },
+    {
+      "name": "Notice",
+      "kind": "card",
+      "refersTo": "notice-demo",
+      "description": "Inline notice; the demo tone marks anything simulated in this milestone. Info and warn tones swap the fill.",
+      "html": "<div class=\"ds-notice\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M7 2v2h1v5.2L3.3 18.6A2 2 0 0 0 5 21.5h14a2 2 0 0 0 1.7-2.9L16 9.2V4h1V2H7zm3 2h4v5.7l2.2 4.3H7.8L10 9.7V4z\"/></svg><div><div class=\"ds-notice-title\">Example reflection</div><div class=\"ds-notice-body\">AI isn't connected in this demo. This text is pre-written to show how a reflection would read.</div></div></div>",
+      "css": ".ds-notice { display: flex; gap: 12px; width: 320px; padding: 16px; background: #E8E5DE; color: #55575B; border: 1px solid #CFC8BB; border-radius: 12px; } .ds-notice svg { flex: none; margin-top: 1px; } .ds-notice-title { font: 500 14px/20px Roboto, system-ui, sans-serif; } .ds-notice-body { margin-top: 2px; font: 400 14px/20px Roboto, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Trail with Blazes",
+      "kind": "custom",
+      "refersTo": "blaze-mark",
+      "description": "The signature: one slate line threading stops; painted, open (dashed), next (lichen), and tentative (pencil) blazes in the 6x16 footprint; tentative thread in pencil italic.",
+      "html": "<div class=\"ds-trail\"><div class=\"ds-trail-line\"></div><div class=\"ds-stop\"><div class=\"ds-marker\"><svg width=\"6\" height=\"16\" aria-hidden=\"true\"><rect x=\"1\" y=\"1\" width=\"4\" height=\"14\" rx=\"0.5\" fill=\"#F1EFEA\" stroke=\"#4D6474\" stroke-width=\"2\" stroke-dasharray=\"3 2\"/></svg></div><div class=\"ds-stop-body ds-rule\"><div class=\"ds-meta\">Tonight</div><div class=\"ds-entry-title\">Not written yet. Whenever you're ready.</div></div></div><div class=\"ds-stop\"><div class=\"ds-marker\"><svg width=\"6\" height=\"16\" aria-hidden=\"true\"><rect x=\"1\" y=\"1\" width=\"4\" height=\"14\" rx=\"0.5\" fill=\"#F1EFEA\" stroke=\"#6F7C61\" stroke-width=\"2\"/></svg></div><div class=\"ds-stop-body ds-rule\"><div class=\"ds-meta\">Tomorrow · optional</div><div class=\"ds-entry-title\">Start with 10 minutes on the hardest task</div></div></div><div class=\"ds-stop\"><div class=\"ds-marker\"><span class=\"ds-blaze\"></span></div><div class=\"ds-stop-body\"><div class=\"ds-meta\">Yesterday</div><div class=\"ds-entry-title\">Too many tabs open</div><div class=\"ds-pencil\">A thread you might be noticing: comparison</div></div></div></div>",
+      "css": ".ds-trail { position: relative; width: 340px; padding: 0 20px; background: #F1EFEA; } .ds-trail-line { position: absolute; left: 30px; top: 0; bottom: 0; width: 2px; background: #4D6474; opacity: 0.45; } .ds-stop { position: relative; display: flex; gap: 12px; min-height: 64px; } .ds-marker { width: 22px; padding-top: 16px; display: flex; justify-content: center; } .ds-marker svg { display: block; background: #F1EFEA; } .ds-blaze { display: block; width: 6px; height: 16px; border-radius: 1px; background: #4D6474; } .ds-stop:hover .ds-stop-body { background: rgba(37,39,43,0.03); } .ds-stop-body { flex: 1; padding: 12px 0; } .ds-rule { border-bottom: 1px solid #CFC8BB; } .ds-meta { color: #55575B; font: 500 12px/16px Roboto, system-ui, sans-serif; letter-spacing: 0.4px; } .ds-entry-title { color: #25272B; font: 400 17px/24px Literata, Georgia, serif; } .ds-pencil { color: #66686B; font: italic 400 16px/24px Literata, Georgia, serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Trail Blazes",
+    "overview": "Kindway is a trail map on stone-grey paper. Each entry the user writes is a painted blaze on a single slate line, and the app marks the way, never the pace. Surfaces are flat paper separated by one sand hairline; nothing floats, nothing is shadowed, and the only saturated gesture is the slate trail itself. The category default for journals (a card list with a floating action button and mood charts) is refused.\n\nThe system runs on Android with Material 3 structure: small top app bar, native navigation bar, system Back, snackbars, basic dialogs, 48dp touch targets, and sp type that scales with the system font size. All dimensions below are dp and all type sizes sp; the frontmatter writes them as px for tool portability (1px = 1dp/sp). Two type voices carry meaning: Literata for the user's own words and for headlines, Roboto for the interface around them. A third state, pencil, marks anything Kindway proposes rather than the user has said.\n\nDensity is unhurried: a 20dp gutter, generous vertical rhythm, one primary action per screen. Motion is short and functional; the one signature moment is the open blaze being painted when an entry is saved.",
+    "keyCharacteristics": [
+      "Stone-grey map paper, charcoal ink, one slate trail colour.",
+      "Blazes are the signature mark, in exactly two sizes.",
+      "Pencil before ink: proposed content is graphite italic until the user confirms it.",
+      "One 1dp sand rule for every divider; no shadowed cards.",
+      "Literata for the user's words and headlines, Roboto for UI.",
+      "Light scheme only (dark scheme is an open decision, deferred until it can be designed cohesively)."
+    ],
+    "rules": [
+      { "name": "The One Trail Rule", "body": "Slate is the only accent in ordinary UI. Lichen appears only on the next-step blaze and its related text; Rust only for destruction and error.", "section": "colors" },
+      { "name": "The Outline-For-Touch Rule", "body": "Anything the user can press or type into is bounded by outline (#8A857B) for 3:1 non-text contrast. Sand is for decoration and division, never for a control's edge.", "section": "colors" },
+      { "name": "The Two Voices Rule", "body": "Literata is reserved for the user's words and for headlines; every control, label, and system message is Roboto.", "section": "typography" },
+      { "name": "The Pencil Before Ink Rule", "body": "Anything Kindway proposes (interpretations, patterns, threads) is set in Literata Italic graphite until the user confirms it fits; on confirmation it becomes ordinary ink body text.", "section": "typography" },
+      { "name": "The 48dp Floor Rule", "body": "Every interactive element has a touch target of at least 48dp, even when its visible shape is smaller (chips are 36dp visible inside a 48dp target; the primary button is 56dp).", "section": "layout" },
+      { "name": "The Flat Paper Rule", "body": "No shadowed cards, no elevation on buttons, no floating action button. If a surface needs separation, change its paper tone or draw the 1dp sand rule.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use exactly the two blaze sizes (6x16 and 4x10) and draw non-painted blazes inside the same footprint.",
+      "Do set AI-proposed or tentative content in Literata Italic Graphite Pencil until the user confirms it.",
+      "Do divide content with the single 1dp sand rule and change paper tone for separation.",
+      "Do border every interactive control in outline (#8A857B) to keep 3:1 non-text contrast.",
+      "Do keep every touch target at 48dp or larger, and offset text buttons by -12dp so their labels align to the 20dp gutter.",
+      "Do use Literata for the user's words and headlines and Roboto for all UI.",
+      "Do label anything simulated in this milestone with the demo notice.",
+      "Do make every animation instant under reduced motion."
+    ],
+    "donts": [
+      "Don't use shadows, elevated cards, or a floating action button.",
+      "Don't use sand as the only boundary of a pressable or editable control.",
+      "Don't add kicker or eyebrow labels above headings; Label Small is for metadata attached to a specific item, never for introducing a section.",
+      "Don't introduce a third blaze size or scale a blaze up for emphasis.",
+      "Don't use lichen or rust outside the next-step blaze and destructive/error states.",
+      "Don't design a dark scheme piecemeal; it is an open decision, deferred until it can be done cohesively."
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+import { Literata_400Regular, Literata_400Regular_Italic, Literata_500Medium, useFonts } from '@expo-google-fonts/literata';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+
+import { SnackbarProvider } from '@/components/feedback';
+import { DemoStoreProvider } from '@/state/demo-store';
+import { color } from '@/theme/tokens';
+
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  const [loaded, error] = useFonts({ Literata_400Regular, Literata_500Medium, Literata_400Regular_Italic });
+
+  useEffect(() => {
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
+
+  // If the font fails to load, render anyway with the system fallback rather than blocking the journal.
+  if (!loaded && !error) return null;
+
+  return (
+    <DemoStoreProvider>
+      <SnackbarProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: color.paper },
+            animation: 'fade_from_bottom',
+          }}>
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+        </Stack>
+      </SnackbarProvider>
+    </DemoStoreProvider>
+  );
+}
