@@ -59,7 +59,7 @@ Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges t
 
 The schema is in checked-in migrations under `supabase/migrations/`:
 
-- `20261020035209_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
+- `20261020055800_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
 
 Key rules:
 
