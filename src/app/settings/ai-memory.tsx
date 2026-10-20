@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { CheckRow, Field, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
+import { CheckRow, Field, NavRow, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { relativeDay } from '@/data/dates';
 import { STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import type { ChallengeLevel, Memory } from '@/data/types';
+import { useAiConsent } from '@/state/ai-consent';
 import { useEntries, useStore, type DemoState } from '@/state/demo-store';
 import { color, space } from '@/theme/tokens';
 
@@ -29,6 +30,10 @@ export default function AiMemory() {
   const [confirmClear, setConfirmClear] = useState(false);
   const patch = (p: Partial<DemoState>) => dispatch({ type: 'patch', patch: p });
   const aiOn = state.aiConsent === 'ai';
+  const consent = useAiConsent();
+  const allowed = (['entry_reflection', 'cross_entry_analysis'] as const).filter((s) => consent.status(s) === 'active').length;
+  const consentDetail =
+    consent.load === 'unavailable' ? 'Needs an account. Nothing is sent to AI.' : consent.load !== 'ready' ? 'Checking your account…' : `${allowed} of 2 allowed. Real AI isn’t switched on yet.`;
 
   return (
     <Screen top={{ back: true, title: 'AI & memory' }}>
@@ -43,6 +48,7 @@ export default function AiMemory() {
           value={aiOn}
           onChange={(v) => patch({ aiConsent: v ? 'ai' : 'journal-only' })}
         />
+        <NavRow icon="shield-check-outline" title="AI processing consent" detail={consentDetail} onPress={() => router.push('/settings/ai-consent')} />
       </Section>
 
       <Section title="Default support style">

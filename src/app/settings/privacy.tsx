@@ -44,8 +44,9 @@ export default function Privacy() {
           Right now, never. No AI is connected. Reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns only counts the tags and marks you added.
         </Text>
         <Text variant="small" style={styles.gapSm}>
-          The plan: when you ask for a reflection, that entry and the limited context you allow in AI & memory would be sent to an AI service through a secure server. Before that exists, this section will name the provider, what it keeps and for how long.
+          The plan: when you ask, an entry (or, for a review, the entries in a period you choose) would go to GroqCloud through Kindway’s server. That needs two separate choices recorded on your account, which you can withdraw at any time; the server checks them before every request. AI processing shows exactly what would be sent and what Groq may keep.
         </Text>
+        <Button variant="text" label="AI processing consent" onPress={() => router.push('/settings/ai-consent')} />
         <Text variant="small" style={styles.gapSm}>
           Reflection previews are currently {state.aiConsent === 'ai' ? 'on' : 'off'}.
         </Text>

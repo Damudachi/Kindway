@@ -2,7 +2,7 @@
 
 A compassionate reflection companion: a private journal that helps people process their day, notice patterns, and stay connected to their own long-term values. Android first (React Native + Expo SDK 58 + TypeScript, Expo Router).
 
-**Status: pre-release prototype (Phase 3).** The journal works fully on the device without an account. Optional Supabase accounts (email/password) can keep a private cloud copy of entries, compass, the Tomorrow Bridge step, preferences and insight feedback, protected by Row Level Security, and can be deleted from the app. Reflections and follow-up replies are still simulated on the device and never uploaded. No AI provider, notifications, voice transcription or native widget is connected. Not production-ready.
+**Status: pre-release prototype (Phase 3).** The journal works fully on the device without an account. Optional Supabase accounts (email/password) can keep a private cloud copy of entries, compass, the Tomorrow Bridge step, preferences and insight feedback, protected by Row Level Security, and can be deleted from the app. Reflections and follow-up replies are still simulated on the device and never uploaded. Phase 4A adds recorded, versioned, revocable consent to AI processing (two separate scopes, checked on the server), but no AI provider is called yet. No notifications, voice transcription or native widget is connected. Not production-ready.
 
 Backend setup, sync behavior and security notes: [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
@@ -47,7 +47,7 @@ Settings → **Preview states** simulates reflection failure, rate limits, offli
 ## Not built yet (next milestones)
 
 - Realtime sync and field-level conflict handling (sync is per record, last writer wins), data export.
-- AI Edge Function and provider adapter behind the existing `AiService` / `InsightsService` interfaces; disclosures updated to the chosen provider.
+- Phase 4B: AI Edge Functions and a provider adapter (GroqCloud candidate) behind the existing `AiService` / `InsightsService` interfaces, gated by the consent check from Phase 4A.
 - Reviewed safety flow with verified regional resources (the Extra support screen is a placeholder; the keyword check in `src/data/safety.ts` is not a classifier).
 - Native Android widget spike, notifications (expo-notifications), voice capture and transcription, export.
 - Dark scheme, designed as its own scheme rather than an inversion.

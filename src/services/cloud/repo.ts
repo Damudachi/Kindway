@@ -31,7 +31,7 @@ const KEYS: Record<keyof typeof TABLES, string> = {
   feedback: 'insight_id',
 };
 
-function fail(error: { message?: string; code?: string; status?: number } | null): never {
+export function fail(error: { message?: string; code?: string; status?: number } | null): never {
   const msg = error?.message ?? '';
   // Only the category leaves this function; messages may echo row content.
   if (/fetch|network|timed? ?out/i.test(msg)) throw new CloudError('Network unavailable', 'offline');

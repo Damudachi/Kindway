@@ -60,6 +60,7 @@ Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges t
 The schema is in checked-in migrations under `supabase/migrations/`:
 
 - `20261020055800_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
+- `20261020140000_ai_consent.sql`: table `ai_consents`, its guard trigger, the functions `grant_ai_consent`, `revoke_ai_consent` and `ai_consent_active`; RLS policies; grants. See section 6a.
 
 Key rules:
 
@@ -121,7 +122,7 @@ Test deletion with a disposable account, never the project owner's or a real use
 npx supabase test db
 ```
 
-**Client, with two real users** (`src/__tests__/cloud-repo.integration.test.ts`). It creates two throwaway users with the admin API, signs each in with the publishable key, and checks that each can read and change only its own rows, that spoofed ownership and cross-account links fail, and that `delete-account` deletes only the caller. It's skipped unless these are set:
+**Client, with two real users** (`src/__tests__/cloud-repo.integration.test.ts`, and `src/__tests__/ai-consent.integration.test.ts` for consent). It creates two throwaway users with the admin API, signs each in with the publishable key, and checks that each can read and change only its own rows, that spoofed ownership and cross-account links fail, and that `delete-account` deletes only the caller. It's skipped unless these are set:
 
 ```bash
 # Values from `npx supabase status -o env` (API_URL, PUBLISHABLE_KEY, SECRET_KEY).
@@ -132,6 +133,32 @@ npx jest src/__tests__/cloud-repo.integration.test.ts
 ```
 
 Point it only at the local stack or a disposable project. It creates and deletes accounts.
+
+## 6a. AI processing consent (Phase 4A)
+
+Real AI isn't connected yet. This milestone only records consent and provides the server-side check that the AI Edge Functions (Phase 4B) must call. The "reflection previews" switch is separate and only controls the simulated on-device previews.
+
+**Scopes.** Two independent choices, granted and withdrawn separately in Settings → AI & memory → **AI processing consent** (`src/app/settings/ai-consent.tsx`):
+
+- `entry_reflection`: a reflection on one entry the user asks about.
+- `cross_entry_analysis`: an on-demand review across entries in a period the user picks.
+
+Consent needs an account; local-only users can't grant it, so nothing can be sent for them.
+
+**What's recorded** (`public.ai_consents`, one row per grant): user, scope, consent wording version, disclosure version, provider, model named in the disclosure, `accepted_at` (set by the server), `revoked_at`.
+
+- At most one active grant per user and scope (partial unique index).
+- A trigger makes rows append-only: `accepted_at` is always the server's time, rows can't be inserted already withdrawn, the agreed terms can't be edited, and the only allowed update is withdrawal, which can't be undone. Granting again (for example after a version change) withdraws the old row and adds a new one (`grant_ai_consent`, one transaction).
+- RLS: each user can read, create and withdraw only their own rows. There's no delete policy, so the history is kept while the account exists. Deleting the account cascades to it. `anon` has no access.
+- The functions are `SECURITY INVOKER`, so RLS applies to them too.
+
+**Server-side enforcement.** `public.ai_consent_active(scope, consent_version, disclosure_version, provider)` is true only if the caller (from their JWT) has an active grant matching the terms the server requires. `supabase/functions/_shared/ai-consent.ts` wraps it as `hasActiveConsent(client, scope)` and holds the required terms (`AI_CONSENT_TERMS`). Every AI Edge Function must call it with a client carrying the caller's own token, for every request. It fails closed on any error. A withdrawal or a version bump therefore blocks requests on the server, not only in the app.
+
+**Versions.** The app's copy lives in `src/data/ai-disclosure.ts` and its terms in `src/services/ai/consent.ts` (`CURRENT_TERMS`). A Jest test checks that they equal the server's `AI_CONSENT_TERMS`. Any change to the wording, the provider, or the retention posture means bumping the matching version in both places, which asks everyone to agree again.
+
+**Provider disclosure.** It describes GroqCloud's *default* retention posture, as stated in Groq's docs on 2026-10-20: no retention of inference content by default; logging of inputs and outputs for up to 30 days for reliability or abuse investigations; usage metadata without content; retained data stored in the US. Zero Data Retention has **not** been verified in Kindway's Groq console. If you enable it there, first verify it in Groq's **Data Controls**, then rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
+
+**Not built yet (4B and later):** the AI Edge Functions, the provider adapter, AI output tables and the "delete my AI outputs" action. Withdrawing consent today has nothing else to delete because real AI hasn't produced anything.
 
 ## 7. How sync works
 

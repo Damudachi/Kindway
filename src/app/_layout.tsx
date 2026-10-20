@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { SnackbarProvider } from '@/components/feedback';
+import { AiConsentProvider } from '@/state/ai-consent';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
 import { SessionProvider, useSession } from '@/state/session';
@@ -25,20 +26,22 @@ export default function RootLayout() {
 
   return (
     <SessionProvider>
-      <Journal>
-        <SnackbarProvider>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: color.paper },
-              animation: 'fade_from_bottom',
-            }}>
-            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-            <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
-          </Stack>
-        </SnackbarProvider>
-      </Journal>
+      <AiConsentProvider>
+        <Journal>
+          <SnackbarProvider>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: color.paper },
+                animation: 'fade_from_bottom',
+              }}>
+              <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+              <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+            </Stack>
+          </SnackbarProvider>
+        </Journal>
+      </AiConsentProvider>
     </SessionProvider>
   );
 }
