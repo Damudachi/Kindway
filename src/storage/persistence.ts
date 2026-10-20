@@ -1,9 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Where the prototype keeps its state between launches. Only this device's app storage is used;
- * nothing is synced, backed up or encrypted by Kindway.
- * TODO(backend): replace with a Supabase-backed repository once auth, schema and RLS exist.
+ * Where the app keeps its state between launches: this device's app storage (AsyncStorage).
+ * Nothing here is encrypted by Kindway.
+ *
+ * Storage is partitioned by scope. The local-only journal lives under `guest`; each account
+ * with cloud sync turned on gets its own `user:<id>` cache on this device, so signing in as
+ * one account can never show another account's cached entries.
  */
 export interface StateStorage {
   load(): Promise<unknown>;
@@ -11,16 +14,50 @@ export interface StateStorage {
   clear(): Promise<void>;
 }
 
-const KEY = 'kindway:state:v1';
+export type Scope = 'guest' | `user:${string}`;
 
-export const deviceStorage: StateStorage = {
-  async load() {
-    const raw = await AsyncStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : null;
-  },
-  save: (snapshot) => AsyncStorage.setItem(KEY, JSON.stringify(snapshot)),
-  clear: () => AsyncStorage.removeItem(KEY),
-};
+const stateKey = (scope: Scope) => (scope === 'guest' ? 'kindway:state:v1' : `kindway:state:v1:${scope}`);
+
+/** Keys erased on purpose; a late save from a closing screen must not write them back. */
+const erased = new Set<string>();
+
+export function jsonStorage(key: string): StateStorage {
+  return {
+    async load() {
+      erased.delete(key);
+      const raw = await AsyncStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    },
+    save: async (snapshot) => {
+      if (!erased.has(key)) await AsyncStorage.setItem(key, JSON.stringify(snapshot));
+    },
+    clear: () => AsyncStorage.removeItem(key),
+  };
+}
+
+export const scopedStorage = (scope: Scope) => jsonStorage(stateKey(scope));
+
+/** The local-only journal. */
+export const deviceStorage = scopedStorage('guest');
+
+/** For an account: the last state known to match the cloud, so unsent changes survive restarts. */
+export const syncBaseStorage = (userId: string) => jsonStorage(`kindway:sync-base:v1:${userId}`);
+
+/** Device-level choices that aren't part of any one journal, such as which accounts sync here. */
+export const deviceSettingsStorage = jsonStorage('kindway:device:v1');
+
+/** Erases one journal on this device, e.g. the local-only copy after it moved to an account. */
+export async function eraseScope(scope: Scope) {
+  erased.add(stateKey(scope));
+  await AsyncStorage.removeItem(stateKey(scope));
+}
+
+/** Removes everything this device holds for one account. The local-only journal is untouched. */
+export async function clearAccountData(userId: string) {
+  const keys = [stateKey(`user:${userId}`), `kindway:sync-base:v1:${userId}`];
+  keys.forEach((k) => erased.add(k));
+  await AsyncStorage.multiRemove(keys);
+}
 
 /** In-memory storage for tests and previews. */
 export function memoryStorage(initial: unknown = null): StateStorage & { current: unknown } {

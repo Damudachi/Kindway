@@ -5,7 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { SnackbarProvider } from '@/components/feedback';
+import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
+import { SessionProvider, useSession } from '@/state/session';
+import { scopedStorage } from '@/storage/persistence';
 import { color } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,19 +24,41 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <DemoStoreProvider>
-      <SnackbarProvider>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: color.paper },
-            animation: 'fade_from_bottom',
-          }}>
-          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-          <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
-        </Stack>
-      </SnackbarProvider>
+    <SessionProvider>
+      <Journal>
+        <SnackbarProvider>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: color.paper },
+              animation: 'fade_from_bottom',
+            }}>
+            <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+          </Stack>
+        </SnackbarProvider>
+      </Journal>
+    </SessionProvider>
+  );
+}
+
+/**
+ * The journal the session points at: the local-only one, or a signed-in account's own synced
+ * cache. Switching remounts everything below, so nothing from one journal leaks into another.
+ */
+function Journal({ children }: { children: React.ReactNode }) {
+  const { scope, user, repo } = useSession();
+  const synced = scope !== 'guest' && user && repo;
+  return (
+    <DemoStoreProvider key={scope} storage={scopedStorage(scope)}>
+      {synced ? (
+        <CloudSync userId={user.id} repo={repo}>
+          {children}
+        </CloudSync>
+      ) : (
+        children
+      )}
     </DemoStoreProvider>
   );
 }

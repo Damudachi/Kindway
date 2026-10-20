@@ -38,15 +38,15 @@ export default function Consent() {
         Your thoughts deserve care.
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>
-        Two different things could happen to your words. Here is each one, and what this prototype actually does.
+        Two different things could happen to your words. Here is each one, and what the app actually does today.
       </Text>
 
       <View style={styles.block}>
         <MaterialCommunityIcons name="notebook-outline" size={24} color={color.trail} />
         <View style={styles.flex}>
           <Text variant="title">Storing your journal</Text>
-          <Text variant="body">In this prototype, entries are saved only on this device.</Text>
-          <Text variant="small">A private account with server-side access rules is planned, not built.</Text>
+          <Text variant="body">Entries are saved on this device. Nothing is uploaded unless you sign in and choose cloud backup.</Text>
+          <Text variant="small">If you do, a copy goes to Kindway’s database (hosted by Supabase), where only your account can read it. That’s a separate choice from AI, and you’re asked before anything is sent.</Text>
         </View>
       </View>
       <View style={[styles.block, styles.rule]}>
@@ -65,7 +65,7 @@ export default function Consent() {
       <CheckRow label="I understand reflections are simulated for now, and how they’re planned to work later." checked={understood} onChange={setUnderstood} />
       <Button variant="text" label="Read full privacy details" onPress={() => router.push('/settings/privacy')} />
       <View style={styles.gap}>
-        <Notice tone="demo">This is a prototype acknowledgement, not a production consent record. You can change this choice later in AI & memory.</Notice>
+        <Notice tone="demo">This only turns the simulated previews on or off. It isn’t consent to send your writing to any AI service; that will be asked separately once a provider is chosen. You can change it later in AI & memory.</Notice>
       </View>
     </Screen>
   );

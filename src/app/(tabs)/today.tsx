@@ -11,7 +11,9 @@ import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
+import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
+import { useSession } from '@/state/session';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
 import { space } from '@/theme/tokens';
 
@@ -19,6 +21,10 @@ export default function Today() {
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
+  const { mode } = useSession();
+  const sync = useSync();
+  const [backupLater, setBackupLater] = useState(false);
+  const [signInLater, setSignInLater] = useState(false);
   const [focused, setFocused] = useState(false);
   const [stepOpen, setStepOpen] = useState(false);
   useFocusEffect(
@@ -54,6 +60,23 @@ export default function Today() {
         <View style={styles.banner}>
           <Notice tone="info" icon="wifi-off" title="You're offline">
             You can still write. Entries are kept on this device until you’re back online.
+          </Notice>
+        </View>
+      )}
+
+      {mode === 'signed-in-local' && !backupLater && (
+        <View style={styles.banner}>
+          <Notice title="Not backed up">Your journal is only on this device. You can keep it that way, or back it up to your account.</Notice>
+          <View style={styles.bannerActions}>
+            <Button variant="text" label="Back up" onPress={() => router.push('/sync')} />
+            <Button variant="text" label="Not now" onPress={() => setBackupLater(true)} />
+          </View>
+        </View>
+      )}
+      {sync && (sync.status === 'offline' || sync.status === 'error') && sync.pending > 0 && (
+        <View style={styles.banner}>
+          <Notice tone="info" icon="cloud-off-outline" title="Not backed up yet">
+            {sync.status === 'offline' ? 'You’re offline.' : 'Your account couldn’t be reached.'} Recent changes are safe on this device and will back up automatically.
           </Notice>
         </View>
       )}
@@ -172,13 +195,17 @@ export default function Today() {
       </View>
 
       <Dialog
-        visible={state.demo.sessionExpired}
+        visible={state.demo.sessionExpired || (sync?.status === 'signed-out' && !signInLater)}
         title="Please sign in again"
         body="Your session ended, so syncing is paused. Your draft and entries on this device are kept."
         confirmLabel="Sign in"
         cancelLabel="Later"
-        onCancel={() => dispatch({ type: 'demo', patch: { sessionExpired: false } })}
+        onCancel={() => {
+          setSignInLater(true);
+          dispatch({ type: 'demo', patch: { sessionExpired: false } });
+        }}
         onConfirm={() => {
+          setSignInLater(true);
           dispatch({ type: 'demo', patch: { sessionExpired: false } });
           router.push('/account?mode=signin');
         }}
@@ -189,6 +216,7 @@ export default function Today() {
 
 const styles = StyleSheet.create({
   banner: { marginBottom: space.md },
+  bannerActions: { flexDirection: 'row', gap: space.xs },
   lede: { marginTop: space.xs },
   date: { marginTop: space.xxs },
   write: { marginTop: space.lg, marginBottom: space.xxs },

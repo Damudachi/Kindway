@@ -7,14 +7,13 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
+import { useSession } from '@/state/session';
 import { space } from '@/theme/tokens';
 
-/**
- * Privacy & data. Describes only what the prototype actually does.
- * TODO(backend): export, account deletion and retention once Supabase storage and policies exist.
- */
+/** Privacy & data. Describes only what the app actually does. */
 export default function Privacy() {
   const { state } = useStore();
+  const { mode, user } = useSession();
 
   return (
     <Screen top={{ back: true, title: 'Privacy & data' }}>
@@ -24,9 +23,20 @@ export default function Privacy() {
 
       <Section first title="Where your entries are stored">
         <Text variant="body">
-          In this prototype, entries are saved only in this app’s storage on this device. They aren’t synced, backed up, or encrypted by Kindway beyond what Android itself provides, and uninstalling the app removes them.
+          {mode === 'cloud-sync'
+            ? `On this device, and in a cloud copy for ${user?.email}. Cloud sync is on, so entries, compass areas, your small step, preferences and insight feedback are sent to Kindway’s database, hosted by Supabase.`
+            : 'Only on this device. Nothing is backed up or synced unless you sign in and choose to turn cloud sync on.'}
         </Text>
-        <Notice tone="demo">A private account with server-side access rules is planned, not built. Nothing here is a production privacy or security guarantee.</Notice>
+        <Text variant="small" style={styles.gapSm}>
+          On the device, entries are kept in the app’s storage. Kindway doesn’t encrypt them beyond what Android itself provides, and anyone who can unlock and inspect this device could read them. Uninstalling the app removes them from the device.
+        </Text>
+        <Text variant="small" style={styles.gapSm}>
+          In the cloud, each account can read and change only its own rows; the server enforces this, not the app. Data is encrypted in transit and at rest by the hosting provider, but it isn’t end-to-end encrypted: Kindway’s server administrators could technically access it.
+        </Text>
+        <Text variant="small" style={styles.gapSm}>
+          Never uploaded: simulated reflections and follow-up replies, saved memory, reminders, drafts and feedback on sample insights. Signing out hides a synced journal on this device until you sign in again; it doesn’t erase your local-only journal.
+        </Text>
+        <Notice tone="demo">This is a pre-release app. Nothing here is a production privacy or security guarantee.</Notice>
       </Section>
 
       <Section title="When AI sees your writing">
@@ -43,7 +53,7 @@ export default function Privacy() {
       </Section>
 
       <Section title="Export">
-        <Text variant="body">Not available in this prototype. A later version will let you download a copy of your entries and reflections.</Text>
+        <Text variant="body">Not available yet. A later version will let you download a copy of your entries.</Text>
       </Section>
 
       <Section title="Delete">
@@ -53,7 +63,7 @@ export default function Privacy() {
           <Button variant="text" label="Review saved memory" onPress={() => router.push('/settings/ai-memory')} />
         </View>
         <Text variant="body" style={styles.gap}>
-          To erase everything this prototype saved on this device, use Reset in Settings. Account deletion will exist once real accounts do.
+          To erase this journal, use Reset in Settings. If you have an account, you can delete it and all its cloud data from Settings too; that leaves your local-only journal on this device alone.
         </Text>
         <Button variant="text" label="Go to Settings" onPress={() => router.push('/settings')} />
       </Section>

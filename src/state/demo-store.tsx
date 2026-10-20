@@ -17,16 +17,16 @@ import type {
   SupportStyle,
   TomorrowStep,
 } from '@/data/types';
+import { applyCloud, mergeSnapshots, toCloud, type CloudSnapshot } from '@/services/cloud/records';
 import { deviceStorage, type StateStorage } from '@/storage/persistence';
 
 /**
- * Prototype state, saved to this device's app storage between launches. Nothing is synced.
+ * App state, saved to this device's app storage between launches. Which journal it holds
+ * (local-only, or one account's synced cache) is chosen by the session; see state/session.tsx.
  * Real entries start empty; fictional sample data lives only in the sample-insights demo.
- * TODO(backend): replace persistence with Supabase-backed data once auth, schema and RLS exist.
  */
 export type DemoState = {
   onboarded: boolean;
-  account: { email: string } | null;
   supportStyle: SupportStyle;
   challengeGently: boolean;
   challengeLevel: ChallengeLevel;
@@ -47,14 +47,13 @@ export type DemoState = {
   /** Entry whose blaze should play the paint animation once. Not saved. */
   justPainted?: string;
   /** Reviewer switches for simulated conditions. Not saved. */
-  demo: { ai: DemoAi; signInError: boolean; sessionExpired: boolean };
+  demo: { ai: DemoAi; sessionExpired: boolean };
 };
 
 export const emptyDraft: Draft = { text: '', feelings: [], gratitude: '', compassIds: [] };
 
 export const initialState: DemoState = {
   onboarded: false,
-  account: null,
   supportStyle: 'understand',
   challengeGently: true,
   challengeLevel: 'gentle',
@@ -70,7 +69,7 @@ export const initialState: DemoState = {
   chats: {},
   insightFeedback: {},
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
-  demo: { ai: 'ok', signInError: false, sessionExpired: false },
+  demo: { ai: 'ok', sessionExpired: false },
 };
 
 export type Action =
@@ -88,6 +87,8 @@ export type Action =
   | { type: 'insight'; id: string; feedback: InsightFeedback | undefined }
   | { type: 'tomorrow'; step: TomorrowStep | null }
   | { type: 'reminders'; patch: Partial<Reminders> }
+  /** Brings in the account's cloud copy, keeping anything changed here since `base`. */
+  | { type: 'applyCloud'; base: CloudSnapshot; remote: CloudSnapshot }
   | { type: 'reset' };
 
 export function reducer(state: DemoState, action: Action): DemoState {
@@ -156,6 +157,8 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, tomorrow: action.step };
     case 'reminders':
       return { ...state, reminders: { ...state.reminders, ...action.patch } };
+    case 'applyCloud':
+      return applyCloud(state, mergeSnapshots(action.base, toCloud(state), action.remote));
     case 'reset':
       return initialState;
   }
@@ -172,8 +175,10 @@ export function toSnapshot(state: DemoState) {
 /** Rebuilds state from storage. Anything unreadable starts fresh rather than half-loading. */
 export function fromSnapshot(raw: unknown): DemoState {
   if (!raw || typeof raw !== 'object' || (raw as { version?: number }).version !== VERSION) return initialState;
-  const saved = (raw as { state?: Partial<DemoState> }).state;
-  if (!saved || typeof saved !== 'object') return initialState;
+  const stored = (raw as { state?: Partial<DemoState> & { account?: unknown } }).state;
+  if (!stored || typeof stored !== 'object') return initialState;
+  // `account` was the Phase 2 placeholder; the real session now lives outside the journal.
+  const { account: _account, ...saved } = stored;
   return {
     ...initialState,
     ...saved,
@@ -233,7 +238,11 @@ export function DemoStoreProvider({ children, initial, storage = deviceStorage }
     const sub = AppState.addEventListener('change', (s) => {
       if (s !== 'active') void storage.save(toSnapshot(latest.current)).catch(() => {});
     });
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      // Switching journals (sign-in, sign-out) unmounts this provider; keep the last changes.
+      void storage.save(toSnapshot(latest.current)).catch(() => {});
+    };
   }, [hydrated, storage]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);

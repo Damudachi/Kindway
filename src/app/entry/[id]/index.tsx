@@ -11,11 +11,13 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { longDate } from '@/data/dates';
 import { useStore } from '@/state/demo-store';
+import { useSession } from '@/state/session';
 import { color, space } from '@/theme/tokens';
 
 export default function EntryDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useStore();
+  const { mode } = useSession();
   const snack = useSnackbar();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const entry = state.entries.find((e) => e.id === id);
@@ -100,7 +102,7 @@ export default function EntryDetail() {
           setConfirmDelete(false);
           dispatch({ type: 'deleteEntry', id: entry.id });
           router.back();
-          snack({ message: 'Entry deleted from this device.' });
+          snack({ message: mode === 'cloud-sync' ? 'Entry deleted. It’s removed from your account at the next sync.' : 'Entry deleted from this device.' });
         }}
       />
     </Screen>
