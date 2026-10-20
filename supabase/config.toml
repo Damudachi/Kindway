@@ -417,3 +417,10 @@ enabled = true
 [functions.delete-account]
 # The platform checks the caller's JWT before the function runs; the function verifies it again.
 verify_jwt = true
+
+[functions.generate-reflection]
+# The platform checks the caller's JWT before the function runs; the function verifies it again.
+verify_jwt = true
+
+[functions.generate-insights]
+verify_jwt = true

@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
+import { AiReviewPanel } from '@/components/ai-review-panel';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
@@ -171,6 +172,17 @@ export default function Patterns() {
       </Text>
 
       <View style={styles.content}>{body}</View>
+
+      <AiReviewPanel
+        period={period}
+        entries={usable}
+        // A stored AI review can outlive the current period; its sources stay openable while they exist and aren't kept out.
+        resolve={(ref) => (ref.kind === 'entry' && entries.some((e) => e.id === ref.id && !e.excludeFromAnalysis) ? { onPress: () => router.push(`/entry/${ref.id}`) } : null)}
+        onSaveStep={(a) => {
+          dispatch({ type: 'tomorrow', step: newStep(a.text, { kind: 'insights' }) });
+          snack({ message: 'Saved as an optional step for tomorrow. It’s on Today.' });
+        }}
+      />
 
       <Button variant="text" label="Choose which entries are used" onPress={() => router.push('/settings/ai-memory')} />
     </Screen>

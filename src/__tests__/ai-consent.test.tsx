@@ -172,7 +172,7 @@ describe('AI processing consent screen', () => {
     await renderConsent(null, null);
     expect(await screen.findByText('An account is needed')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /^Allow/ })).toBeNull();
-    expect(screen.getByText('Real AI isn’t switched on in this version')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Delete AI outputs' })).toBeNull();
   });
 
   it('records each scope separately, only after the user confirms they read the disclosure', async () => {

@@ -8,6 +8,7 @@ import { SnackbarProvider } from '@/components/feedback';
 import { AiConsentProvider } from '@/state/ai-consent';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
+import { RealAiProvider } from '@/state/real-ai';
 import { SessionProvider, useSession } from '@/state/session';
 import { scopedStorage } from '@/storage/persistence';
 import { color } from '@/theme/tokens';
@@ -27,20 +28,22 @@ export default function RootLayout() {
   return (
     <SessionProvider>
       <AiConsentProvider>
-        <Journal>
-          <SnackbarProvider>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: color.paper },
-                animation: 'fade_from_bottom',
-              }}>
-              <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-              <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
-            </Stack>
-          </SnackbarProvider>
-        </Journal>
+        <RealAiProvider>
+          <Journal>
+            <SnackbarProvider>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: color.paper },
+                  animation: 'fade_from_bottom',
+                }}>
+                <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+                <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+              </Stack>
+            </SnackbarProvider>
+          </Journal>
+        </RealAiProvider>
       </AiConsentProvider>
     </SessionProvider>
   );

@@ -38,7 +38,7 @@ export function createSampleInsightsService({ latencyMs = 500 }: { latencyMs?: n
   };
 }
 
-/** TODO(ai): return a server-backed implementation here once one exists. */
+/** The automatic on-device review. The real AI review is separate and on request only (components/ai-review-panel.tsx). */
 export function getInsightsService(simulate: DemoAi): InsightsService {
   return createLocalInsightsService({ simulate });
 }

@@ -2,9 +2,9 @@ import type { CompassValue } from '@/data/types';
 import type { AiError, EntryContext } from '@/services/ai/types';
 
 /**
- * Looking across entries. Today two local implementations exist: factual summaries of what the
- * user explicitly tagged, and a fixture for the sample demo.
- * TODO(ai): a server-side implementation may add real analysis behind this same interface.
+ * Looking across entries. Two local implementations run automatically: factual summaries of what
+ * the user explicitly tagged, and a fixture for the sample demo. Real AI reviews are separate and
+ * only on request (services/ai/remote.ts), because they send entry text to a provider.
  */
 export interface InsightsService {
   review(req: InsightsRequest): Promise<InsightsResult>;
@@ -37,6 +37,8 @@ export type Insight = {
   body: string;
   sources: SourceRef[];
   compassValue?: string;
+  /** AI reviews only: directly in what the user wrote or tagged, or a possible reading. */
+  grounding?: 'observed' | 'interpretation';
 };
 
 export type SuggestedAction = {
@@ -55,8 +57,15 @@ export type InsightReview = {
   concerns: Insight[];
   /** At most two, always optional. */
   actions: SuggestedAction[];
-  /** `tags`: counts of what the user explicitly tagged or marked. `sample-fixture`: fictional demo. */
-  basis: 'tags' | 'sample-fixture';
+  /**
+   * `tags`: counts of what the user explicitly tagged or marked. `sample-fixture`: fictional demo.
+   * `ai`: written by the real AI service from the entries listed as sources.
+   */
+  basis: 'tags' | 'sample-fixture' | 'ai';
+  /** AI reviews only. */
+  summary?: string;
+  enoughEvidence?: boolean;
+  ai?: { id: string; provider: string; model: string; createdAt: string };
 };
 
 export type InsightsResult =

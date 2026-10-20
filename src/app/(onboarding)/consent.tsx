@@ -54,18 +54,18 @@ export default function Consent() {
         <View style={styles.flex}>
           <Text variant="title">Reflecting with AI</Text>
           <Text variant="body">
-            In this prototype, nothing is sent anywhere. Reflections are simulated previews, pre-written and chosen on this device.
+            Choosing this sends nothing anywhere. Reflections are simulated previews, pre-written and chosen on this device.
           </Text>
           <Text variant="small">
-            Planned: only when you ask, that entry and a little context you control would go to an AI service through a secure server. The provider and how long it keeps data will be named before that happens.
+            Real AI is optional and asked separately: with an account and cloud backup, you can allow it in AI processing settings, which names the provider and how long it may keep data. It only runs when you ask.
           </Text>
         </View>
       </View>
 
-      <CheckRow label="I understand reflections are simulated for now, and how they’re planned to work later." checked={understood} onChange={setUnderstood} />
+      <CheckRow label="I understand these reflections are simulated, and real AI is a separate choice." checked={understood} onChange={setUnderstood} />
       <Button variant="text" label="Read full privacy details" onPress={() => router.push('/settings/privacy')} />
       <View style={styles.gap}>
-        <Notice tone="demo">This only turns the simulated previews on or off. It isn’t consent to send your writing to any AI service; that will be asked separately once a provider is chosen. You can change it later in AI & memory.</Notice>
+        <Notice tone="demo">This only turns the simulated previews on or off. It isn’t consent to send your writing to any AI service; real AI needs an account with cloud backup and is a separate choice in AI & memory → AI processing consent. You can change this later in AI & memory.</Notice>
       </View>
     </Screen>
   );

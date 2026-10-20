@@ -12,11 +12,33 @@ import { shortDate } from '@/data/dates';
 import { STYLE_LABEL } from '@/data/sample';
 import type { Entry, ReflectionFeedback } from '@/data/types';
 import { perspectiveCount } from '@/services/ai/mock-reflection';
-import { useAnotherPerspective, useRequestReflection } from '@/state/actions';
+import { useAnotherPerspective, useReflectionMode, useRequestReflection } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
+import { useRealAi } from '@/state/real-ai';
 import { color, radius, space } from '@/theme/tokens';
 
 type Props = { entry: Entry; onRest: () => void };
+
+type Failure = Exclude<Entry['reflectionStatus'], 'none' | 'loading' | 'ready'>;
+
+/** What each failed request says. None is shown as a reflection, and the entry is always kept. */
+const FAILURE: Record<Failure, { title: string; body: string; retry: boolean }> = {
+  failed: { title: 'The reflection didn’t come through', body: 'Your entry is saved. The reflection had a problem; you can try again now or later.', retry: true },
+  rate: { title: 'Reflections are paused for a little while', body: 'You’ve reached the reflection limit for now. Your entry is saved, and you can reflect on it later.', retry: false },
+  offline: { title: 'You’re offline', body: 'Your entry is kept on this device. Reflections need a connection, so try again once you are back online.', retry: true },
+  timeout: { title: 'The AI took too long to answer', body: 'Your entry is saved and nothing was written about it. You can try again.', retry: true },
+  unavailable: { title: 'AI reflections aren’t available right now', body: 'The AI service couldn’t be reached. Your entry is saved; try again later.', retry: true },
+  invalid: { title: 'The AI’s reply couldn’t be used', body: 'It didn’t come back in a form Kindway can check, so it isn’t shown. Your entry is saved; you can try again.', retry: true },
+  consent: { title: 'AI reflections aren’t allowed on this account', body: 'Nothing was sent. You can allow reflections on an entry in AI processing settings, or keep journaling without AI.', retry: false },
+  'not-synced': { title: 'Your entry hasn’t reached your account yet', body: 'AI reads the copy in your account, so it waits for cloud backup. Nothing was sent. Try again in a moment.', retry: true },
+  'too-long': { title: 'This entry is too long for an AI reflection', body: 'AI reflections accept entries up to 8,000 characters. Nothing was sent, and your entry is unchanged.', retry: false },
+  busy: { title: 'Another AI request is still running', body: 'Kindway handles one AI request at a time. Your entry is saved; try again in a moment.', retry: true },
+  safety: {
+    title: 'Kindway didn’t write a reflection for this one',
+    body: 'Something in this entry sounded like it might be heavy or unsafe. Reaching a real person matters more than a reflection right now.',
+    retry: false,
+  },
+};
 
 const FEEDBACK: { id: ReflectionFeedback; label: string }[] = [
   { id: 'fits', label: 'This fits' },
@@ -30,12 +52,15 @@ export function ReflectionView({ entry, onRest }: Props) {
   const another = useAnotherPerspective();
   const snack = useSnackbar();
   const reduce = useReducedMotion();
+  const mode = useReflectionMode();
+  const real = useRealAi();
   const r = entry.reflection;
 
   if (entry.reflectionStatus === 'loading') {
+    const label = mode === 'ai' ? 'Asking AI for a reflection…' : 'Preparing a reflection preview…';
     return (
-      <View style={styles.wrap} accessibilityLiveRegion="polite" accessibilityLabel="Preparing a reflection preview">
-        <Text variant="label">Preparing a reflection preview…</Text>
+      <View style={styles.wrap} accessibilityLiveRegion="polite" accessibilityLabel={label}>
+        <Text variant="label">{label}</Text>
         <View style={styles.skeletonGroup}>
           {[0.92, 0.78, 0.86, 0.6].map((w, i) => (
             <View key={i} style={[styles.skeleton, { width: `${w * 100}%` }]} />
@@ -46,19 +71,21 @@ export function ReflectionView({ entry, onRest }: Props) {
     );
   }
 
-  if (entry.reflectionStatus === 'failed' || entry.reflectionStatus === 'rate' || entry.reflectionStatus === 'offline') {
-    const copy = {
-      failed: { title: "The reflection didn't come through", body: 'Your entry is saved. The reflection had a problem; you can try again now or later.' },
-      rate: { title: 'Reflections are paused for a little while', body: "You've reached the reflection limit for now. Your entry is saved, and you can reflect on it later." },
-      offline: { title: "You're offline", body: 'Your entry is kept on this device. Reflections need a connection, so try again once you are back online.' },
-    }[entry.reflectionStatus];
+  if (entry.reflectionStatus in FAILURE) {
+    const status = entry.reflectionStatus as Failure;
+    const copy = FAILURE[status];
+    // A real-AI failure never turns into a simulated reply by itself; the user can ask for one.
+    const offerPreview = mode === 'ai' && state.aiConsent === 'ai' && status !== 'safety';
     return (
       <View style={styles.wrap}>
         <Notice tone="warn" title={copy.title}>
           {copy.body}
         </Notice>
         <View style={styles.row}>
-          {entry.reflectionStatus !== 'rate' && <Button variant="secondary" label="Try again" icon="refresh" onPress={() => request(entry, r?.style)} />}
+          {copy.retry && <Button variant="secondary" label="Try again" icon="refresh" onPress={() => request(entry, r?.style)} />}
+          {status === 'safety' && <Button variant="secondary" label="See support options" onPress={() => router.push('/support')} />}
+          {status === 'consent' && <Button variant="secondary" label="AI processing settings" onPress={() => router.push('/settings/ai-consent')} />}
+          {offerPreview && <Button variant="text" label="Use a simulated preview instead" onPress={() => request(entry, r?.style, 0, { simulated: true })} />}
           <Button variant="text" label="Leave it for now" onPress={onRest} />
         </View>
       </View>
@@ -68,10 +95,11 @@ export function ReflectionView({ entry, onRest }: Props) {
   if (!r) {
     return (
       <View style={styles.wrap}>
-        {state.aiConsent === 'ai' ? (
+        {mode !== 'off' ? (
           <>
             <Text variant="bodyMuted">No reflection on this entry. That’s fine; your words stand on their own.</Text>
-            <Button variant="secondary" label="Reflect on this entry" icon="creation-outline" onPress={() => request(entry)} />
+            <Button variant="secondary" label={mode === 'ai' ? 'Reflect on this entry with AI' : 'Reflect on this entry'} icon="creation-outline" onPress={() => request(entry)} />
+            {mode === 'ai' && <Text variant="small">Sends this entry, its tags and good thing to GroqCloud.</Text>}
           </>
         ) : (
           <Text variant="bodyMuted">Reflection previews are off. Turn them on in AI & memory if you want them.</Text>
@@ -80,13 +108,15 @@ export function ReflectionView({ entry, onRest }: Props) {
     );
   }
 
+  const isAi = r.source === 'ai';
   const edited = r.basedOn !== entry.body;
   // Interpretations stay in pencil until the user says they fit.
   const inked = r.feedback === 'fits';
   const related = (r.related ?? []).map((id) => state.entries.find((e) => e.id === id)).filter((e) => !!e);
   const used = ['this entry', r.longGame && 'one compass value you linked', related.length > 0 && `${related.length} earlier ${related.length === 1 ? 'entry' : 'entries'}`].filter(Boolean);
   const listening = r.style === 'listen';
-  const perspectives = perspectiveCount(r.style, entry.feelings);
+  // A real AI reflection can be asked for again (a new request); simulated ones cycle pre-written text.
+  const perspectives = isAi ? (real.reflections ? 2 : 0) : perspectiveCount(r.style, entry.feelings);
 
   const setFeedback = (feedback: ReflectionFeedback | undefined) =>
     dispatch({ type: 'updateEntry', id: entry.id, patch: { reflection: { ...r, feedback } } });
@@ -97,18 +127,36 @@ export function ReflectionView({ entry, onRest }: Props) {
   };
 
   const remove = () => {
+    if (isAi && r.ai) {
+      // Also deleted from the account, so there's no undo.
+      const id = r.ai.id;
+      dispatch({ type: 'removeReflection', id: entry.id });
+      void (real.outputs ? real.outputs.deleteReflection(id) : Promise.reject(new Error('unavailable')))
+        .then(() => snack({ message: 'Reflection deleted from this device and your account. Your entry is unchanged.' }))
+        .catch(() => snack({ message: 'Removed here, but it couldn’t be deleted from your account yet. You can delete all AI outputs in AI processing settings.' }));
+      return;
+    }
     dispatch({ type: 'removeReflection', id: entry.id });
     snack({ message: 'Reflection removed. Your entry is unchanged.', action: { label: 'Undo', onPress: () => dispatch({ type: 'setReflection', id: entry.id, status: 'ready', reflection: r }) } });
   };
 
   return (
     <Animated.View entering={reduce ? undefined : FadeIn.duration(360)} style={styles.wrap}>
-      <View style={styles.simulated} accessibilityLabel="Preview response, simulated. Pre-written text chosen by your support style and tags. Nothing analysed your writing.">
-        <MaterialCommunityIcons name="flask-outline" size={16} color={color.inkMuted} />
-        <Text variant="labelSmall" style={styles.flex}>
-          Preview response · simulated. Pre-written text chosen by your support style and tags; nothing analysed your writing.
-        </Text>
-      </View>
+      {isAi ? (
+        <View style={styles.simulated} accessible accessibilityLabel={`Written by AI, ${r.ai?.model ?? 'an AI model'} on GroqCloud, from this entry. Not written by you or a person, and it can be wrong.`}>
+          <MaterialCommunityIcons name="creation-outline" size={16} color={color.inkMuted} />
+          <Text variant="labelSmall" style={styles.flex}>
+            Written by AI ({r.ai?.model ?? 'AI model'} on GroqCloud) from this entry. Not written by you or a person, and it can be wrong.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.simulated} accessibilityLabel="Preview response, simulated. Pre-written text chosen by your support style and tags. Nothing analysed your writing.">
+          <MaterialCommunityIcons name="flask-outline" size={16} color={color.inkMuted} />
+          <Text variant="labelSmall" style={styles.flex}>
+            Preview response · simulated. Pre-written text chosen by your support style and tags; nothing analysed your writing.
+          </Text>
+        </View>
+      )}
 
       {edited && (
         <Notice title="Based on an earlier version">
@@ -130,7 +178,7 @@ export function ReflectionView({ entry, onRest }: Props) {
         <View style={styles.part}>
           <Text variant="title" accessibilityRole="header">One possible way to see it</Text>
           <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
-          {perspectives > 1 && <Button variant="text" label="Try another perspective" icon="sync" onPress={() => another(entry)} />}
+          {perspectives > 1 && <Button variant="text" label={isAi ? 'Ask AI for another perspective' : 'Try another perspective'} icon="sync" onPress={() => another(entry)} />}
         </View>
       )}
 
@@ -171,7 +219,7 @@ export function ReflectionView({ entry, onRest }: Props) {
       )}
 
       <Text variant="small">
-        Style: “{STYLE_LABEL[r.style]}”. Used: {used.join(', ')}.{related.length === 0 ? ' Past entries: not used.' : ''}
+        Style: “{STYLE_LABEL[r.style]}”. {isAi ? 'Sent' : 'Used'}: {used.join(', ')}.{related.length === 0 ? ' Past entries: not used.' : ''}
       </Text>
 
       <View style={styles.part}>

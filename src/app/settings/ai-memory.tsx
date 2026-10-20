@@ -33,7 +33,7 @@ export default function AiMemory() {
   const consent = useAiConsent();
   const allowed = (['entry_reflection', 'cross_entry_analysis'] as const).filter((s) => consent.status(s) === 'active').length;
   const consentDetail =
-    consent.load === 'unavailable' ? 'Needs an account. Nothing is sent to AI.' : consent.load !== 'ready' ? 'Checking your account…' : `${allowed} of 2 allowed. Real AI isn’t switched on yet.`;
+    consent.load === 'unavailable' ? 'Needs an account. Nothing is sent to AI.' : consent.load !== 'ready' ? 'Checking your account…' : `${allowed} of 2 allowed.`;
 
   return (
     <Screen top={{ back: true, title: 'AI & memory' }}>

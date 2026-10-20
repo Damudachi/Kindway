@@ -4,38 +4,69 @@ import { useCallback } from 'react';
 import { nowIso } from '@/data/dates';
 import { looksHighRisk } from '@/data/safety';
 import type { ChatMessage, Entry, SupportStyle } from '@/data/types';
-import { getAiService } from '@/services/ai';
+import { getAiService, type ReflectionResult } from '@/services/ai';
+import { requestAiReflection } from '@/services/ai/remote';
 import { reflectionRequest, toContext } from '@/state/ai-context';
+import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
+import { useRealAi } from '@/state/real-ai';
+
+/** Whether "Save & reflect" and "Reflect on this entry" are offered, and which kind. */
+export function useReflectionMode(): 'ai' | 'simulated' | 'off' {
+  const { state } = useStore();
+  const real = useRealAi();
+  return real.reflections ? 'ai' : state.aiConsent === 'ai' ? 'simulated' : 'off';
+}
 
 /**
- * Requests a simulated reflection; the outcome follows the "Preview states" demo setting.
+ * Requests a reflection. With real AI allowed (account, cloud backup, consent), it waits until
+ * the entry's exact text is in the account, then asks the generate-reflection function, which
+ * reads the entry there. Otherwise, or when the user explicitly picks the simulated preview,
+ * it uses the on-device mock, whose outcome follows the "Preview states" demo setting.
+ * A real-AI failure is shown as a failure; it never quietly turns into a simulated reply.
  * Fire-and-forget: the result lands in the store, so press handlers never hold a pending promise.
  */
 export function useRequestReflection() {
   const { state, dispatch } = useStore();
   const entries = useEntries();
+  const real = useRealAi();
+  const sync = useSync();
   return useCallback(
-    (entry: Entry, style: SupportStyle = state.supportStyle, variant = 0) => {
+    (entry: Entry, style: SupportStyle = state.supportStyle, variant = 0, opts: { simulated?: boolean } = {}) => {
       dispatch({ type: 'setReflection', id: entry.id, status: 'loading' });
-      void getAiService(state.demo.ai)
-        .reflect(reflectionRequest(state, entry, style, entries, variant))
-        .then((result) => {
-          if (result.ok) dispatch({ type: 'setReflection', id: entry.id, status: 'ready', reflection: result.reflection });
-          else dispatch({ type: 'setReflection', id: entry.id, status: result.error });
-        });
+      const land = (result: ReflectionResult) => {
+        if (result.ok) dispatch({ type: 'setReflection', id: entry.id, status: 'ready', reflection: result.reflection });
+        else dispatch({ type: 'setReflection', id: entry.id, status: result.error });
+        if (!result.ok && result.error === 'safety') router.push('/support');
+      };
+
+      if (real.reflections && real.invoke && !opts.simulated) {
+        const invoke = real.invoke;
+        void (async () => {
+          const synced = sync ? await sync.ensureSynced([{ id: entry.id, body: entry.body }]) : false;
+          if (!synced) return land({ ok: false, error: sync?.status === 'offline' ? 'offline' : 'not-synced' });
+          land(await requestAiReflection(invoke, entry, style));
+        })();
+        return;
+      }
+      void getAiService(state.demo.ai).reflect(reflectionRequest(state, entry, style, entries, variant)).then(land);
     },
-    [state, dispatch, entries],
+    [state, dispatch, entries, real, sync],
   );
 }
 
-/** Asks for the next pre-written perspective, keeping the same support style. */
+/**
+ * Another perspective: the next pre-written one for a simulated reflection, or a new request to
+ * the AI for a real one (which counts towards the limits like any other request).
+ */
 export function useAnotherPerspective() {
   const request = useRequestReflection();
   return useCallback(
     (entry: Entry) => {
       const r = entry.reflection;
-      if (r) request(entry, r.style, (r.variant ?? 0) + 1);
+      if (!r) return;
+      if (r.source === 'ai') request(entry, r.style);
+      else request(entry, r.style, (r.variant ?? 0) + 1, { simulated: true });
     },
     [request],
   );
@@ -74,6 +105,7 @@ export function titleFrom(text: string) {
 export function useSaveDraft() {
   const { state, dispatch } = useStore();
   const requestReflection = useRequestReflection();
+  const mode = useReflectionMode();
   return useCallback(
     (opts: { reflect: boolean }) => {
       const { draft } = state;
@@ -91,9 +123,9 @@ export function useSaveDraft() {
         router.push('/support');
         return null;
       }
-      if (opts.reflect && state.aiConsent === 'ai') requestReflection(entry, draft.style);
+      if (opts.reflect && mode !== 'off') requestReflection(entry, draft.style);
       return entry.id;
     },
-    [state, dispatch, requestReflection],
+    [state, dispatch, requestReflection, mode],
   );
 }

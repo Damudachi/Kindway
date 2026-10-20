@@ -12,6 +12,8 @@ import { PROVIDER_COPY, SCOPE_COPY } from '@/data/ai-disclosure';
 import { longDate } from '@/data/dates';
 import { AI_SCOPES, latestConsent, type AiScope } from '@/services/ai/consent';
 import { useAiConsent } from '@/state/ai-consent';
+import { useStore } from '@/state/demo-store';
+import { useRealAi } from '@/state/real-ai';
 import { useSession } from '@/state/session';
 import { space } from '@/theme/tokens';
 
@@ -36,9 +38,11 @@ export default function AiConsent() {
         Two separate choices. Each one only allows a request you start yourself, and you can withdraw either at any time.
       </Text>
 
-      <Notice tone="demo" title="Real AI isn’t switched on in this version">
-        Agreeing records your choice on your account. Nothing is sent to {PROVIDER_COPY.name} yet: reflections stay simulated previews on this device until a later update connects AI exactly as described here.
-      </Notice>
+      {session.user && session.mode !== 'cloud-sync' && (
+        <Notice title="AI also needs cloud backup on this device">
+          Kindway’s server reads the entry from your account when you ask for AI, so AI works only when cloud backup is on here. Until then, nothing is sent to {PROVIDER_COPY.name}.
+        </Notice>
+      )}
 
       {consent.load === 'unavailable' ? (
         <Section title="An account is needed">
@@ -67,7 +71,12 @@ export default function AiConsent() {
           <Button variant="secondary" label="Try again" icon="refresh" onPress={consent.reload} style={styles.gap} />
         </Section>
       ) : (
-        AI_SCOPES.map((scope) => <ScopeSection key={scope} scope={scope} />)
+        <>
+          {AI_SCOPES.map((scope) => (
+            <ScopeSection key={scope} scope={scope} />
+          ))}
+          <DeleteOutputsSection />
+        </>
       )}
 
       <Section title="Who processes it">
@@ -164,10 +173,52 @@ function ScopeSection({ scope }: { scope: AiScope }) {
       <Dialog
         visible={confirmWithdraw}
         title="Withdraw this choice?"
-        body={`Kindway’s server will refuse new ${copy.title.toLowerCase()} from now on. Your entries aren’t affected. Real AI hasn’t produced anything for your account yet, so there’s nothing else to delete.`}
+        body={`Kindway’s server will refuse new ${copy.title.toLowerCase()} from now on. Your entries aren’t affected. AI reflections and reviews already written stay until you delete them with “Delete AI outputs”.`}
         confirmLabel="Withdraw"
         onCancel={() => setConfirmWithdraw(false)}
         onConfirm={() => void withdraw()}
+      />
+    </Section>
+  );
+}
+
+/** Deletes every AI reflection and review, on the account and on this device. Entries stay. */
+function DeleteOutputsSection() {
+  const { state, dispatch } = useStore();
+  const real = useRealAi();
+  const snack = useSnackbar();
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!real.outputs) return null;
+  const outputs = real.outputs;
+
+  const remove = async () => {
+    setConfirm(false);
+    setBusy(true);
+    try {
+      await outputs.deleteAll();
+      for (const e of state.entries) if (e.reflection?.source === 'ai') dispatch({ type: 'removeReflection', id: e.id });
+      snack({ message: 'AI reflections and reviews deleted. Your entries are unchanged.' });
+    } catch {
+      snack({ message: 'Couldn’t delete them. Nothing changed; try again when you’re online.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="AI outputs">
+      <Text variant="body">
+        AI reflections and reviews are kept on your account until you delete them, delete the entries they came from, or delete your account. Withdrawing a choice doesn’t delete them.
+      </Text>
+      <Button variant="secondary" label="Delete AI outputs" disabled={busy} loading={busy} onPress={() => setConfirm(true)} style={styles.gap} />
+      <Dialog
+        visible={confirm}
+        title="Delete all AI reflections and reviews?"
+        body="They’ll be removed from your account and this device. Your entries, tags and compass stay as they are. This can’t be undone."
+        confirmLabel="Delete"
+        onCancel={() => setConfirm(false)}
+        onConfirm={() => void remove()}
       />
     </Section>
   );

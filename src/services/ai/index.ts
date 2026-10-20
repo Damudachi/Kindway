@@ -26,7 +26,7 @@ export function createMockAiService({ simulate = 'ok', latencyMs = 1400 }: { sim
   };
 }
 
-/** The one place the app gets its AI service. TODO(ai): return the Edge Function client here. */
+/** The simulated service. Real AI goes through remote.ts, chosen in state/actions.ts only when the user allowed it. */
 export function getAiService(simulate: DemoAi): AiService {
   return createMockAiService({ simulate });
 }

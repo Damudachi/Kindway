@@ -36,7 +36,8 @@ export function InsightReviewView({ review, resolve, onSaveStep }: Props) {
   return (
     <View style={styles.block}>
       {SECTIONS.map((s) => (
-        <InsightSection key={s.key} title={s.title} none={s.none} insights={review[s.key]} resolve={resolve} />
+        // The default "none" texts describe tag counts; an AI review needs a plainer one.
+        <InsightSection key={s.key} title={s.title} none={review.basis === 'ai' ? 'Nothing here this time.' : s.none} insights={review[s.key]} resolve={resolve} />
       ))}
       <ActionSection actions={review.actions} resolve={resolve} onSaveStep={onSaveStep} />
     </View>
@@ -88,6 +89,7 @@ function InsightItem({ insight: ins, resolve }: { insight: Insight; resolve: Pro
         <Text variant="small">You said this doesn’t fit. It won’t be offered again.</Text>
       ) : (
         <>
+          {ins.grounding && <Text variant="labelSmall">{ins.grounding === 'observed' ? 'Seen in what you wrote or tagged' : 'One possible reading. You may see it differently.'}</Text>}
           <Text variant="body">{ins.body}</Text>
           {ins.compassValue && <Text variant="labelSmall">Connects to a compass value: {ins.compassValue}</Text>}
           <Text variant="label" style={styles.evidenceLabel}>

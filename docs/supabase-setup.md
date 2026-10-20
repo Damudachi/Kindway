@@ -61,6 +61,7 @@ The schema is in checked-in migrations under `supabase/migrations/`:
 
 - `20261020055800_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
 - `20261020140000_ai_consent.sql`: table `ai_consents`, its guard trigger, the functions `grant_ai_consent`, `revoke_ai_consent` and `ai_consent_active`; RLS policies; grants. See section 6a.
+- `20261020170000_ai_outputs.sql`: tables `ai_requests` (request ledger), `ai_reflections`, `ai_insights`, `ai_insight_sources`; the functions `ai_begin_request`, `ai_finish_request`, `delete_ai_outputs`; a trigger that deletes AI reviews when a source entry is deleted; RLS policies; grants. See section 6b.
 
 Key rules:
 
@@ -70,9 +71,9 @@ Key rules:
 - Deleting an entry cascades to its compass links. A Tomorrow step that came from it keeps existing and only loses the link (`ON DELETE SET NULL (source_entry_id)`), the same as on the device.
 - Deleting the auth user cascades to all of that user's rows.
 - A trigger caps the compass at three areas per account. Feedback on fictional `sample:` insights is rejected.
-- No `SECURITY DEFINER` functions are used.
+- Three narrow `SECURITY DEFINER` functions exist, all with `search_path = ''` and all limited to the caller's own rows (or, for the trigger, the deleted entry's own account): `ai_begin_request` and `ai_finish_request` (so users can't edit the request ledger directly and reset their limits), and `delete_ai_insights_for_entry` (so the cascade also works during account deletion). Everything else runs as the caller.
 
-Deliberately **not** stored in the cloud: simulated reflections, simulated follow-up replies, saved memory, reminders (device-specific), drafts, and sample-insight feedback.
+Deliberately **not** stored in the cloud: simulated reflections, simulated follow-up replies, saved memory, reminders (device-specific), drafts, and sample-insight feedback. Real AI reflections and reviews **are** stored (section 6b); the entry text sent, the prompts and raw model output are not.
 
 ### Apply locally (recommended first)
 
@@ -136,7 +137,7 @@ Point it only at the local stack or a disposable project. It creates and deletes
 
 ## 6a. AI processing consent (Phase 4A)
 
-Real AI isn't connected yet. This milestone only records consent and provides the server-side check that the AI Edge Functions (Phase 4B) must call. The "reflection previews" switch is separate and only controls the simulated on-device previews.
+Consent is recorded on the account and checked by the AI Edge Functions (section 6b) on every request. The "reflection previews" switch is separate and only controls the simulated on-device previews.
 
 **Scopes.** Two independent choices, granted and withdrawn separately in Settings → AI & memory → **AI processing consent** (`src/app/settings/ai-consent.tsx`):
 
@@ -158,7 +159,73 @@ Consent needs an account; local-only users can't grant it, so nothing can be sen
 
 **Provider disclosure.** It describes GroqCloud's *default* retention posture, as stated in Groq's docs on 2026-10-20: no retention of inference content by default; logging of inputs and outputs for up to 30 days for reliability or abuse investigations; usage metadata without content; retained data stored in the US. Zero Data Retention has **not** been verified in Kindway's Groq console. If you enable it there, first verify it in Groq's **Data Controls**, then rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
 
-**Not built yet (4B and later):** the AI Edge Functions, the provider adapter, AI output tables and the "delete my AI outputs" action. Withdrawing consent today has nothing else to delete because real AI hasn't produced anything.
+**Withdrawing** blocks new requests on the server immediately. It doesn't delete outputs already written; the AI processing screen has a separate **Delete AI outputs** action (section 6b).
+
+## 6b. Real AI reflections and reviews (Phase 4B/4C)
+
+Two authenticated Edge Functions, both run with the **caller's** JWT (never the service-role key), so RLS decides what they can read and write:
+
+| Function | Request body | Needs consent | Reads |
+|---|---|---|---|
+| `generate-reflection` | `entry_id`, `style`, `idempotency_key` | `entry_reflection` | That one entry; the profile's challenge settings; compass values linked to it with `ai_may_reference`, only when "What reflections can see" isn't "this entry only". Never other entries. |
+| `generate-insights` | `period` (`week`/`month`), `entry_ids` (shown to the user first), `idempotency_key` | `cross_entry_analysis` | Exactly those entries, re-checked: all must exist, be in the period and not be kept out of analysis, or it refuses (`selection_changed`). Compass links only if "Count my compass links" is on. |
+
+No request carries entry text or a user id; the server reads both itself. Code: `supabase/functions/_shared/` (`reflection.ts`, `insights.ts`, `ai-http.ts` pipeline, `ai-store.ts` data access, `ai-provider.ts` adapter, `ai-config.ts` settings, `safety.ts`), entry points in `generate-reflection/` and `generate-insights/`.
+
+**Order of checks** (each refusal happens before any provider call): method → valid token (Auth `getUser`) → JSON content type and size (8 KB) → body shape (unknown keys rejected) → configuration → consent → entry exists for this user (another user's id looks like a missing one: `entry_not_found`) → length/count caps → safety screen → request ledger (duplicate, one at a time, cooldown, daily cap) → provider.
+
+**Provider.** GroqCloud, model `openai/gpt-oss-120b`, ordinary chat-completions endpoint only (no tools, web search, Batch, Files or fine-tuning), strict JSON-schema output, `reasoning_effort: low`, reasoning excluded from the reply. Model availability was checked in Groq's docs on 2026-10-20 (listed as production). The app only knows the `AiService`/review contracts; another provider means a new adapter in `ai-provider.ts` plus a new disclosure version.
+
+**Settings** (Edge Function secrets; invalid values make AI fail closed with `not_configured`):
+
+| Variable | Default | Range |
+|---|---|---|
+| `GROQ_API_KEY` | (required) | |
+| `AI_PROVIDER` | `groq` | only `groq` |
+| `AI_MODEL` | `openai/gpt-oss-120b` | must equal the model in the consent disclosure; otherwise refused (`model_not_disclosed`) |
+| `AI_TIMEOUT_MS` | 20000 | 2000–60000 |
+| `AI_REFLECTION_MAX_TOKENS` / `AI_INSIGHTS_MAX_TOKENS` | 1200 / 2500 | 300–4000 / 500–6000 |
+| `AI_MAX_ENTRY_CHARS` | 8000 | 500–20000 |
+| `AI_INSIGHTS_MAX_ENTRIES` / `AI_INSIGHTS_MAX_CHARS` | 20 / 12000 | 3–60 / 1000–40000 |
+| `AI_REFLECTION_COOLDOWN_SECONDS` / `AI_REFLECTION_DAILY_LIMIT` | 10 / 30 | per user |
+| `AI_INSIGHTS_COOLDOWN_SECONDS` / `AI_INSIGHTS_DAILY_LIMIT` | 60 / 5 | per user |
+
+The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while".
+
+**Limits and duplicates** (`ai_requests`, no content): `ai_begin_request` serializes each user's requests with an advisory lock, returns the earlier result for a repeated idempotency key, allows one request in progress per user (stale ones are released after two minutes), and applies the cooldown and the rolling 24-hour cap per kind. Failed requests count too. Users can read their ledger but not change it.
+
+**Validation.** Replies are parsed against the schema and Kindway's rules; one retry if a reply is malformed, then `invalid_response`. "Just listen" can't carry reframing or advice; a compass connection survives only for a value that was actually sent. Review points must cite entries by neutral labels (`E1`…); labels that weren't sent are dropped and counted (`dropped_refs` in the log), points left without a source are dropped, and nothing left means "not enough evidence". Labels are also removed from the prose.
+
+**Safety.** Layered, and **not** clinically reviewed: the app's existing phrase check before a request, a broader server phrase screen before the provider (no call is made if it matches), and the model's `safety_concern` flag. Any of them routes to Extra support instead of showing model text, and nothing is stored. Extra support still has no verified regional resources, so Kindway is not crisis-ready.
+
+**What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
+
+**Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections and reviews; entries stay. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage; they are not synced to other devices.
+
+**Logs.** One JSON line per request with `fn`, `outcome`, `http_status`, `ms`, and when known `request_id`, token counts, `attempts`, `dropped_refs`, `config_problem`. Never request bodies, entry text, prompts, model output, headers or keys. Provider error messages are discarded unread.
+
+**When the app offers real AI.** Only with an account, cloud backup on this device, and the matching consent active. Before a request it waits until the account holds the entry's exact current text (`ensureSynced` in `src/state/cloud-sync.tsx`), because the server reads it from there. Real-AI failures are shown as failures with their own copy; a simulated preview is offered only as a clearly labelled, separate choice. Follow-up chat replies stay simulated.
+
+### Run locally
+
+```bash
+# supabase/functions/.env (gitignored) holds GROQ_API_KEY=... for local runs only.
+npx supabase start
+npx supabase functions serve --env-file supabase/functions/.env
+```
+
+`src/__tests__/ai-functions.integration.test.ts` runs against it with two throwaway users and fictional entries (same `KINDWAY_TEST_*` variables as section 6). Tests that call Groq for real also need `KINDWAY_TEST_LIVE_AI=1`; without it, only the checks that refuse before any provider call run. `src/__tests__/ai-server.test.ts` tests the function logic with a fake provider and spends no tokens.
+
+### Deploy (needs the owner's go-ahead)
+
+```bash
+npx supabase link --project-ref <project-ref>
+npx supabase db push                                   # 20261020140000_ai_consent, 20261020170000_ai_outputs
+npx supabase secrets set --env-file supabase/functions/.env
+npx supabase functions deploy generate-reflection generate-insights
+```
+
+Then verify, with a disposable account and fictional entries, that a reflection and a review work in a build pointed at the project, and check **Database → Advisors**. Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).
 
 ## 7. How sync works
 

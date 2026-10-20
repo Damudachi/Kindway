@@ -1,15 +1,15 @@
-import type { ChallengeLevel, ChatMessage, CompassValue, Entry, Reflection, SupportStyle } from '@/data/types';
+import type { ChallengeLevel, ChatMessage, CompassValue, Entry, Reflection, ReflectionStatus, SupportStyle } from '@/data/types';
 
 /**
- * The boundary between the UI and AI. Today only a local mock implements it;
- * TODO(ai): an authenticated Supabase Edge Function client will implement the same interface.
+ * The boundary between the UI and AI. Two implementations: the local simulated mock, and the
+ * real service behind the generate-reflection Edge Function (remote.ts). Screens don't know which.
  */
 export interface AiService {
   reflect(req: ReflectionRequest): Promise<ReflectionResult>;
   followUp(req: FollowUpRequest): Promise<FollowUpResult>;
 }
 
-export type AiError = 'failed' | 'rate' | 'offline';
+export type AiError = Exclude<ReflectionStatus, 'none' | 'loading' | 'ready'>;
 
 /** The minimum an analysis needs from an entry. Titles, chats and reflections are never sent. */
 export type EntryContext = Pick<Entry, 'id' | 'date' | 'body' | 'feelings' | 'gratitude' | 'compassIds' | 'revisit'>;

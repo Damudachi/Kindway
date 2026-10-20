@@ -11,7 +11,7 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { FEELINGS, PROMPTS, STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
-import { useSaveDraft } from '@/state/actions';
+import { useReflectionMode, useSaveDraft } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
 import { color, motion, radius, space, type } from '@/theme/tokens';
 
@@ -25,8 +25,9 @@ type Props = {
 
 export function Composer({ first, onSaved, onSkip }: Props) {
   const { state, dispatch } = useStore();
-  const { draft, aiConsent } = state;
+  const { draft } = state;
   const save = useSaveDraft();
+  const mode = useReflectionMode();
   const input = useRef<TextInputInstance>(null);
   const [typing, setTyping] = useState(false);
   const [showGratitude, setShowGratitude] = useState(draft.gratitude.length > 0);
@@ -67,7 +68,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
 
   const empty = draft.text.trim().length === 0;
   const editing = !!draft.editingId;
-  const canReflect = aiConsent === 'ai' && !editing;
+  const canReflect = mode !== 'off' && !editing;
   const style = draft.style ?? state.supportStyle;
 
   const toggleCompass = (id: string) =>
@@ -98,8 +99,9 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         <View style={styles.actions}>
           {canReflect ? (
             <>
-              <Button label="Save & reflect" trailingIcon="arrow-right" disabled={empty} onPress={() => doSave(true)} />
+              <Button label={mode === 'ai' ? 'Save & reflect with AI' : 'Save & reflect'} trailingIcon="arrow-right" disabled={empty} onPress={() => doSave(true)} />
               <Button variant="secondary" label="Save without AI" disabled={empty} onPress={() => doSave(false)} />
+              {mode === 'ai' && <Text variant="small">Reflecting sends this entry, its tags and good thing to GroqCloud. Saving without AI sends nothing.</Text>}
             </>
           ) : (
             <Button label={editing ? 'Save changes' : 'Save entry'} disabled={empty} onPress={() => doSave(false)} />

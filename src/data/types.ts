@@ -9,9 +9,18 @@ export type ReflectionFeedback = 'fits' | 'not-quite';
 /** Demo switches that let reviewers see states the real backend would produce. */
 export type DemoAi = 'ok' | 'fail' | 'rate' | 'offline';
 
+/**
+ * Who wrote a reflection: `simulated` is pre-written on-device text (also any reflection saved
+ * before this field existed); `ai` came from the real AI service and carries its provenance.
+ */
+export type ReflectionSource = 'simulated' | 'ai';
+
 /** A daily reflection. Only `acknowledge` is always present; every other part depends on the support style. */
 export type Reflection = {
   style: SupportStyle;
+  source?: ReflectionSource;
+  /** For `ai` reflections: the stored server record and which model wrote it. */
+  ai?: { id: string; provider: string; model: string; createdAt: string };
   acknowledge: string;
   /** Facts vs. conclusions. A gentle challenge, so only when the style or settings invite one. */
   clarify?: string;
@@ -32,6 +41,28 @@ export type Reflection = {
   feedback?: ReflectionFeedback;
 };
 
+/**
+ * Where a reflection request stands. Beyond the simulated states, real AI adds: `timeout`,
+ * `unavailable` (provider or server down), `invalid` (the reply couldn't be trusted), `consent`
+ * (not allowed, or withdrawn), `not-synced` (the entry hasn't reached the account yet),
+ * `too-long`, `busy` (another request is running) and `safety` (sent to Extra support instead).
+ */
+export type ReflectionStatus =
+  | 'none'
+  | 'loading'
+  | 'ready'
+  | 'failed'
+  | 'rate'
+  | 'offline'
+  | 'timeout'
+  | 'unavailable'
+  | 'invalid'
+  | 'consent'
+  | 'not-synced'
+  | 'too-long'
+  | 'busy'
+  | 'safety';
+
 export type Entry = {
   id: string;
   /** ISO date-time. */
@@ -41,7 +72,7 @@ export type Entry = {
   feelings: string[];
   gratitude?: string;
   reflection?: Reflection;
-  reflectionStatus: 'none' | 'loading' | 'ready' | 'failed' | 'rate' | 'offline';
+  reflectionStatus: ReflectionStatus;
   /** True only for fictional entries in the sample-insights demo. Never stored with real entries. */
   sample: boolean;
   /** Kept out of insight reviews and out of the context for other entries' reflections. */

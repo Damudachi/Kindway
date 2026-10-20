@@ -15,11 +15,23 @@ import { syncBaseStorage, type StateStorage } from '@/storage/persistence';
  * pending or has failed, the changes stay safely on this device and are retried.
  */
 export type SyncStatus = 'connecting' | 'syncing' | 'synced' | 'offline' | 'error' | 'signed-out';
-export type SyncInfo = { status: SyncStatus; pending: number; retry(): void };
+export type SyncInfo = {
+  status: SyncStatus;
+  pending: number;
+  retry(): void;
+  /**
+   * Resolves true once the cloud has confirmed these entries with exactly this text, pushing
+   * pending changes first. Real AI reads entries from the account, so it waits for this.
+   */
+  ensureSynced(entries: { id: string; body: string }[]): Promise<boolean>;
+};
 
-const SyncContext = createContext<SyncInfo | null>(null);
+/** Exported for tests that stand in for cloud backup. */
+export const SyncContext = createContext<SyncInfo | null>(null);
 
 const RETRY_MS = [5_000, 15_000, 60_000];
+const ENSURE_POLL_MS = 400;
+const ENSURE_TRIES = 25;
 const DEBOUNCE_MS = 800;
 
 type Props = { userId: string; repo: CloudRepo; children: ReactNode; baseStorage?: StateStorage };
@@ -144,7 +156,20 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
     void sync();
   }, [sync]);
 
-  const value = useMemo(() => ({ status, pending, retry }), [status, pending, retry]);
+  const ensureSynced = useCallback(
+    async (want: { id: string; body: string }[]) => {
+      for (let i = 0; i < ENSURE_TRIES && alive.current; i++) {
+        const confirmed = base.current;
+        if (pulled.current && confirmed && want.every((w) => confirmed.entries[w.id]?.body === w.body)) return true;
+        void sync();
+        await new Promise((resolve) => setTimeout(resolve, ENSURE_POLL_MS));
+      }
+      return false;
+    },
+    [sync],
+  );
+
+  const value = useMemo(() => ({ status, pending, retry, ensureSynced }), [status, pending, retry, ensureSynced]);
   return <SyncContext value={value}>{children}</SyncContext>;
 }
 
