@@ -6,21 +6,21 @@ import { CloudError, fail } from '@/services/cloud/repo';
  * Consent to send writing to a real AI provider, recorded on the user's account. It is separate
  * from the "reflection previews" switch, which only controls the simulated on-device previews.
  *
- * Two scopes, granted and withdrawn independently. A grant is valid only for the terms below;
+ * Three scopes, granted and withdrawn independently. A grant is valid only for the terms below;
  * when any of them changes, the user is asked again. The server checks the same terms
  * (supabase/functions/_shared/ai-consent.ts) and refuses AI requests without an active grant.
  *
  * Changing the disclosure copy in src/data/ai-disclosure.ts means bumping these versions.
  */
-export type AiScope = 'entry_reflection' | 'cross_entry_analysis';
+export type AiScope = 'entry_reflection' | 'cross_entry_analysis' | 'follow_up';
 
-export const AI_SCOPES: AiScope[] = ['entry_reflection', 'cross_entry_analysis'];
+export const AI_SCOPES: AiScope[] = ['entry_reflection', 'follow_up', 'cross_entry_analysis'];
 
 export const CURRENT_TERMS = {
   provider: 'groq',
   modelRef: 'openai/gpt-oss-120b',
   disclosureVersion: 'groq-default-retention-2026-10-20',
-  consentVersion: { entry_reflection: '1', cross_entry_analysis: '1' } satisfies Record<AiScope, string>,
+  consentVersion: { entry_reflection: '1', cross_entry_analysis: '1', follow_up: '1' } satisfies Record<AiScope, string>,
 } as const;
 
 export type ConsentRecord = {

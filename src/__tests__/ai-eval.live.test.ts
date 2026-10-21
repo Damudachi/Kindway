@@ -6,8 +6,11 @@
  * against the rubric there. Spends tokens, so it's skipped unless KINDWAY_EVAL_LIVE=1. The key is
  * read from supabase/functions/.env (gitignored) and never printed. Fictional text only.
  */
+import { caseEntry, caseTurns, FOLLOW_UP_CASES } from '@/test-utils/follow-up-cases';
+
 import { groqProvider } from '../../supabase/functions/_shared/ai-provider';
 import type { EntryRow, ProfileRow } from '../../supabase/functions/_shared/ai-store';
+import { FOLLOW_UP_JSON_SCHEMA, followUpSystemPrompt, followUpUserPrompt, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { INSIGHTS_JSON_SCHEMA, INSIGHTS_SYSTEM_PROMPT, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
 import { parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt, type Style } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
@@ -130,6 +133,25 @@ run('live evaluation (fictional entries)', () => {
     const text = JSON.stringify(parsed!.output).toLowerCase();
     expect(text).not.toMatch(/system prompt|licensed therapist|i am a therapist|diagnos/);
     if (c.style === 'listen') expect(parsed!.output).toMatchObject({ possible_perspective: null, suggested_step: null, events_and_interpretations: null });
+  });
+
+  it.each(FOLLOW_UP_CASES.filter((c) => c.safety !== 'screen').map((c) => [c.id, c] as const))('%s follow-up', async (_id, c) => {
+    await pause();
+    const result = await provider.complete({
+      system: followUpSystemPrompt(c.style, profile()),
+      user: followUpUserPrompt(caseEntry(c), null, caseTurns(c), c.message),
+      schemaName: 'kindway_follow_up',
+      schema: FOLLOW_UP_JSON_SCHEMA,
+      maxTokens: 700,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const parsed = parseFollowUp(result.text);
+    console.log(`${c.id} ${c.title} [${c.style}]\n${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    // A model flag is the second safety layer; the reply is never shown when it's raised.
+    if (c.safety === 'model') return expect(parsed!.safety).toBe(true);
+    expect(parsed!.output.reply.toLowerCase()).not.toMatch(/system prompt|licensed therapist|i am a therapist|diagnos|def |import /);
   });
 
   it('R9 review with thin, unrelated evidence', async () => {

@@ -34,17 +34,17 @@ export default function Privacy() {
           In the cloud, each account can read and change only its own rows; the server enforces this, not the app. Data is encrypted in transit and at rest by the hosting provider, but it isn’t end-to-end encrypted: Kindway’s server administrators could technically access it.
         </Text>
         <Text variant="small" style={styles.gapSm}>
-          Never uploaded: simulated reflections and follow-up replies, saved memory, reminders, drafts and feedback on sample insights. Signing out hides a synced journal on this device until you sign in again; it doesn’t erase your local-only journal.
+          Never uploaded: simulated reflections and simulated follow-up replies, saved memory, reminders, drafts and feedback on sample insights. Signing out hides a synced journal on this device until you sign in again; it doesn’t erase your local-only journal.
         </Text>
         <Notice tone="demo">This is a pre-release app. Nothing here is a production privacy or security guarantee.</Notice>
       </Section>
 
       <Section title="When AI sees your writing">
         <Text variant="body">
-          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection) or the entries you see listed (for an AI review) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw either at any time.
+          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection), one entry with your message and a few earlier replies of that conversation (for a follow-up), or the entries you see listed (for an AI review) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw any of them at any time.
         </Text>
         <Text variant="small" style={styles.gapSm}>
-          Without that, nothing goes to AI: reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns counts only the tags and marks you added. Follow-up replies stay simulated even when reflections use AI. AI processing shows exactly what is sent, what Groq may keep, and lets you delete AI outputs.
+          Without that, nothing goes to AI: reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns counts only the tags and marks you added. Follow-up conversations need their own choice; allowing reflections doesn’t allow them. AI processing shows exactly what is sent, what Groq may keep, and lets you delete AI outputs.
         </Text>
         <Button variant="text" label="AI processing consent" onPress={() => router.push('/settings/ai-consent')} />
         <Text variant="small" style={styles.gapSm}>

@@ -4,8 +4,8 @@ import { useCallback } from 'react';
 import { nowIso } from '@/data/dates';
 import { looksHighRisk } from '@/data/safety';
 import type { ChatMessage, Entry, SupportStyle } from '@/data/types';
-import { getAiService, type ReflectionResult } from '@/services/ai';
-import { requestAiReflection } from '@/services/ai/remote';
+import { getAiService, type FollowUpError, type FollowUpResult, type ReflectionResult } from '@/services/ai';
+import { requestAiFollowUp, requestAiReflection } from '@/services/ai/remote';
 import { reflectionRequest, toContext } from '@/state/ai-context';
 import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
@@ -72,22 +72,51 @@ export function useAnotherPerspective() {
   );
 }
 
-/** Sends a follow-up message about one entry and appends the simulated reply to that entry's conversation. */
+/** Whether the follow-up conversation gets real AI replies or simulated ones. */
+export function useFollowUpMode(): 'ai' | 'simulated' {
+  return useRealAi().followUps ? 'ai' : 'simulated';
+}
+
+/**
+ * Sends a follow-up message about one entry and appends the reply to that entry's conversation.
+ * With follow-up consent (and an account with cloud backup), the reply comes from the
+ * generate-follow-up function, after the entry's exact text is in the account; it is sent the
+ * AI reflection shown (if any) and the last few AI replies of this conversation as context.
+ * Otherwise the reply is simulated. A real-AI failure is reported as one; it never turns into a
+ * simulated reply. The reply lands only while the message it answers is still there.
+ */
 export function useSendFollowUp() {
   const { state, dispatch } = useStore();
+  const real = useRealAi();
+  const sync = useSync();
   return useCallback(
-    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: string) => void) => {
-      const mine: ChatMessage = { id: `u${Date.now()}`, from: 'me', text };
-      const messages = [...(state.chats[entry.id] ?? []), mine];
-      dispatch({ type: 'chat', entryId: entry.id, messages });
+    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void) => {
+      const earlier = state.chats[entry.id] ?? [];
+      const ai = real.followUps && real.invoke ? real.invoke : null;
+      const mine: ChatMessage = { id: `u${Date.now()}`, from: 'me', text, source: ai ? 'ai' : 'simulated' };
+      dispatch({ type: 'appendChat', entryId: entry.id, messages: [mine] });
+      const land = (result: FollowUpResult) => {
+        if (result.ok) dispatch({ type: 'appendChat', entryId: entry.id, messages: [result.message], after: mine.id });
+        onDone(result.ok ? undefined : result.error);
+      };
+
+      // Possible high-risk wording gets the reviewed support route, never a reply of either kind.
+      if (looksHighRisk(text)) return land({ ok: false, error: 'safety' });
+      if (ai) {
+        void (async () => {
+          const synced = sync ? await sync.ensureSynced([{ id: entry.id, body: entry.body }]) : false;
+          if (!synced) return land({ ok: false, error: sync?.status === 'offline' ? 'offline' : 'not-synced' });
+          const contextIds = earlier.flatMap((m) => (m.source === 'ai' && m.ai ? [m.ai.id] : []));
+          const reflectionId = entry.reflection?.source === 'ai' && entry.reflection.ai ? entry.reflection.ai.id : null;
+          land(await requestAiFollowUp(ai, { entryId: entry.id, message: text, style, contextIds, reflectionId }));
+        })();
+        return;
+      }
       void getAiService(state.demo.ai)
-        .followUp({ entry: toContext(entry), reflection: entry.reflection, style, messages })
-        .then((result) => {
-          if (result.ok) dispatch({ type: 'chat', entryId: entry.id, messages: [...messages, result.message] });
-          onDone(result.ok ? undefined : result.error);
-        });
+        .followUp({ entry: toContext(entry), reflection: entry.reflection, style, messages: [...earlier, mine] })
+        .then(land);
     },
-    [state.chats, state.demo.ai, dispatch],
+    [state.chats, state.demo.ai, dispatch, real, sync],
   );
 }
 

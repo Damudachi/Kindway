@@ -16,6 +16,8 @@ import { useSession } from '@/state/session';
 export type RealAi = {
   reflections: boolean;
   insights: boolean;
+  /** Real AI replies in an entry's follow-up conversation; needs its own consent. */
+  followUps: boolean;
   /** Why real AI isn't offered, when it isn't. */
   needs: 'account' | 'cloud-sync' | null;
   /** The signed-in account these outputs belong to, so screens can drop another account's. */
@@ -24,7 +26,7 @@ export type RealAi = {
   outputs: AiOutputsRepo | null;
 };
 
-const off: RealAi = { reflections: false, insights: false, needs: 'account', account: null, invoke: null, outputs: null };
+const off: RealAi = { reflections: false, insights: false, followUps: false, needs: 'account', account: null, invoke: null, outputs: null };
 const RealAiContext = createContext<RealAi>(off);
 
 const defaultInvoke = supabase ? supabaseInvoke(supabase) : null;
@@ -42,6 +44,7 @@ export function RealAiProvider({ children, invoke = defaultInvoke, outputs = def
     return {
       reflections: consent.status('entry_reflection') === 'active',
       insights: consent.status('cross_entry_analysis') === 'active',
+      followUps: consent.status('follow_up') === 'active',
       needs: null,
       account: user.id,
       invoke,

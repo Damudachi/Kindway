@@ -110,13 +110,13 @@ describe('remote AI client', () => {
 
 // Screens ---------------------------------------------------------------------------------
 
-function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflection: jest.Mock; deleteAll: jest.Mock } {
-  return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
+function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflection: jest.Mock; deleteConversation: jest.Mock; deleteAll: jest.Mock } {
+  return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteConversation: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
 }
 
 async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true) {
   const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => synced) };
-  const value: RealAi = { reflections: false, insights: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
+  const value: RealAi = { reflections: false, insights: false, followUps: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
   let setReal: (v: RealAi) => void = () => {};
   function Wrapped() {
     const [current, set] = useState(value);

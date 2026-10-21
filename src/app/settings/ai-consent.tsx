@@ -24,7 +24,7 @@ const STATUS_TEXT = {
   withdrawn: 'Not allowed. You withdrew it.',
 } as const;
 
-/** AI processing consent: two separate choices, recorded on the user's account. */
+/** AI processing consent: three separate choices, recorded on the user's account. */
 export default function AiConsent() {
   const session = useSession();
   const consent = useAiConsent();
@@ -35,7 +35,7 @@ export default function AiConsent() {
         Sending your writing to AI
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>
-        Two separate choices. Each one only allows a request you start yourself, and you can withdraw either at any time.
+        Three separate choices. Each one only allows a request you start yourself, and you can withdraw any of them at any time.
       </Text>
 
       {session.user && session.mode !== 'cloud-sync' && (
@@ -198,7 +198,8 @@ function DeleteOutputsSection() {
     try {
       await outputs.deleteAll();
       for (const e of state.entries) if (e.reflection?.source === 'ai') dispatch({ type: 'removeReflection', id: e.id });
-      snack({ message: 'AI reflections and reviews deleted. Your entries are unchanged.' });
+      dispatch({ type: 'removeAiChats' });
+      snack({ message: 'AI reflections, reviews and follow-up conversations deleted. Your entries are unchanged.' });
     } catch {
       snack({ message: 'Couldn’t delete them. Nothing changed; try again when you’re online.' });
     } finally {
@@ -209,13 +210,14 @@ function DeleteOutputsSection() {
   return (
     <Section title="AI outputs">
       <Text variant="body">
-        AI reflections and reviews are kept on your account until you delete them, delete the entries they came from, or delete your account. Withdrawing a choice doesn’t delete them.
+        AI reflections, reviews and follow-up conversations are kept on your account until you delete them, delete the entries they came from, or delete your account. Withdrawing a
+        choice doesn’t delete them. Simulated replies stay on this device and aren’t affected.
       </Text>
       <Button variant="secondary" label="Delete AI outputs" disabled={busy} loading={busy} onPress={() => setConfirm(true)} style={styles.gap} />
       <Dialog
         visible={confirm}
-        title="Delete all AI reflections and reviews?"
-        body="They’ll be removed from your account and this device. Your entries, tags and compass stay as they are. This can’t be undone."
+        title="Delete all AI reflections, reviews and conversations?"
+        body="They’ll be removed from your account and this device, including the messages you sent in AI follow-up conversations. Your entries, tags and compass stay as they are. This can’t be undone."
         confirmLabel="Delete"
         onCancel={() => setConfirm(false)}
         onConfirm={() => void remove()}

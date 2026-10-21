@@ -209,7 +209,7 @@ export default function Sync() {
 
       <Section title="What stays on this device">
         <Text variant="body">
-          Simulated reflections, follow-up replies, saved memory, reminders and sample-insight feedback are not uploaded. Your local-only copy also stays on this device until you choose otherwise.
+          Simulated reflections, simulated follow-up replies, saved memory, reminders and sample-insight feedback are not uploaded. Your local-only copy also stays on this device until you choose otherwise.
         </Text>
       </Section>
     </Screen>

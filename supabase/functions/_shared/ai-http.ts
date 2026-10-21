@@ -130,4 +130,4 @@ export function providerFailed(error: 'rate' | 'timeout' | 'unavailable' | 'inva
 }
 
 /** Untrusted text goes inside tags; stop it from closing or opening them. */
-export const fence = (s: string) => s.replace(/<\s*\/?\s*(entry|entries|context)\b/gi, '‹$1');
+export const fence = (s: string) => s.replace(/<\s*\/?\s*(entry|entries|context|reflection|conversation|turn|message)\b/gi, '‹$1');

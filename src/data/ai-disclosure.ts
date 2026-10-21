@@ -21,6 +21,18 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
     ],
     notSent: ['Your other entries, your email address or your account details.'],
   },
+  follow_up: {
+    title: 'Follow-up conversations',
+    when: 'Only when you send a message in the conversation about one entry. Separate from reflections: allowing reflections doesn’t allow this.',
+    sent: [
+      'Your message.',
+      'The text of that entry, its feeling tags and its “one good thing”.',
+      'The AI reflection on that entry shown with it, if there is one.',
+      'Up to the last 3 AI replies of that conversation, with the messages they answered.',
+      'Your support style and challenge settings for that reply.',
+    ],
+    notSent: ['Your other entries, other conversations, reviews, compass values, your email address or your account details.'],
+  },
   cross_entry_analysis: {
     title: 'Reviews across entries',
     when: 'Only when you ask for a review of a period you choose. You see how many entries and which dates are included before anything is sent.',

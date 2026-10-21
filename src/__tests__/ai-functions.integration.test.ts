@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * The generate-reflection and generate-insights Edge Functions against a real local Supabase
+ * The generate-reflection, generate-insights and generate-follow-up Edge Functions against a real local Supabase
  * stack (`npx supabase start` + `npx supabase functions serve --env-file supabase/functions/.env`),
  * with two throwaway users and fictional entries only. Skipped unless pointed at one:
  *   KINDWAY_TEST_SUPABASE_URL, KINDWAY_TEST_PUBLISHABLE_KEY, KINDWAY_TEST_SECRET_KEY
@@ -38,7 +38,7 @@ async function testUser(admin: SupabaseClient, label: string) {
   return { id: data.user.id, client, token: signIn.data.session.access_token };
 }
 
-async function call(fn: 'generate-reflection' | 'generate-insights', token: string, body: unknown) {
+async function call(fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up', token: string, body: unknown) {
   const res = await nodeFetch(`${url}/functions/v1/${fn}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, apikey: publishable!, 'Content-Type': 'application/json' },
@@ -163,5 +163,73 @@ run('AI Edge Functions with two real users', () => {
     ]);
     expect([reflections, insights]).toEqual([0, 0]);
     expect(entries).toBeGreaterThan(0);
+  });
+});
+
+run('generate-follow-up on the local stack (refusals only; the provider is never reached)', () => {
+  let admin: SupabaseClient;
+  let a: Awaited<ReturnType<typeof testUser>>;
+  let b: Awaited<ReturnType<typeof testUser>>;
+  let aTurn: string;
+  const ask = (o: Record<string, unknown> = {}) => ({ entry_id: 'fa', message: 'Fictional follow-up message.', style: 'understand', idempotency_key: uuid(), ...o });
+
+  beforeAll(async () => {
+    admin = createClient(url!, secret!, options);
+    a = await testUser(admin, 'fa');
+    b = await testUser(admin, 'fb');
+    const row = (user: string, id: string, body: string) => ({ id, user_id: user, written_at: day(0), body, feelings: [], gratitude: null, exclude_from_analysis: false });
+    if ((await a.client.from('entries').insert([row(a.id, 'fa', 'Fictional entry of A.'), row(a.id, 'risk', 'Fictional safety test: some nights I want to die.')])).error) throw new Error('entries');
+    if ((await b.client.from('entries').insert([row(b.id, 'fb', 'Fictional entry of B.')])).error) throw new Error('entries');
+    // A stored exchange of A's, saved the way the function saves one, with fictional text.
+    const begin = await a.client.rpc('ai_begin_request', { p_kind: 'follow_up', p_key: uuid(), p_cooldown_seconds: 0, p_daily_limit: 100 });
+    const requestId = (begin.data as { request_id: string }).request_id;
+    const saved = await a.client
+      .from('ai_follow_ups')
+      .insert({ entry_id: 'fa', request_id: requestId, style: 'understand', message: 'Fictional earlier message', output: { schema_version: 'follow-up-1', reply: 'Fictional earlier reply' }, schema_version: 'follow-up-1', prompt_version: 'test', provider: 'groq', model: 'openai/gpt-oss-120b' })
+      .select('id')
+      .single();
+    if (saved.error) throw new Error('follow-up');
+    aTurn = saved.data.id;
+    await a.client.rpc('ai_finish_request', { p_request_id: requestId, p_status: 'succeeded' });
+  });
+
+  afterAll(async () => {
+    for (const u of [a, b]) if (u) await admin.auth.admin.deleteUser(u.id);
+  });
+
+  it('refuses a forged token and malformed requests', async () => {
+    expect((await call('generate-follow-up', 'not-a-real-token', ask())).status).toBe(401);
+    expect(await call('generate-follow-up', a.token, ask({ user_id: b.id }))).toEqual({ status: 400, body: { error: 'invalid_request' } });
+  });
+
+  it('refuses without follow-up consent, even with reflection and review consent', async () => {
+    await grant(a.client, 'entry_reflection');
+    await grant(a.client, 'cross_entry_analysis');
+    expect(await call('generate-follow-up', a.token, ask())).toEqual({ status: 403, body: { error: 'consent_required' } });
+  });
+
+  it('another account’s entry or conversation looks exactly like a missing one', async () => {
+    await grant(b.client, 'follow_up');
+    expect(await call('generate-follow-up', b.token, ask({ entry_id: 'fa' }))).toEqual({ status: 404, body: { error: 'entry_not_found' } });
+    expect(await call('generate-follow-up', b.token, ask({ entry_id: 'no-such-entry' }))).toEqual({ status: 404, body: { error: 'entry_not_found' } });
+    expect(await call('generate-follow-up', b.token, ask({ entry_id: 'fb', context_ids: [aTurn] }))).toEqual({ status: 404, body: { error: 'context_not_found' } });
+    expect(await call('generate-follow-up', b.token, ask({ entry_id: 'fb', context_ids: [uuid()] }))).toEqual({ status: 404, body: { error: 'context_not_found' } });
+  });
+
+  it('A’s own turns can’t be moved onto another of A’s entries', async () => {
+    await grant(a.client, 'follow_up');
+    expect(await call('generate-follow-up', a.token, ask({ entry_id: 'risk', message: 'Fictional', context_ids: [aTurn] }))).toEqual({ status: 404, body: { error: 'context_not_found' } });
+  });
+
+  it('high-risk wording goes to the support route without a provider call, and nothing is stored', async () => {
+    expect(await call('generate-follow-up', a.token, ask({ message: 'Fictional safety test: I want to hurt myself.' }))).toEqual({ status: 200, body: { status: 'safety' } });
+    expect(await call('generate-follow-up', a.token, ask({ entry_id: 'risk' }))).toEqual({ status: 200, body: { status: 'safety' } });
+    const { count } = await a.client.from('ai_follow_ups').select('id', { count: 'exact', head: true });
+    expect(count).toBe(1);
+  });
+
+  it('withdrawing follow-up consent blocks the next request on the server', async () => {
+    await a.client.rpc('revoke_ai_consent', { p_scope: 'follow_up' });
+    expect(await call('generate-follow-up', a.token, ask({ context_ids: [aTurn] }))).toEqual({ status: 403, body: { error: 'consent_required' } });
   });
 });

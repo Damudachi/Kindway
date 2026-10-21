@@ -37,4 +37,6 @@ export type FollowUpRequest = {
   messages: ChatMessage[];
 };
 
-export type FollowUpResult = { ok: true; message: ChatMessage } | { ok: false; error: AiError };
+/** `conversation-changed`: earlier messages named as context are gone from the account (cleared or deleted elsewhere). */
+export type FollowUpError = AiError | 'conversation-changed';
+export type FollowUpResult = { ok: true; message: ChatMessage } | { ok: false; error: FollowUpError };

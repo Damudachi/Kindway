@@ -2,7 +2,7 @@
 // Security decides what exists. The service-role key is never used here.
 import { type AiScope, hasActiveConsent, type RpcClient } from './ai-consent.ts';
 
-export type RequestKind = 'reflection' | 'insights';
+export type RequestKind = 'reflection' | 'insights' | 'follow_up';
 
 export type BeginResult =
   | { outcome: 'started'; requestId: string }
@@ -45,6 +45,10 @@ export type StoredInsight = {
   sources: { entry_id: string; written_at: string }[];
 };
 
+/** One completed follow-up exchange: the user's message and the validated reply. */
+export type StoredFollowUp = { id: string; entry_id: string; created_at: string; style: string; message: string; output: unknown; provider: string; model: string };
+export type NewFollowUp = Omit<StoredFollowUp, 'id' | 'created_at'> & { request_id: string; schema_version: string; prompt_version: string };
+
 export type NewReflection = Omit<StoredReflection, 'id' | 'created_at'> & { request_id: string; schema_version: string; prompt_version: string; entry_updated_at: string };
 export type NewInsight = Omit<StoredInsight, 'id' | 'created_at' | 'sources'> & { request_id: string; schema_version: string; prompt_version: string };
 
@@ -59,6 +63,12 @@ export interface AiStore {
   insightForRequest(requestId: string): Promise<StoredInsight | null>;
   saveReflection(row: NewReflection): Promise<StoredReflection>;
   saveInsight(row: NewInsight, entries: { id: string; written_at: string }[]): Promise<StoredInsight>;
+  /** Stored reflections by id (only the caller's exist). */
+  findReflections(ids: string[]): Promise<StoredReflection[]>;
+  /** Stored follow-up exchanges by id (only the caller's exist). */
+  followUps(ids: string[]): Promise<StoredFollowUp[]>;
+  followUpForRequest(requestId: string): Promise<StoredFollowUp | null>;
+  saveFollowUp(row: NewFollowUp): Promise<StoredFollowUp>;
 }
 
 /** Thrown for any database failure. Carries no message from the database. */
@@ -73,6 +83,7 @@ type Client = RpcClient & { from(table: string): any };
 
 const ENTRY_COLUMNS = 'id, written_at, updated_at, body, feelings, gratitude, revisit, exclude_from_analysis';
 const REFLECTION_COLUMNS = 'id, entry_id, created_at, style, output, provider, model';
+const FOLLOW_UP_COLUMNS = 'id, entry_id, created_at, style, message, output, provider, model';
 const INSIGHT_COLUMNS = 'id, created_at, period, range_start, range_end, entry_count, output, provider, model';
 
 /** The AiStore for a Supabase client created with the caller's Authorization header. */
@@ -153,6 +164,24 @@ export function supabaseAiStore(client: Client): AiStore {
         throw new StoreError();
       }
       return { ...saved, sources: entries.map((e) => ({ entry_id: e.id, written_at: e.written_at })) };
+    },
+
+    async findReflections(ids) {
+      if (ids.length === 0) return [];
+      return (await rows<StoredReflection[]>(client.from('ai_reflections').select(REFLECTION_COLUMNS).in('id', ids))) ?? [];
+    },
+
+    async followUps(ids) {
+      if (ids.length === 0) return [];
+      return (await rows<StoredFollowUp[]>(client.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).in('id', ids).order('created_at', { ascending: true }))) ?? [];
+    },
+
+    followUpForRequest: (requestId) => rows<StoredFollowUp>(client.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).eq('request_id', requestId).maybeSingle()),
+
+    async saveFollowUp(row) {
+      const saved = await rows<StoredFollowUp>(client.from('ai_follow_ups').insert(row).select(FOLLOW_UP_COLUMNS).single());
+      if (!saved) throw new StoreError();
+      return saved;
     },
   };
 }

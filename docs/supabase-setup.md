@@ -161,16 +161,17 @@ Consent needs an account; local-only users can't grant it, so nothing can be sen
 
 **Withdrawing** blocks new requests on the server immediately. It doesn't delete outputs already written; the AI processing screen has a separate **Delete AI outputs** action (section 6b).
 
-## 6b. Real AI reflections and reviews (Phase 4B/4C)
+## 6b. Real AI reflections, reviews and follow-ups (Phase 4B/4C, 5C)
 
-Two authenticated Edge Functions, both run with the **caller's** JWT (never the service-role key), so RLS decides what they can read and write:
+Three authenticated Edge Functions, all run with the **caller's** JWT (never the service-role key), so RLS decides what they can read and write:
 
 | Function | Request body | Needs consent | Reads |
 |---|---|---|---|
 | `generate-reflection` | `entry_id`, `style`, `idempotency_key` | `entry_reflection` | That one entry; the profile's challenge settings; compass values linked to it with `ai_may_reference`, only when "What reflections can see" isn't "this entry only". Never other entries. |
 | `generate-insights` | `period` (`week`/`month`), `entry_ids` (shown to the user first), `idempotency_key` | `cross_entry_analysis` | Exactly those entries, re-checked: all must exist, be in the period and not be kept out of analysis, or it refuses (`selection_changed`). Compass links only if "Count my compass links" is on. |
+| `generate-follow-up` | `entry_id`, `message` (≤ 1500 chars), `style`, `idempotency_key`, optional `context_ids` (stored exchanges, ≤ 6) and `reflection_id` | `follow_up` | That one entry; the AI reflection named (must belong to that entry); the named earlier exchanges of that entry's conversation (any that are missing, another user's, or another entry's refuse with `context_not_found`), of which only the last `AI_FOLLOW_UP_MAX_TURNS` are sent; the profile's challenge settings. Never other entries, reviews or compass values. |
 
-No request carries entry text or a user id; the server reads both itself. Code: `supabase/functions/_shared/` (`reflection.ts`, `insights.ts`, `ai-http.ts` pipeline, `ai-store.ts` data access, `ai-provider.ts` adapter, `ai-config.ts` settings, `safety.ts`), entry points in `generate-reflection/` and `generate-insights/`.
+No request carries entry text or a user id; the server reads both itself (a follow-up carries only the user's new message). Code: `supabase/functions/_shared/` (`reflection.ts`, `insights.ts`, `follow-up.ts`, `ai-http.ts` pipeline, `ai-store.ts` data access, `ai-provider.ts` adapter, `ai-config.ts` settings, `safety.ts`), entry points in `generate-reflection/`, `generate-insights/` and `generate-follow-up/`.
 
 **Order of checks** (each refusal happens before any provider call): method → valid token (Auth `getUser`) → JSON content type and size (8 KB) → body shape (unknown keys rejected) → configuration → consent → entry exists for this user (another user's id looks like a missing one: `entry_not_found`) → length/count caps → safety screen → request ledger (duplicate, one at a time, cooldown, daily cap) → provider.
 
@@ -189,6 +190,9 @@ No request carries entry text or a user id; the server reads both itself. Code: 
 | `AI_INSIGHTS_MAX_ENTRIES` / `AI_INSIGHTS_MAX_CHARS` | 20 / 12000 | 3–60 / 1000–40000 |
 | `AI_REFLECTION_COOLDOWN_SECONDS` / `AI_REFLECTION_DAILY_LIMIT` | 10 / 30 | per user |
 | `AI_INSIGHTS_COOLDOWN_SECONDS` / `AI_INSIGHTS_DAILY_LIMIT` | 60 / 5 | per user |
+| `AI_FOLLOW_UP_MAX_TOKENS` | 700 | 200–2000 |
+| `AI_FOLLOW_UP_MAX_CHARS` / `AI_FOLLOW_UP_MAX_TURNS` | 1500 / 3 | 100–2000 / 0–6 |
+| `AI_FOLLOW_UP_COOLDOWN_SECONDS` / `AI_FOLLOW_UP_DAILY_LIMIT` | 5 / 60 | per user |
 
 The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while".
 
@@ -198,13 +202,13 @@ The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REV
 
 **Safety.** Layered, and **not** clinically reviewed: the app's existing phrase check before a request, a broader server phrase screen before the provider (no call is made if it matches), and the model's `safety_concern` flag. Any of them routes to Extra support instead of showing model text, and nothing is stored. Extra support still has no verified regional resources, so Kindway is not crisis-ready.
 
-**What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
+**What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. `ai_follow_ups`: one row per completed exchange (entry id, style, the user's message, validated reply, provider, model, versions, request id); later turns read their context from here rather than trusting the app's copy. Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
 
-**Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections and reviews; entries stay. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage; they are not synced to other devices.
+**Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections, reviews and follow-up conversations (both sides); entries stay. Deleting an entry also deletes its follow-up conversation; **Clear this conversation** deletes that entry's exchanges from the account. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage; they are not synced to other devices.
 
 **Logs.** One JSON line per request with `fn`, `outcome`, `http_status`, `ms`, and when known `request_id`, token counts, `attempts`, `dropped_refs`, `config_problem`. Never request bodies, entry text, prompts, model output, headers or keys. Provider error messages are discarded unread.
 
-**When the app offers real AI.** Only with an account, cloud backup on this device, and the matching consent active. Before a request it waits until the account holds the entry's exact current text (`ensureSynced` in `src/state/cloud-sync.tsx`), because the server reads it from there. Real-AI failures are shown as failures with their own copy; a simulated preview is offered only as a clearly labelled, separate choice. Follow-up chat replies stay simulated.
+**When the app offers real AI.** Only with an account, cloud backup on this device, and the matching consent active. Before a request it waits until the account holds the entry's exact current text (`ensureSynced` in `src/state/cloud-sync.tsx`), because the server reads it from there. Real-AI failures are shown as failures with their own copy; a simulated preview is offered only as a clearly labelled, separate choice. Follow-up replies are real only with `follow_up` consent; without it they stay simulated, and every reply bubble says which it is. Follow-up conversations are kept in the device's journal storage and are not synced to other devices.
 
 ### Run locally
 
@@ -220,9 +224,9 @@ npx supabase functions serve --env-file supabase/functions/.env
 
 ```bash
 npx supabase link --project-ref <project-ref>
-npx supabase db push                                   # 20261020140000_ai_consent, 20261020170000_ai_outputs
+npx supabase db push                                   # 20261020140000_ai_consent, 20261020170000_ai_outputs, 20261021120000_ai_follow_ups
 npx supabase secrets set --env-file supabase/functions/.env
-npx supabase functions deploy generate-reflection generate-insights
+npx supabase functions deploy generate-reflection generate-insights generate-follow-up
 ```
 
 Then verify, with a disposable account and fictional entries, that a reflection and a review work in a build pointed at the project, and check **Database → Advisors**. Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).

@@ -1,10 +1,10 @@
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError, type SupabaseClient } from '@supabase/supabase-js';
 
-import type { Entry, Reflection, SupportStyle } from '@/data/types';
+import type { ChatMessage, Entry, Reflection, SupportStyle } from '@/data/types';
 import { CloudError, fail } from '@/services/cloud/repo';
 import type { Insight, InsightKind, InsightReview, SourceRef, SuggestedAction } from '@/services/insights/types';
 
-import type { AiError, ReflectionResult } from './types';
+import type { AiError, FollowUpError, FollowUpResult, ReflectionResult } from './types';
 
 /**
  * The real AI service: Supabase Edge Functions that check consent, read the entry as the
@@ -13,7 +13,7 @@ import type { AiError, ReflectionResult } from './types';
  */
 
 /** Calls a function as the signed-in user; `offline` when it couldn't be reached at all. */
-export type Invoke = (fn: 'generate-reflection' | 'generate-insights', body: Record<string, unknown>) => Promise<{ status: number; body: unknown } | 'offline'>;
+export type Invoke = (fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up', body: Record<string, unknown>) => Promise<{ status: number; body: unknown } | 'offline'>;
 
 export function supabaseInvoke(client: SupabaseClient): Invoke {
   return async (fn, body) => {
@@ -90,6 +90,50 @@ export async function requestAiReflection(invoke: Invoke, entry: Pick<Entry, 'id
     return reflection ? { ok: true, reflection } : { ok: false, error: 'invalid' };
   }
   return { ok: false, error: ERRORS[errorOf(res.body) ?? ''] ?? 'failed' };
+}
+
+// Follow-up conversation ---------------------------------------------------------------------
+
+/** At most this many earlier exchanges are offered as context; the server may use fewer. */
+export const FOLLOW_UP_CONTEXT_TURNS = 3;
+
+const FOLLOW_UP_ERRORS: Record<string, FollowUpError> = { ...ERRORS, context_not_found: 'conversation-changed', message_too_long: 'too-long' };
+
+export type FollowUpAsk = {
+  entryId: string;
+  message: string;
+  style: SupportStyle;
+  /** Stored ids of the earlier AI replies shown in this conversation, oldest first. */
+  contextIds: string[];
+  /** The AI reflection shown with the entry, if any. Simulated ones are never sent. */
+  reflectionId: string | null;
+};
+
+export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = newRequestKey()): Promise<FollowUpResult> {
+  const res = await invoke('generate-follow-up', {
+    entry_id: ask.entryId,
+    message: ask.message,
+    style: ask.style,
+    idempotency_key: key,
+    context_ids: ask.contextIds.slice(-FOLLOW_UP_CONTEXT_TURNS),
+    reflection_id: ask.reflectionId,
+  });
+  if (res === 'offline') return { ok: false, error: 'offline' };
+  if (res.status === 200 && isObject(res.body)) {
+    if (res.body.status === 'safety') return { ok: false, error: 'safety' };
+    const f = res.body.status === 'ready' && isObject(res.body.follow_up) ? res.body.follow_up : null;
+    const reply = f && isObject(f.output) ? str(f.output.reply) : undefined;
+    if (!f || !reply || typeof f.id !== 'string' || f.entry_id !== ask.entryId) return { ok: false, error: 'invalid' };
+    const message: ChatMessage = {
+      id: `ai:${f.id}`,
+      from: 'kindway',
+      text: reply,
+      source: 'ai',
+      ai: { id: f.id, provider: String(f.provider), model: String(f.model), createdAt: String(f.created_at) },
+    };
+    return { ok: true, message };
+  }
+  return { ok: false, error: FOLLOW_UP_ERRORS[errorOf(res.body) ?? ''] ?? 'failed' };
 }
 
 // Review across entries -------------------------------------------------------------------
@@ -196,7 +240,9 @@ export interface AiOutputsRepo {
   /** The newest stored reflection per entry id. Throws a CloudError when it can't be read. */
   reflections(userId: string): Promise<Record<string, Reflection>>;
   deleteReflection(id: string): Promise<void>;
-  /** Every AI reflection and review on the account. Entries are untouched. */
+  /** The AI follow-up conversation about one entry. The entry is untouched. */
+  deleteConversation(entryId: string): Promise<void>;
+  /** Every AI reflection, review and follow-up conversation on the account. Entries are untouched. */
   deleteAll(): Promise<void>;
 }
 
@@ -235,6 +281,10 @@ export function supabaseAiOutputs(client: SupabaseClient): AiOutputsRepo {
     async deleteReflection(id) {
       const { error } = await client.from('ai_reflections').delete().eq('id', id);
       if (error) throw new Error('Could not delete the reflection');
+    },
+    async deleteConversation(entryId) {
+      const { error } = await client.from('ai_follow_ups').delete().eq('entry_id', entryId);
+      if (error) throw new Error('Could not delete the conversation');
     },
     async deleteAll() {
       const { error } = await client.rpc('delete_ai_outputs');

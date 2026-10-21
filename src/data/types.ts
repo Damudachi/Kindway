@@ -118,7 +118,19 @@ export type Draft = {
   editingId?: string;
 };
 
-export type ChatMessage = { id: string; from: 'me' | 'kindway'; text: string };
+/**
+ * One message in an entry's follow-up conversation. `source` says where it went or came from:
+ * `simulated` replies are pre-written on the device (also any message saved before this field
+ * existed); `ai` messages were sent to, or written by, the real AI service. An AI reply carries
+ * its stored record, which later requests name as context.
+ */
+export type ChatMessage = {
+  id: string;
+  from: 'me' | 'kindway';
+  text: string;
+  source?: 'simulated' | 'ai';
+  ai?: { id: string; provider: string; model: string; createdAt: string };
+};
 
 export type Reminders = {
   enabled: boolean;

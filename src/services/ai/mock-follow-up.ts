@@ -30,5 +30,5 @@ export function mockFollowUp(req: FollowUpRequest): ChatMessage {
   const style = req.style === 'ask' ? 'understand' : req.style;
   const asked = req.messages.filter((m) => m.from === 'me').length;
   const replies = REPLIES[style];
-  return { id: `k${Date.now()}`, from: 'kindway', text: replies[(asked - 1 + replies.length) % replies.length] };
+  return { id: `k${Date.now()}`, from: 'kindway', text: replies[(asked - 1 + replies.length) % replies.length], source: 'simulated' };
 }

@@ -13,6 +13,10 @@
 //   AI_INSIGHTS_MAX_CHARS        combined text one review may send         (default 12000)
 //   AI_REFLECTION_COOLDOWN_SECONDS / AI_REFLECTION_DAILY_LIMIT             (default 10 / 30)
 //   AI_INSIGHTS_COOLDOWN_SECONDS / AI_INSIGHTS_DAILY_LIMIT                 (default 60 / 5)
+//   AI_FOLLOW_UP_MAX_TOKENS      output budget for a follow-up reply       (default 700)
+//   AI_FOLLOW_UP_MAX_CHARS       longest follow-up message                 (default 1500)
+//   AI_FOLLOW_UP_MAX_TURNS       earlier exchanges sent as context         (default 3)
+//   AI_FOLLOW_UP_COOLDOWN_SECONDS / AI_FOLLOW_UP_DAILY_LIMIT               (default 5 / 60)
 import { AI_CONSENT_TERMS } from './ai-consent.ts';
 
 export type Limits = { cooldownSeconds: number; dailyLimit: number };
@@ -24,6 +28,7 @@ export type AiConfig = {
   timeoutMs: number;
   reflection: { maxTokens: number; maxEntryChars: number } & Limits;
   insights: { maxTokens: number; maxEntries: number; maxChars: number; minEntries: number } & Limits;
+  followUp: { maxTokens: number; maxMessageChars: number; maxTurns: number } & Limits;
 };
 
 /** The existing three-entry minimum: a product heuristic, not a validated threshold. */
@@ -69,6 +74,14 @@ export function loadAiConfig(env: Env): { ok: true; config: AiConfig } | { ok: f
       minEntries: MIN_INSIGHT_ENTRIES,
       cooldownSeconds: int('AI_INSIGHTS_COOLDOWN_SECONDS', 60, 0, 86400),
       dailyLimit: int('AI_INSIGHTS_DAILY_LIMIT', 5, 1, 100),
+    },
+    followUp: {
+      maxTokens: int('AI_FOLLOW_UP_MAX_TOKENS', 700, 200, 2000),
+      // The database allows 2000; requests are also capped at MAX_BODY_BYTES.
+      maxMessageChars: int('AI_FOLLOW_UP_MAX_CHARS', 1500, 100, 2000),
+      maxTurns: int('AI_FOLLOW_UP_MAX_TURNS', 3, 0, 6),
+      cooldownSeconds: int('AI_FOLLOW_UP_COOLDOWN_SECONDS', 5, 0, 3600),
+      dailyLimit: int('AI_FOLLOW_UP_DAILY_LIMIT', 60, 1, 500),
     },
   };
   if (bad.length > 0) return { ok: false, problem: `invalid:${bad.join(',')}` };

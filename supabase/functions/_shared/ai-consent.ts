@@ -11,13 +11,13 @@
 //
 // No imports on purpose: this file runs in Deno on the server and in Jest for tests.
 
-export type AiScope = 'entry_reflection' | 'cross_entry_analysis';
+export type AiScope = 'entry_reflection' | 'cross_entry_analysis' | 'follow_up';
 
 export const AI_CONSENT_TERMS = {
   provider: 'groq',
   modelRef: 'openai/gpt-oss-120b',
   disclosureVersion: 'groq-default-retention-2026-10-20',
-  consentVersion: { entry_reflection: '1', cross_entry_analysis: '1' } satisfies Record<AiScope, string>,
+  consentVersion: { entry_reflection: '1', cross_entry_analysis: '1', follow_up: '1' } satisfies Record<AiScope, string>,
 } as const;
 
 /** The minimal client surface used here; supabase-js clients satisfy it. */

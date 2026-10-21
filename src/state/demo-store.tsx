@@ -84,6 +84,13 @@ export type Action =
   | { type: 'deleteEntry'; id: string }
   | { type: 'compass'; compass: CompassValue[] }
   | { type: 'chat'; entryId: string; messages: ChatMessage[] }
+  /**
+   * Adds messages to an entry's conversation. With `after`, only while that message is still
+   * there: a reply that arrives after the conversation was cleared, or the entry deleted, is dropped.
+   */
+  | { type: 'appendChat'; entryId: string; messages: ChatMessage[]; after?: string }
+  /** Removes every message sent to or written by the real AI, in every conversation. */
+  | { type: 'removeAiChats' }
   | { type: 'insight'; id: string; feedback: InsightFeedback | undefined }
   | { type: 'tomorrow'; step: TomorrowStep | null }
   | { type: 'reminders'; patch: Partial<Reminders> }
@@ -152,6 +159,14 @@ export function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'chat':
       return { ...state, chats: { ...state.chats, [action.entryId]: action.messages } };
+    case 'appendChat': {
+      const current = state.chats[action.entryId] ?? [];
+      if (action.after && !current.some((m) => m.id === action.after)) return state;
+      if (!action.after && !state.entries.some((e) => e.id === action.entryId)) return state;
+      return { ...state, chats: { ...state.chats, [action.entryId]: [...current, ...action.messages] } };
+    }
+    case 'removeAiChats':
+      return { ...state, chats: Object.fromEntries(Object.entries(state.chats).map(([id, messages]) => [id, messages.filter((m) => m.source !== 'ai')])) };
     case 'insight': {
       const insightFeedback = { ...state.insightFeedback };
       if (action.feedback) insightFeedback[action.id] = action.feedback;

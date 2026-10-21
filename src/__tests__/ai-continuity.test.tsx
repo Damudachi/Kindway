@@ -75,6 +75,7 @@ function fakeAiAccount() {
       return latestReflections(mine);
     }),
     deleteReflection: async () => {},
+    deleteConversation: async () => {},
     deleteAll: async () => {},
   };
   return { outputs, rows, failNext: (kind: CloudError['kind'] = 'offline') => (failNext = kind) };
