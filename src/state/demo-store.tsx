@@ -89,6 +89,11 @@ export type Action =
   | { type: 'reminders'; patch: Partial<Reminders> }
   /** Brings in the account's cloud copy, keeping anything changed here since `base`. */
   | { type: 'applyCloud'; base: CloudSnapshot; remote: CloudSnapshot }
+  /**
+   * Brings in the account's newest AI reflection per entry. `known` are the AI reflection ids
+   * this device had when the read started; one that arrived since is newer than the read.
+   */
+  | { type: 'applyAiReflections'; reflections: Record<string, Reflection>; known: string[] }
   | { type: 'reset' };
 
 export function reducer(state: DemoState, action: Action): DemoState {
@@ -159,6 +164,23 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, reminders: { ...state.reminders, ...action.patch } };
     case 'applyCloud':
       return applyCloud(state, mergeSnapshots(action.base, toCloud(state), action.remote));
+    case 'applyAiReflections': {
+      const known = new Set(action.known);
+      return {
+        ...state,
+        entries: state.entries.map((e) => {
+          const local = e.reflection;
+          const remote = action.reflections[e.id];
+          // A request in flight lands on its own; simulated reflections are device-only.
+          if (e.reflectionStatus === 'loading' || (local && local.source !== 'ai')) return e;
+          // Arrived after the read started, or the same record: keep it, with this device's feedback.
+          if (local?.ai && (!known.has(local.ai.id) || local.ai.id === remote?.ai?.id)) return e;
+          if (remote) return { ...e, reflection: remote, reflectionStatus: 'ready' };
+          // Deleted from the account (on another device, or with "Delete AI outputs").
+          return local ? { ...e, reflection: undefined, reflectionStatus: 'none' } : e;
+        }),
+      };
+    }
     case 'reset':
       return initialState;
   }

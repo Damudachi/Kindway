@@ -8,7 +8,7 @@ import { SnackbarProvider } from '@/components/feedback';
 import { AiConsentProvider } from '@/state/ai-consent';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
-import { RealAiProvider } from '@/state/real-ai';
+import { RealAiProvider, useRealAi } from '@/state/real-ai';
 import { SessionProvider, useSession } from '@/state/session';
 import { scopedStorage } from '@/storage/persistence';
 import { color } from '@/theme/tokens';
@@ -55,11 +55,12 @@ export default function RootLayout() {
  */
 function Journal({ children }: { children: React.ReactNode }) {
   const { scope, user, repo } = useSession();
+  const { outputs } = useRealAi();
   const synced = scope !== 'guest' && user && repo;
   return (
     <DemoStoreProvider key={scope} storage={scopedStorage(scope)}>
       {synced ? (
-        <CloudSync userId={user.id} repo={repo}>
+        <CloudSync userId={user.id} repo={repo} aiOutputs={outputs}>
           {children}
         </CloudSync>
       ) : (

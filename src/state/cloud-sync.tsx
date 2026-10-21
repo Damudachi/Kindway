@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
+import type { AiOutputsRepo } from '@/services/ai/remote';
 import { changeCount, diff, emptySnapshot, toCloud, type CloudSnapshot } from '@/services/cloud/records';
 import { CloudError, type CloudRepo } from '@/services/cloud/repo';
 import { useStore } from '@/state/demo-store';
@@ -34,9 +35,16 @@ const ENSURE_POLL_MS = 400;
 const ENSURE_TRIES = 25;
 const DEBOUNCE_MS = 800;
 
-type Props = { userId: string; repo: CloudRepo; children: ReactNode; baseStorage?: StateStorage };
+type Props = {
+  userId: string;
+  repo: CloudRepo;
+  /** Where the account's AI reflections are read from; they're brought in with each pull. */
+  aiOutputs?: AiOutputsRepo | null;
+  children: ReactNode;
+  baseStorage?: StateStorage;
+};
 
-export function CloudSync({ userId, repo, children, baseStorage }: Props) {
+export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorage }: Props) {
   const { state, dispatch } = useStore();
   const storage = useMemo(() => baseStorage ?? syncBaseStorage(userId), [baseStorage, userId]);
   const [status, setStatus] = useState<SyncStatus>('connecting');
@@ -47,6 +55,8 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
   const again = useRef(false);
   const pulled = useRef(false);
   const merging = useRef(false);
+  /** The account's AI reflections still need reading after the last pull. */
+  const aiStale = useRef(!!aiOutputs);
   const attempt = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
@@ -101,6 +111,15 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
         base.current = next;
         await storage.save(next);
       }
+      // AI reflections live in their own table and only ever come from the server, so they are
+      // read, never pushed. Read after the journal so every entry they belong to is here.
+      if (aiOutputs && aiStale.current) {
+        const known = latest.current.entries.flatMap((e) => (e.reflection?.ai ? [e.reflection.ai.id] : []));
+        const reflections = await aiOutputs.reflections(userId);
+        if (!alive.current) return;
+        aiStale.current = false;
+        dispatch({ type: 'applyAiReflections', reflections, known });
+      }
       attempt.current = 0;
       setPending(0);
       setStatus('synced');
@@ -116,7 +135,7 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
         schedule(() => runAgain.current(), 0);
       }
     }
-  }, [dispatch, fail, repo, schedule, storage, userId]);
+  }, [aiOutputs, dispatch, fail, repo, schedule, storage, userId]);
   useEffect(() => {
     runAgain.current = () => void sync();
   }, [sync]);
@@ -128,6 +147,7 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
       if (s !== 'active') return;
       // Coming back: look for changes from other devices first.
       pulled.current = false;
+      aiStale.current = !!aiOutputs;
       setStatus('connecting');
       void sync();
     });
@@ -147,6 +167,7 @@ export function CloudSync({ userId, repo, children, baseStorage }: Props) {
     const n = changeCount(diff(base.current, toCloud(state)));
     setPending(n);
     if (n > 0) schedule(() => void sync(), DEBOUNCE_MS);
+    else if (aiStale.current) schedule(() => void sync(), 0);
     else if (!busy.current) setStatus('synced');
   }, [state, schedule, sync]);
 

@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -63,27 +63,49 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   const sync = useSync();
   const [run, setRun] = useState<Run>({ status: 'idle' });
   const aiPeriod = period === 'all' ? null : period;
-  const key = `${period}:${real.insights}`;
+  // A different period, permission or account starts over, so one account's review is never
+  // shown to the next, even for a moment.
+  const key = `${period}:${real.insights}:${real.account}`;
+  /** Whether the account's stored review is known: `failed` means it couldn't be read, so what's shown (or not) may be out of date. */
+  const [saved, setSaved] = useState<'checking' | 'loaded' | 'failed'>('checking');
+  const [attempt, setAttempt] = useState(0);
   const [shownFor, setShownFor] = useState(key);
   if (shownFor !== key) {
     setShownFor(key);
     setRun({ status: 'idle' });
+    setSaved('checking');
   }
 
-  // Show the newest stored review for this period, if there is one.
-  useEffect(() => {
-    if (!aiPeriod || !real.insights || !real.outputs) return;
-    let cancelled = false;
-    real.outputs
-      .latestReview(aiPeriod)
-      .then((review) => {
-        if (!cancelled && review) setRun((r) => (r.status === 'idle' ? { status: 'ready', review, stored: true } : r));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [aiPeriod, real.insights, real.outputs]);
+  // Show the account's newest stored review for this period, checked again whenever Patterns
+  // comes back into view: it may have been written on another device, or deleted (with
+  // "Delete AI outputs", or with one of its entries). A request in progress, or its outcome
+  // other than a review, is left alone.
+  useFocusEffect(
+    useCallback(() => {
+      if (!aiPeriod || !real.insights || !real.outputs) return;
+      let cancelled = false;
+      real.outputs
+        .latestReview(aiPeriod)
+        .then((review) => {
+          if (cancelled) return;
+          setSaved('loaded');
+          setRun((r) => {
+            if (r.status !== 'idle' && r.status !== 'ready') return r;
+            if (!review) return { status: 'idle' };
+            const same = r.status === 'ready' && r.review.ai?.id === review.ai?.id;
+            return same ? r : { status: 'ready', review, stored: true };
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setSaved('failed');
+        });
+      return () => {
+        cancelled = true;
+      };
+      // `attempt` re-runs the read when the user asks to try again.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aiPeriod, real.insights, real.outputs, attempt]),
+  );
 
   const header = (
     <Text variant="title" accessibilityRole="header">
@@ -185,6 +207,27 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
         <Notice tone="warn" title={ERROR_COPY[run.error].title}>
           {ERROR_COPY[run.error].body}
         </Notice>
+      )}
+      {run.status === 'idle' && saved === 'checking' && (
+        <Text variant="small" accessibilityLiveRegion="polite">
+          Looking for your saved AI review…
+        </Text>
+      )}
+      {run.status === 'idle' && saved === 'loaded' && <Text variant="small">No saved AI review for {aiPeriod === 'week' ? 'this week' : 'the last 30 days'} yet.</Text>}
+      {saved === 'failed' && (
+        <View style={styles.block}>
+          <Notice tone="warn" title="Your saved AI review couldn’t be loaded">
+            {run.status === 'ready' ? 'What’s shown here may be out of date.' : 'There may be one in your account.'} Nothing was sent. Try again when you’re connected.
+          </Notice>
+          <Button
+            variant="secondary"
+            label="Try loading it again"
+            onPress={() => {
+              setSaved('checking');
+              setAttempt((n) => n + 1);
+            }}
+          />
+        </View>
       )}
       {run.status === 'safety' && (
         <View style={styles.block}>

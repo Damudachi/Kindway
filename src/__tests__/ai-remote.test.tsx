@@ -1,4 +1,6 @@
-import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { router, Stack } from 'expo-router';
+import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { useState } from 'react';
 import { Text } from 'react-native';
 
 import Patterns from '@/app/(tabs)/patterns';
@@ -108,16 +110,19 @@ describe('remote AI client', () => {
 
 // Screens ---------------------------------------------------------------------------------
 
-function fakeOutputs(): AiOutputsRepo & { deleteReflection: jest.Mock; deleteAll: jest.Mock } {
-  return { latestReview: jest.fn(async () => null), deleteReflection: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
+function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflection: jest.Mock; deleteAll: jest.Mock } {
+  return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
 }
 
 async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true) {
   const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => synced) };
-  const value: RealAi = { reflections: false, insights: false, needs: null, invoke: null, outputs: fakeOutputs(), ...real };
+  const value: RealAi = { reflections: false, insights: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
+  let setReal: (v: RealAi) => void = () => {};
   function Wrapped() {
+    const [current, set] = useState(value);
+    setReal = set;
     return (
-      <RealAiProvider value={value}>
+      <RealAiProvider value={current}>
         <DemoStoreProvider initial={state}>
           <SyncContext value={sync}>
             <SnackbarProvider>
@@ -129,8 +134,21 @@ async function render(path: string, Screen: () => React.ReactElement, state: Dem
     );
   }
   const Stub = () => <Text>Support screen</Text>;
-  await renderRouter({ [path]: Wrapped, support: Stub, 'settings/ai-consent': Stub }, { initialUrl: path.replace('[id]', 'e1') });
-  return { sync, value };
+  // A stack, as in the app, so a screen stays mounted under the one pushed over it.
+  await renderRouter({ _layout: () => <Stack />, [path]: Wrapped, support: Stub, 'settings/ai-consent': Stub }, { initialUrl: path.replace('[id]', 'e1') });
+  return {
+    sync,
+    value,
+    /** What the session would change: another account signing in, or signing out. */
+    switchTo: (patch: Partial<RealAi>) => act(async () => setReal({ ...value, ...patch })),
+  };
+}
+
+/** Opens another screen over the current one and comes back, as after visiting settings. */
+async function visitSettingsAndReturn() {
+  await act(async () => router.push('/settings/ai-consent'));
+  await screen.findByText('Support screen', {}, wait);
+  await act(async () => router.back());
 }
 
 const withEntry = (patch: Partial<Entry> = {}, state: Partial<DemoState> = {}): DemoState => ({
@@ -215,6 +233,137 @@ describe('the AI review in Patterns', () => {
     const body = (invoke as jest.Mock).mock.calls[0][1];
     expect(body).toMatchObject({ period: 'week' });
     expect([...body.entry_ids].sort()).toEqual(['w1', 'w2', 'w3']);
+  });
+
+  const stored = (o: Record<string, unknown> = {}) => toReview({ ...storedInsight, ...o });
+  const open = (outputs: ReturnType<typeof fakeOutputs>, real: Partial<RealAi> = {}, entries = week(3)) =>
+    render('patterns', Patterns, { ...initialState, onboarded: true, entries }, { insights: true, invoke: respond(200, {}), outputs, ...real });
+
+  it('restores the account’s saved review, including on a device that didn’t write it', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValue(stored());
+    await open(outputs);
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText(/^Your last AI review,/)).toBeOnTheScreen();
+    expect(outputs.latestReview).toHaveBeenCalledWith('week');
+  });
+
+  it('says when it is still looking, and when there is genuinely no saved review', async () => {
+    const outputs = fakeOutputs();
+    let answer: (r: null) => void = () => {};
+    outputs.latestReview.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    await open(outputs);
+    expect(await screen.findByText('Looking for your saved AI review…', {}, wait)).toBeOnTheScreen();
+    await act(async () => answer(null));
+    expect(await screen.findByText('No saved AI review for this week yet.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Your saved AI review couldn’t be loaded')).toBeNull();
+  });
+
+  it('a failed read is not shown as “no review”, and can be retried', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(stored());
+    await open(outputs);
+    expect(await screen.findByText('Your saved AI review couldn’t be loaded', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText(/There may be one in your account/)).toBeOnTheScreen();
+    expect(screen.queryByText(/No saved AI review/)).toBeNull();
+    // The entries that would be sent stay available.
+    expect(screen.getByText('3 entries would be sent')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try loading it again' }));
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Your saved AI review couldn’t be loaded')).toBeNull();
+  });
+
+  it('a review deleted from the account disappears when Patterns is shown again', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValueOnce(stored()).mockResolvedValue(null);
+    await open(outputs);
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+    // E.g. "Delete AI outputs" in settings, then back to Patterns.
+    await visitSettingsAndReturn();
+    expect(await screen.findByText('No saved AI review for this week yet.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('A tiring week with a calmer end.')).toBeNull();
+  });
+
+  it('reading the same record again shows it once, and a review written here keeps its label', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValueOnce(null).mockResolvedValue(stored());
+    await open(outputs, { invoke: respond(200, { status: 'ready', insight: storedInsight }) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send 3 entries for an AI review' }));
+    expect(await screen.findByText('Written by AI', {}, wait)).toBeOnTheScreen();
+    await visitSettingsAndReturn();
+    await visitSettingsAndReturn();
+    await waitFor(() => expect(outputs.latestReview).toHaveBeenCalledTimes(3), wait);
+    expect(screen.getByText('Written by AI')).toBeOnTheScreen();
+    expect(screen.getAllByText('A tiring week with a calmer end.')).toHaveLength(1);
+  });
+
+  it('account A’s review is gone the moment B signs in or A signs out, and comes back for A only', async () => {
+    const a = fakeOutputs();
+    a.latestReview.mockResolvedValue(stored());
+    const b = fakeOutputs();
+    let answerB: (r: null) => void = () => {};
+    b.latestReview.mockReturnValue(new Promise((resolve) => (answerB = resolve)));
+    const t = await open(a);
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+
+    // B's read hasn't answered yet, and A's review is already gone.
+    await t.switchTo({ account: 'user-b', outputs: b });
+    expect(screen.queryByText('A tiring week with a calmer end.')).toBeNull();
+    expect(screen.getByText('Looking for your saved AI review…')).toBeOnTheScreen();
+    await act(async () => answerB(null));
+    expect(await screen.findByText('No saved AI review for this week yet.', {}, wait)).toBeOnTheScreen();
+
+    await t.switchTo({ account: null, insights: false, needs: 'account', invoke: null, outputs: null });
+    expect(screen.queryByText('A tiring week with a calmer end.')).toBeNull();
+    expect(screen.getByText(/It needs an account with cloud backup/)).toBeOnTheScreen();
+
+    await t.switchTo({ account: 'user-a', outputs: a });
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+  });
+
+  it('local-only and signed in without cloud backup never read saved reviews', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValue(stored());
+    const t = await open(outputs, { insights: false, needs: 'account', account: null });
+    expect(await screen.findByText(/It needs an account with cloud backup/)).toBeOnTheScreen();
+    await t.switchTo({ insights: false, needs: 'cloud-sync', account: 'user-a', outputs });
+    expect(await screen.findByText(/so it needs cloud backup on this device/)).toBeOnTheScreen();
+    expect(outputs.latestReview).not.toHaveBeenCalled();
+    expect(screen.queryByText('A tiring week with a calmer end.')).toBeNull();
+  });
+
+  it('a refused or failed request never looks like a review, and nothing simulated stands in', async () => {
+    const outputs = fakeOutputs();
+    await open(outputs, { invoke: respond(429, { error: 'rate_limited' }) });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Send 3 entries for an AI review' }));
+    expect(await screen.findByText('AI reviews are paused for a little while', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText(/Written by/)).toBeNull();
+    expect(screen.queryByText(/Your last AI review/)).toBeNull();
+    expect(screen.queryByText(/Sample/)).toBeNull();
+  });
+
+  it('links only to sources that are still in this journal; a point whose sources are all gone is not shown', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValue(stored());
+    // w3, the only source of "Finding calm" and of the suggested step, was deleted.
+    await open(outputs, {}, week(2));
+    expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Finding calm')).toBeNull();
+    expect(screen.queryByText('Maybe another short walk.')).toBeNull();
+    // A source the server didn't record for this review is never a link, even if it exists here.
+    expect(screen.queryByText('Unknown source')).toBeNull();
+  });
+
+  it('feedback stays with the review record it was given on', async () => {
+    const outputs = fakeOutputs();
+    outputs.latestReview.mockResolvedValueOnce(stored()).mockResolvedValue(stored({ id: 'ins-2' }));
+    await open(outputs);
+    expect(await screen.findByText('Finding calm', {}, wait)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Fits' }));
+    expect(screen.getByRole('checkbox', { name: 'Fits', checked: true })).toBeOnTheScreen();
+    // A newer review (another record) replaces it: same wording, no carried-over feedback.
+    await visitSettingsAndReturn();
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Fits', checked: false })).toBeOnTheScreen(), wait);
   });
 
   it('over the limit, it explains instead of trimming, and offers no send button', async () => {

@@ -18,11 +18,13 @@ export type RealAi = {
   insights: boolean;
   /** Why real AI isn't offered, when it isn't. */
   needs: 'account' | 'cloud-sync' | null;
+  /** The signed-in account these outputs belong to, so screens can drop another account's. */
+  account: string | null;
   invoke: Invoke | null;
   outputs: AiOutputsRepo | null;
 };
 
-const off: RealAi = { reflections: false, insights: false, needs: 'account', invoke: null, outputs: null };
+const off: RealAi = { reflections: false, insights: false, needs: 'account', account: null, invoke: null, outputs: null };
 const RealAiContext = createContext<RealAi>(off);
 
 const defaultInvoke = supabase ? supabaseInvoke(supabase) : null;
@@ -36,11 +38,12 @@ export function RealAiProvider({ children, invoke = defaultInvoke, outputs = def
   const consent = useAiConsent();
   const computed = useMemo<RealAi>(() => {
     if (!user || !invoke) return { ...off, needs: 'account' };
-    if (mode !== 'cloud-sync') return { ...off, needs: 'cloud-sync', outputs };
+    if (mode !== 'cloud-sync') return { ...off, needs: 'cloud-sync', account: user.id, outputs };
     return {
       reflections: consent.status('entry_reflection') === 'active',
       insights: consent.status('cross_entry_analysis') === 'active',
       needs: null,
+      account: user.id,
       invoke,
       outputs,
     };

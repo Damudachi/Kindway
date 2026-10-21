@@ -1,6 +1,7 @@
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Entry, Reflection, SupportStyle } from '@/data/types';
+import { CloudError, fail } from '@/services/cloud/repo';
 import type { Insight, InsightKind, InsightReview, SourceRef, SuggestedAction } from '@/services/insights/types';
 
 import type { AiError, ReflectionResult } from './types';
@@ -170,10 +171,30 @@ export async function requestAiReview(invoke: Invoke, period: 'week' | 'month', 
 
 // Stored outputs ----------------------------------------------------------------------------
 
+/**
+ * The newest stored reflection per entry, as the app's Reflection. Rows come newest first.
+ * The server keeps the entry's version (`entry_updated_at`), not its text, so `basedOn` is the
+ * entry's current text only while that version is unchanged; otherwise it's left empty, which
+ * shows the reflection as written for an earlier version of the entry.
+ */
+export function latestReflections(rows: unknown[]): Record<string, Reflection> {
+  const out: Record<string, Reflection> = {};
+  for (const row of rows) {
+    if (!isObject(row) || typeof row.entry_id !== 'string' || out[row.entry_id]) continue;
+    const entry = isObject(row.entries) ? row.entries : null;
+    const current = entry && typeof entry.body === 'string' && new Date(String(row.entry_updated_at)).getTime() === new Date(String(entry.updated_at)).getTime();
+    const reflection = toReflection(row, current ? String(entry.body) : '');
+    if (reflection) out[row.entry_id] = reflection;
+  }
+  return out;
+}
+
 /** What the user can do with AI outputs already stored on their account. */
 export interface AiOutputsRepo {
   /** The newest stored review for a period, or null. */
   latestReview(period: 'week' | 'month'): Promise<InsightReview | null>;
+  /** The newest stored reflection per entry id. Throws a CloudError when it can't be read. */
+  reflections(userId: string): Promise<Record<string, Reflection>>;
   deleteReflection(id: string): Promise<void>;
   /** Every AI reflection and review on the account. Entries are untouched. */
   deleteAll(): Promise<void>;
@@ -196,6 +217,20 @@ export function supabaseAiOutputs(client: SupabaseClient): AiOutputsRepo {
         written_at: s.entries?.written_at ?? '',
       }));
       return toReview({ ...data, sources });
+    },
+    async reflections(userId) {
+      try {
+        const { data, error } = await client
+          .from('ai_reflections')
+          .select('id, entry_id, style, output, provider, model, created_at, entry_updated_at, entries(body, updated_at)')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (error) fail(error);
+        return latestReflections(data ?? []);
+      } catch (e) {
+        if (e instanceof CloudError) throw e;
+        throw new CloudError('Network unavailable', 'offline');
+      }
     },
     async deleteReflection(id) {
       const { error } = await client.from('ai_reflections').delete().eq('id', id);
