@@ -15,6 +15,7 @@ import { perspectiveCount } from '@/services/ai/mock-reflection';
 import { useAnotherPerspective, useReflectionMode, useRequestReflection } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
 import { useRealAi } from '@/state/real-ai';
+import { fitStep } from '@/state/tomorrow';
 import { color, radius, space } from '@/theme/tokens';
 
 type Props = { entry: Entry; onRest: () => void };
@@ -109,6 +110,11 @@ export function ReflectionView({ entry, onRest }: Props) {
   }
 
   const isAi = r.source === 'ai';
+  // Only a structured next step is offered for Tomorrow Bridge; nothing is read out of the other parts.
+  const nextStep = r.nextStep?.trim() || null;
+  const step = state.tomorrow;
+  const stepSaved =
+    !!nextStep && step?.status === 'open' && step.source?.kind === 'reflection' && step.source.entryId === entry.id && step.text === fitStep(nextStep).text;
   const edited = r.basedOn !== entry.body;
   // Interpretations stay in pencil until the user says they fit.
   const inked = r.feedback === 'fits';
@@ -205,10 +211,22 @@ export function ReflectionView({ entry, onRest }: Props) {
         </View>
       )}
 
-      {r.nextStep && (
+      {nextStep && (
         <View style={styles.part}>
           <Text variant="title" accessibilityRole="header">If you want a next step</Text>
-          <Text variant="pencil">{r.nextStep}</Text>
+          <Text variant="pencil">{nextStep}</Text>
+          {stepSaved ? (
+            <Text variant="small" accessibilityLiveRegion="polite">
+              Saved to Tomorrow Bridge. You can change it or let it go on Today.
+            </Text>
+          ) : (
+            <Button
+              variant="text"
+              label="Save to Tomorrow Bridge"
+              accessibilityHint="Opens Tomorrow Bridge with this step filled in. You can edit it, and nothing is saved until you choose to."
+              onPress={() => router.push(`/tomorrow?from=${entry.id}&use=1`)}
+            />
+          )}
         </View>
       )}
 

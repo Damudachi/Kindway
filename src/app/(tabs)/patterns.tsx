@@ -5,7 +5,6 @@ import { StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { AiReviewPanel } from '@/components/ai-review-panel';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
-import { useSnackbar } from '@/components/feedback';
 import { InsightReviewView } from '@/components/insight-review';
 import { Notice, StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
@@ -15,7 +14,6 @@ import { sameDay, weekDays } from '@/data/dates';
 import { getInsightsService, type InsightPeriod, type SourceRef } from '@/services/insights';
 import { analysableEntries, entriesInPeriod, insightsRequest } from '@/state/ai-context';
 import { useEntries, useStore } from '@/state/demo-store';
-import { newStep } from '@/state/tomorrow';
 import { useInsightsReview } from '@/state/use-insights';
 import { color, space } from '@/theme/tokens';
 
@@ -30,9 +28,8 @@ const PERIOD_NAME: Record<InsightPeriod, string> = { week: 'this week', month: '
 
 
 export default function Patterns() {
-  const { state, dispatch } = useStore();
+  const { state } = useStore();
   const entries = useEntries();
-  const snack = useSnackbar();
   const [period, setPeriod] = useState<InsightPeriod>('week');
   const inPeriod = entriesInPeriod(entries, period);
   const usable = analysableEntries(entries, period);
@@ -126,10 +123,8 @@ export default function Patterns() {
         <InsightReviewView
           review={review.review}
           resolve={resolve}
-          onSaveStep={(a) => {
-            dispatch({ type: 'tomorrow', step: newStep(a.text, { kind: 'insights' }) });
-            snack({ message: 'Saved as an optional step for tomorrow. It’s on Today.' });
-          }}
+          // Opens Tomorrow Bridge to review the step first; nothing is saved from here.
+          onSaveStep={(a) => router.push({ pathname: '/tomorrow', params: { suggestion: a.text, basis: 'tags', use: '1' } })}
         />
         {sample}
       </View>
@@ -178,10 +173,7 @@ export default function Patterns() {
         entries={usable}
         // A stored AI review can outlive the current period; its sources stay openable while they exist and aren't kept out.
         resolve={(ref) => (ref.kind === 'entry' && entries.some((e) => e.id === ref.id && !e.excludeFromAnalysis) ? { onPress: () => router.push(`/entry/${ref.id}`) } : null)}
-        onSaveStep={(a) => {
-          dispatch({ type: 'tomorrow', step: newStep(a.text, { kind: 'insights' }) });
-          snack({ message: 'Saved as an optional step for tomorrow. It’s on Today.' });
-        }}
+        onSaveStep={(a) => router.push({ pathname: '/tomorrow', params: { suggestion: a.text, basis: 'ai', use: '1' } })}
       />
 
       <Button variant="text" label="Choose which entries are used" onPress={() => router.push('/settings/ai-memory')} />

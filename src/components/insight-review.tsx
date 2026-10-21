@@ -149,7 +149,7 @@ function ActionSection({ actions, resolve, onSaveStep }: { actions: SuggestedAct
         ))
       )}
       <Text variant="small">Rest, waiting, or leaving things be are all reasonable choices too.</Text>
-      {onSaveStep && state.tomorrow?.status === 'open' && shown.length > 0 && <Text variant="small">Saving one replaces your current small step.</Text>}
+      {onSaveStep && shown.length > 0 && <Text variant="small">You’ll see a step in Tomorrow Bridge before it’s saved, and you can change it there.</Text>}
     </View>
   );
 }
