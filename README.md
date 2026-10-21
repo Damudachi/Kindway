@@ -2,7 +2,7 @@
 
 A compassionate reflection companion: a private journal that helps people process their day, notice patterns, and stay connected to their own long-term values. Android first (React Native + Expo SDK 58 + TypeScript, Expo Router).
 
-**Status: pre-release prototype (Phase 4).** The journal works fully on the device without an account. Optional Supabase accounts (email/password) can keep a private cloud copy of entries, compass, the Tomorrow Bridge step, preferences and insight feedback, protected by Row Level Security, and can be deleted from the app. With an account, cloud backup and separately recorded, revocable consent, Kindway can ask real AI (GroqCloud, `openai/gpt-oss-120b`, through Supabase Edge Functions) for a reflection on one entry, or for an on-demand review of the entries a user picks for this week or the last 30 days. Without that, reflections stay clearly labelled simulated previews on the device. Follow-up chat replies are always simulated. The AI functions and migrations are tested locally and not yet deployed to the hosted project. No notifications, voice transcription or native widget is connected. Not production-ready, not a therapist, and not crisis-ready.
+**Status: pre-release prototype (Phase 4).** The journal works fully on the device without an account. Optional Supabase accounts (email/password) can keep a private cloud copy of entries, compass, the Tomorrow Bridge step, preferences and insight feedback, protected by Row Level Security, and can be deleted from the app. With an account, cloud backup and separately recorded, revocable consent, Kindway can ask real AI (GroqCloud, `openai/gpt-oss-120b`, through Supabase Edge Functions) for a reflection on one entry, or for an on-demand review of the entries a user picks for this week or the last 30 days. Without that, reflections stay clearly labelled simulated previews on the device. Follow-up chat replies are always simulated. The AI functions and migrations are deployed to the hosted project and pass end-to-end tests there; the app itself has not yet been checked on a device against it. No notifications, voice transcription or native widget is connected. Not production-ready, not a therapist, and not crisis-ready.
 
 AI details, limits and deployment: [`docs/supabase-setup.md`](docs/supabase-setup.md) sections 6a–6b. Evaluation cases and rubric: [`docs/ai-evaluation.md`](docs/ai-evaluation.md).
 
@@ -51,7 +51,7 @@ Settings → **Preview states** simulates reflection failure, rate limits, offli
 ## Not built yet (next milestones)
 
 - Realtime sync and field-level conflict handling (sync is per record, last writer wins), data export.
-- Deploying the Phase 4 migrations and AI functions to the hosted project, and an end-to-end check on a device (see `docs/supabase-setup.md` section 6b).
+- A manual check of the app on a device against the hosted project (`docs/phase-4-hosted-smoke-test.md`).
 - AI reflections on other devices: they're stored on the account but only cached on the device that asked; other devices don't pull them yet.
 - Reviewed safety flow with verified regional resources (the Extra support screen is a placeholder; the keyword check in `src/data/safety.ts` is not a classifier).
 - Native Android widget spike, notifications (expo-notifications), voice capture and transcription, export.
