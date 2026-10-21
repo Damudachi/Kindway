@@ -93,7 +93,7 @@ export default function AiMemory() {
         />
         <SwitchRow
           title="Count my compass links"
-          detail="Only values you let reflections reference. Any suggestion stays optional."
+          detail="Only values marked “AI may use this”, and only their names. Any suggestion stays optional."
           value={state.insightsUseCompass}
           disabled={!state.weeklyPatterns}
           onChange={(insightsUseCompass) => patch({ insightsUseCompass })}

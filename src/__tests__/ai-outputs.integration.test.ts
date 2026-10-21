@@ -12,6 +12,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { supabaseAiOutputs } from '@/services/ai/remote';
 
+import { supabaseAiStore } from '../../supabase/functions/_shared/ai-store';
+
 const url = process.env.KINDWAY_TEST_SUPABASE_URL;
 const publishable = process.env.KINDWAY_TEST_PUBLISHABLE_KEY;
 const secret = process.env.KINDWAY_TEST_SECRET_KEY;
@@ -185,5 +187,59 @@ run('stored AI reviews, read back on another device', () => {
   it('deleting a source entry deletes every review written from it', async () => {
     await a.client.from('entries').delete().eq('id', 'w2');
     expect(await a.outputs.latestReview('week')).toBeNull();
+  });
+});
+
+run('compass context the AI functions may read (Phase 5D1)', () => {
+  let admin: SupabaseClient;
+  let a: Awaited<ReturnType<typeof testUser>>;
+  let b: Awaited<ReturnType<typeof testUser>>;
+
+  beforeAll(async () => {
+    admin = createClient(url!, secret!, options);
+    a = await testUser(admin, 'ca');
+    b = await testUser(admin, 'cb');
+    const entries = ['c1', 'c2'].map((id) => ({ id, user_id: a.id, written_at: new Date().toISOString(), body: BODY, feelings: [], gratitude: null, exclude_from_analysis: false }));
+    if ((await a.client.from('entries').insert(entries)).error) throw new Error('entries');
+    const values = [
+      { id: 'v-family', area: 'Family', note: 'Fictional note: stay close.', ai_may_reference: true, position: 0 },
+      { id: 'v-health', area: 'Health', note: 'Fictional private note.', ai_may_reference: false, position: 1 },
+      { id: 'v-work', area: 'Work', note: '', ai_may_reference: true, position: 2 },
+    ].map((v) => ({ ...v, user_id: a.id }));
+    if ((await a.client.from('compass_values').insert(values)).error) throw new Error('compass');
+    const links = [
+      { entry_id: 'c1', compass_id: 'v-family' },
+      { entry_id: 'c1', compass_id: 'v-health' },
+      { entry_id: 'c2', compass_id: 'v-work' },
+    ].map((l) => ({ ...l, user_id: a.id }));
+    if ((await a.client.from('entry_compass_links').insert(links)).error) throw new Error('links');
+  });
+
+  afterAll(async () => {
+    for (const u of [a, b]) if (u) await admin.auth.admin.deleteUser(u.id);
+  });
+
+  it('only values linked to the asked-about entry and marked “AI may use this”', async () => {
+    const store = supabaseAiStore(a.client);
+    expect(await store.compassLinks(['c1'])).toEqual([{ entry_id: 'c1', area: 'Family', note: 'Fictional note: stay close.' }]);
+  });
+
+  it('another account gets nothing, even with the right entry ids, and can’t link to A’s values', async () => {
+    expect(await supabaseAiStore(b.client).compassLinks(['c1', 'c2'])).toEqual([]);
+    if ((await b.client.from('entries').insert({ id: 'bx', user_id: b.id, written_at: new Date().toISOString(), body: BODY })).error) throw new Error('entry');
+    const spoof = await b.client.from('entry_compass_links').insert({ user_id: b.id, entry_id: 'bx', compass_id: 'v-family' });
+    expect(spoof.error).not.toBeNull();
+  });
+
+  it('switching the value off, unlinking or deleting it removes it from what AI may read', async () => {
+    const store = supabaseAiStore(a.client);
+    await a.client.from('compass_values').update({ ai_may_reference: false }).eq('id', 'v-family');
+    expect(await store.compassLinks(['c1'])).toEqual([]);
+    expect(await store.compassLinks(['c2'])).toHaveLength(1);
+    await a.client.from('entry_compass_links').delete().eq('entry_id', 'c2');
+    expect(await store.compassLinks(['c2'])).toEqual([]);
+    await a.client.from('compass_values').delete().eq('id', 'v-health');
+    const { count } = await a.client.from('entry_compass_links').select('entry_id', { count: 'exact', head: true }).eq('compass_id', 'v-health');
+    expect(count).toBe(0);
   });
 });

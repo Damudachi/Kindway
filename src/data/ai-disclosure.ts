@@ -17,9 +17,9 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
     sent: [
       'The text of that entry, its feeling tags and its “one good thing”.',
       'Your support style and challenge settings for that reflection.',
-      'Compass values you linked to that entry, only if “What reflections can see” allows it.',
+      'For each compass value you linked to that entry and marked “AI may use this”: its name and your note about it (up to the first 400 characters). Not sent when “What reflections can see” is “This entry only”.',
     ],
-    notSent: ['Your other entries, your email address or your account details.'],
+    notSent: ['Your other entries, compass values you didn’t link to that entry or didn’t mark “AI may use this”, your email address or your account details.'],
   },
   follow_up: {
     title: 'Follow-up conversations',

@@ -143,6 +143,7 @@ Consent is recorded on the account and checked by the AI Edge Functions (section
 
 - `entry_reflection`: a reflection on one entry the user asks about.
 - `cross_entry_analysis`: an on-demand review across entries in a period the user picks.
+- `follow_up`: AI replies in the follow-up conversation about one entry (Phase 5C). Separate from `entry_reflection`.
 
 Consent needs an account; local-only users can't grant it, so nothing can be sent for them.
 
@@ -157,6 +158,8 @@ Consent needs an account; local-only users can't grant it, so nothing can be sen
 
 **Versions.** The app's copy lives in `src/data/ai-disclosure.ts` and its terms in `src/services/ai/consent.ts` (`CURRENT_TERMS`). A Jest test checks that they equal the server's `AI_CONSENT_TERMS`. Any change to the wording, the provider, or the retention posture means bumping the matching version in both places, which asks everyone to agree again.
 
+Version history: `entry_reflection` went to **2** in Phase 5D1, when its disclosure started naming exactly what compass context is sent (linked values marked "AI may use this": name and note, first 400 characters). A version-1 grant is "outdated" and refused until the user agrees again. **Deploy the server and the app together:** an app expecting version 2 against a server still requiring version 1 (or the reverse) makes every reflection request fail closed with `consent_required`.
+
 **Provider disclosure.** It describes GroqCloud's *default* retention posture, as stated in Groq's docs on 2026-10-20: no retention of inference content by default; logging of inputs and outputs for up to 30 days for reliability or abuse investigations; usage metadata without content; retained data stored in the US. Zero Data Retention has **not** been verified in Kindway's Groq console. If you enable it there, first verify it in Groq's **Data Controls**, then rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
 
 **Withdrawing** blocks new requests on the server immediately. It doesn't delete outputs already written; the AI processing screen has a separate **Delete AI outputs** action (section 6b).
@@ -167,7 +170,7 @@ Three authenticated Edge Functions, all run with the **caller's** JWT (never the
 
 | Function | Request body | Needs consent | Reads |
 |---|---|---|---|
-| `generate-reflection` | `entry_id`, `style`, `idempotency_key` | `entry_reflection` | That one entry; the profile's challenge settings; compass values linked to it with `ai_may_reference`, only when "What reflections can see" isn't "this entry only". Never other entries. |
+| `generate-reflection` | `entry_id`, `style`, `idempotency_key` | `entry_reflection` (consent version 2 since Phase 5D1) | That one entry; the profile's challenge settings; for compass values linked to that entry with `ai_may_reference` ("AI may use this"), the name and the first 400 characters of the note, only when "What reflections can see" isn't "this entry only". Never other entries or unlinked values. Reviews get linked value names only (no notes) when "Count my compass links" is on; follow-ups get no compass data. |
 | `generate-insights` | `period` (`week`/`month`), `entry_ids` (shown to the user first), `idempotency_key` | `cross_entry_analysis` | Exactly those entries, re-checked: all must exist, be in the period and not be kept out of analysis, or it refuses (`selection_changed`). Compass links only if "Count my compass links" is on. |
 | `generate-follow-up` | `entry_id`, `message` (≤ 1500 chars), `style`, `idempotency_key`, optional `context_ids` (stored exchanges, ≤ 6) and `reflection_id` | `follow_up` | That one entry; the AI reflection named (must belong to that entry); the named earlier exchanges of that entry's conversation (any that are missing, another user's, or another entry's refuse with `context_not_found`), of which only the last `AI_FOLLOW_UP_MAX_TURNS` are sent; the profile's challenge settings. Never other entries, reviews or compass values. |
 

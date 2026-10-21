@@ -7,11 +7,11 @@
 import { loadAiConfig, type AiConfig } from '../../supabase/functions/_shared/ai-config';
 import { serveAi, type Deps, type LogFields } from '../../supabase/functions/_shared/ai-http';
 import { groqProvider, type AiProvider, type CompletionRequest, type CompletionResult } from '../../supabase/functions/_shared/ai-provider';
-import type { AiScope } from '../../supabase/functions/_shared/ai-consent';
+import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase/functions/_shared/ai-consent';
 import type { AiStore, BeginResult, CompassLink, EntryRow, ProfileRow, StoredFollowUp, StoredInsight, StoredReflection } from '../../supabase/functions/_shared/ai-store';
 import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { handleInsights, parseInsights } from '../../supabase/functions/_shared/insights';
-import { handleReflection, parseReflection, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
+import { handleReflection, MAX_COMPASS_NOTE, parseReflection, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
 import { caseEntry, caseTurns, FOLLOW_UP_CASES } from '@/test-utils/follow-up-cases';
 
@@ -294,7 +294,7 @@ describe('generate-reflection', () => {
     const result = await handleReflection(reflect(), ctx(store, provider));
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ status: 'ready', reflection: { id: 'ref-1', entry_id: 'e1', style: 'understand', provider: 'groq', model: 'openai/gpt-oss-120b' } });
-    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p2', entry_updated_at: '2026-10-19T20:00:00.000Z' });
+    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p3', entry_updated_at: '2026-10-19T20:00:00.000Z' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
     expect(store.entries).toHaveBeenCalledWith(['e1']);
     const sent = provider.calls[0].user;
@@ -811,5 +811,96 @@ describe('follow-up scenarios (fictional; prompt shape and routing only, no mode
     if (c.earlier) expect(user).toContain(c.earlier.reply);
     // The injection attempt stays in the user block; the rules that refuse it are in the system prompt.
     expect(system).not.toContain('Python');
+  });
+});
+
+describe('Long Game Compass context (Phase 5D1)', () => {
+  const ENTRY = entry('e1', 'Fictional: skipped the gym again, but I called my brother for an hour.');
+  const linked = { entry_id: 'e1', area: 'Family', note: 'Fictional note: stay close to my brother.' };
+  const otherEntry = { entry_id: 'e2', area: 'Health', note: 'Fictional note: move a little every day.' };
+
+  it('a reflection gets only the values linked to that entry (and allowed), with the user’s note', async () => {
+    // The store returns only links the user allowed (ai_may_reference); see the integration test.
+    const store = fakeStore({ entries: [ENTRY], compass: [linked, otherEntry] });
+    const provider = fakeProvider(reply({}));
+    await handleReflection(reflect(), ctx(store, provider));
+    expect(store.compassLinks).toHaveBeenCalledWith(['e1']);
+    const { user } = provider.calls[0];
+    expect(user).toContain('- Family: Fictional note: stay close to my brother.');
+    expect(user).not.toContain('Health');
+    expect(user).not.toContain('move a little');
+  });
+
+  it('a long note is cut to the disclosed length', async () => {
+    const note = `Fictional ${'a'.repeat(MAX_COMPASS_NOTE)}TAIL-NOT-SENT`;
+    const provider = fakeProvider(reply({}));
+    await handleReflection(reflect(), ctx(fakeStore({ entries: [ENTRY], compass: [{ ...linked, note }] }), provider));
+    expect(provider.calls[0].user).toContain(`${note.slice(0, MAX_COMPASS_NOTE)}…`);
+    expect(provider.calls[0].user).not.toContain('TAIL-NOT-SENT');
+  });
+
+  it('without any linked value, a reflection works as usual', async () => {
+    const provider = fakeProvider(reply({}));
+    const res = await handleReflection(reflect(), ctx(fakeStore({ entries: [ENTRY] }), provider));
+    expect(res.status).toBe(200);
+    expect(provider.calls[0].user).toContain('Compass values: none');
+  });
+
+  it('the rules make a value optional evidence, never a target or a source of pressure', () => {
+    const system = reflectionSystemPrompt('understand', null);
+    expect(system).toContain('Leaving them null is normal');
+    expect(system).toContain("don't treat it as a target they must meet");
+    expect(system).toContain("don't add goals or values they didn't write");
+    expect(system).toContain('never use a value to pressure or shame');
+  });
+
+  it('“Just listen” never carries a compass connection, whatever the model returns', () => {
+    const parsed = parseReflection(reply({ compass_value: 'Family', compass_connection: 'Fictional: you should call more.' }), 'listen', [linked]);
+    expect(parsed?.output.compass_connection).toBeNull();
+    expect(parsed?.output.suggested_step).toBeNull();
+  });
+
+  it('the reflection gate asks for the renewed consent version; an earlier grant no longer counts', async () => {
+    const rpc = jest.fn(async () => ({ data: false, error: null }));
+    expect(await hasActiveConsent({ rpc }, 'entry_reflection')).toBe(false);
+    expect(rpc).toHaveBeenCalledWith('ai_consent_active', expect.objectContaining({ p_scope: 'entry_reflection', p_consent_version: '2' }));
+    expect(AI_CONSENT_TERMS.consentVersion).toEqual({ entry_reflection: '2', cross_entry_analysis: '1', follow_up: '1' });
+  });
+
+  it('a review gets value names only, never notes', async () => {
+    const entries = ['a1', 'a2', 'a3'].map((id, i) => entry(id, `Fictional review entry ${i}.`, { written_at: new Date(NOW - (i + 1) * 86_400_000).toISOString() }));
+    const store = fakeStore({ entries, compass: [{ entry_id: 'a1', area: 'Family', note: 'Fictional private note' }], consent: { cross_entry_analysis: true } });
+    const provider = fakeProvider(JSON.stringify({ summary: 's', enough_evidence: false, observations: [], next_steps: [], safety_concern: false }));
+    await handleInsights({ period: 'week', entry_ids: ['a1', 'a2', 'a3'], idempotency_key: KEY }, { store, provider, config: config() });
+    expect(provider.calls[0].user).toContain('Compass values linked: Family');
+    expect(provider.calls[0].user).not.toContain('Fictional private note');
+  });
+
+  it('a follow-up never reads or sends compass values, even for a linked entry', async () => {
+    const store = fakeStore({ entries: [ENTRY], compass: [linked], consent: { follow_up: true } });
+    const provider = fakeProvider(JSON.stringify({ reply: 'Fictional reply.', safety_concern: false }));
+    await handleFollowUp({ entry_id: 'e1', message: 'Fictional: what now?', style: 'forward', idempotency_key: KEY }, ctx(store, provider));
+    expect(store.compassLinks).not.toHaveBeenCalled();
+    expect(provider.calls[0].user).not.toContain('Family');
+    expect(provider.calls[0].user).not.toContain('stay close to my brother');
+  });
+
+  it('provider failures and unusable replies save nothing and keep compass notes out of the log', async () => {
+    const secret = 'FICTIONAL-SECRET-COMPASS-NOTE';
+    for (const result of [{ ok: false as const, error: 'timeout' as const }, { ok: false as const, error: 'rate' as const }, 'not json']) {
+      const logs: LogFields[] = [];
+      const store = fakeStore({ entries: [ENTRY], compass: [{ ...linked, note: secret }] });
+      const d: Deps = { env: env({ GROQ_API_KEY: 'test-key-not-real' }), authenticate: async () => store, provider: () => fakeProvider(result), log: (f) => logs.push(f) };
+      const res = await serveAi(
+        'generate-reflection',
+        new Request('http://localhost/x', { method: 'POST', body: JSON.stringify(reflect()), headers: { Authorization: 'Bearer t', 'Content-Type': 'application/json' } }),
+        d,
+        handleReflection,
+      );
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(await res.text()).not.toContain(secret);
+      expect(JSON.stringify(logs)).not.toContain(secret);
+      expect(store.reflections).toHaveLength(0);
+    }
   });
 });

@@ -100,8 +100,8 @@ export default function Compass() {
             </>
           )}
           <SwitchRow
-            title="Reflections may mention this"
-            detail="Only when it seems relevant, and always named."
+            title="AI may use this"
+            detail="Only with entries you link it to, when you ask for AI. Reflections get its name and your note; reviews get only its name."
             value={c.aiMayReference}
             onChange={(aiMayReference) => update(c.id, { aiMayReference })}
           />

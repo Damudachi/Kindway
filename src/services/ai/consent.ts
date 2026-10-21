@@ -20,7 +20,7 @@ export const CURRENT_TERMS = {
   provider: 'groq',
   modelRef: 'openai/gpt-oss-120b',
   disclosureVersion: 'groq-default-retention-2026-10-20',
-  consentVersion: { entry_reflection: '1', cross_entry_analysis: '1', follow_up: '1' } satisfies Record<AiScope, string>,
+  consentVersion: { entry_reflection: '2', cross_entry_analysis: '1', follow_up: '1' } satisfies Record<AiScope, string>,
 } as const;
 
 export type ConsentRecord = {

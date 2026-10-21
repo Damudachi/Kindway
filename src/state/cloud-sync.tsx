@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import type { AiOutputsRepo } from '@/services/ai/remote';
 import { changeCount, diff, emptySnapshot, toCloud, type CloudSnapshot } from '@/services/cloud/records';
 import { CloudError, type CloudRepo } from '@/services/cloud/repo';
-import { useStore } from '@/state/demo-store';
+import { useStore, type DemoState } from '@/state/demo-store';
 import { syncBaseStorage, type StateStorage } from '@/storage/persistence';
 
 /**
@@ -21,8 +21,9 @@ export type SyncInfo = {
   pending: number;
   retry(): void;
   /**
-   * Resolves true once the cloud has confirmed these entries with exactly this text, pushing
-   * pending changes first. Real AI reads entries from the account, so it waits for this.
+   * Resolves true once the cloud has confirmed these entries with exactly this text, and this
+   * device's AI context choices (profile, compass, entry links), pushing pending changes first.
+   * Real AI reads all of these from the account, so it waits for this.
    */
   ensureSynced(entries: { id: string; body: string }[]): Promise<boolean>;
 };
@@ -181,7 +182,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
     async (want: { id: string; body: string }[]) => {
       for (let i = 0; i < ENSURE_TRIES && alive.current; i++) {
         const confirmed = base.current;
-        if (pulled.current && confirmed && want.every((w) => confirmed.entries[w.id]?.body === w.body)) return true;
+        if (pulled.current && confirmed && want.every((w) => confirmed.entries[w.id]?.body === w.body) && contextSettled(confirmed, latest.current)) return true;
         void sync();
         await new Promise((resolve) => setTimeout(resolve, ENSURE_POLL_MS));
       }
@@ -192,6 +193,17 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
 
   const value = useMemo(() => ({ status, pending, retry, ensureSynced }), [status, pending, retry, ensureSynced]);
   return <SyncContext value={value}>{children}</SyncContext>;
+}
+
+/**
+ * Whether the account already has this device's AI context choices: the profile (what
+ * reflections can see, whether reviews count compass links), the compass values with their
+ * "AI may use this" switches, and which entries link to them. The server applies the account's
+ * copy, so a change made here must reach it before AI runs, or the old choice would apply.
+ */
+function contextSettled(confirmed: CloudSnapshot, state: DemoState) {
+  const c = diff(confirmed, toCloud(state));
+  return !c.profile && [c.upserts.compass, c.upserts.links, c.deletes.compass, c.deletes.links].every((rows) => rows.length === 0);
 }
 
 /** Cloud sync status, or null when this journal is local-only. */

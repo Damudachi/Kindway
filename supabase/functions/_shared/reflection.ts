@@ -7,7 +7,10 @@ import type { CompassLink, EntryRow, ProfileRow, StoredReflection } from './ai-s
 import { needsSafetyRoute } from './safety.ts';
 
 export const REFLECTION_SCHEMA_VERSION = 'reflection-1';
-export const REFLECTION_PROMPT_VERSION = 'reflection-p2';
+export const REFLECTION_PROMPT_VERSION = 'reflection-p3';
+
+/** The longest part of a compass note sent with a reflection; the rest is left out. */
+export const MAX_COMPASS_NOTE = 400;
 
 const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
 export type Style = (typeof STYLES)[number];
@@ -96,18 +99,23 @@ Fields:
 - acknowledgment (required): one to three sentences reflecting what the user shared and how it seems to feel.
 - events_and_interpretations: separates what happened from what the user concluded, tentatively. Or null.
 - possible_perspective: one tentative alternative way to see it. Or null.
-- compass_value and compass_connection: only if compass values are listed inside the entry block and one is genuinely relevant. compass_value must be exactly one of the listed names; compass_connection says briefly how it might connect. Never frame a hard feeling as failing a value. Otherwise both null.
+- compass_value and compass_connection: only if compass values are listed inside the entry block and one is genuinely relevant to what this entry is about. Leaving them null is normal; don't mention a value just because it is listed. compass_value must be exactly one of the listed names; compass_connection says briefly and tentatively how it might connect. A note after a value is the user's own words about it: don't treat it as a target they must meet, don't add goals or values they didn't write, and don't state anything about their values beyond those words. Never frame a hard feeling, rest or a setback as failing a value, and never use a value to pressure or shame. Otherwise both null.
 - suggested_step: one small optional practical step, or null.
 - reflection_question: at most one open question, or null.
 - safety_concern: true if the entry suggests the user may be at risk of harming themselves or someone else, or is in danger; then Kindway shows reviewed support information instead of your reflection. Otherwise false.`;
 }
+
+const compassNote = (note: string) => {
+  const t = note.trim();
+  return t.length > MAX_COMPASS_NOTE ? `${t.slice(0, MAX_COMPASS_NOTE)}…` : t;
+};
 
 export function reflectionUserPrompt(entry: EntryRow, compass: CompassLink[]) {
   const parts = [
     `Feeling tags the user chose: ${entry.feelings.length ? entry.feelings.map(fence).join(', ') : 'none'}`,
     `One good thing the user noted: ${entry.gratitude ? fence(entry.gratitude) : 'none'}`,
     compass.length
-      ? `Compass values the user linked to this entry:\n${compass.map((c) => `- ${fence(c.area)}${c.note ? `: ${fence(c.note)}` : ''}`).join('\n')}`
+      ? `Compass values the user linked to this entry:\n${compass.map((c) => `- ${fence(c.area)}${c.note.trim() ? `: ${fence(compassNote(c.note))}` : ''}`).join('\n')}`
       : 'Compass values: none',
     `Journal entry:\n${fence(entry.body)}`,
   ];
