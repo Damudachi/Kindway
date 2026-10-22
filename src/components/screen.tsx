@@ -16,12 +16,21 @@ type TopBarProps = {
   wordmark?: boolean;
 };
 
+/**
+ * Back, or to the root route when there's nothing to go back to (a screen opened from an email
+ * link replaces itself); the root route opens Today or onboarding from what's saved.
+ */
+export function goBack() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
+
 /** Material small top app bar: 64dp, back on the left, actions on the right. */
 export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) {
   return (
     <View style={styles.bar}>
       {back ? (
-        <IconButton icon="arrow-left" label="Back" onPress={onBack ?? (() => router.back())} tint={color.ink} />
+        <IconButton icon="arrow-left" label="Back" onPress={onBack ?? goBack} tint={color.ink} />
       ) : (
         <View style={{ width: space.xs }} />
       )}

@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Section } from '@/components/controls';
 import { Notice, StateView } from '@/components/notice';
-import { Screen } from '@/components/screen';
+import { goBack, Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { accountStateAfter, planMigration, runMigration, type MigrationPlan } from '@/services/cloud/migrate';
 import type { CloudSnapshot } from '@/services/cloud/records';
@@ -96,7 +96,7 @@ export default function Sync() {
           title="Cloud sync is on"
           body={`This device shows the journal saved to ${user?.email}.`}
           // Reached from sign-in during onboarding, going back would re-enter the steps just left.
-          action={<Button label="Done" onPress={() => (state.onboarded ? router.back() : router.replace('/consent?next=today'))} />}
+          action={<Button label="Done" onPress={() => (state.onboarded ? goBack() : router.replace('/consent?next=today'))} />}
         />
       </Screen>
     );
