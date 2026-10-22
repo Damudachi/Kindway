@@ -182,6 +182,21 @@ async function openApp(url: string, { user = null, syncing = false, state = init
   );
 }
 
+describe('screens opened with nothing behind them', () => {
+  // An email link cold-starts the app on /auth/confirm, which replaces itself with /sync.
+  it.each([
+    ['the back arrow', 'Back'],
+    ['“Cloud sync is on” → Done', 'Done'],
+  ])('%s goes to the root route instead of an unhandled GO_BACK', async (_name, button) => {
+    const warn = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await openApp('/sync', { user: A, syncing: true, state: { ...initialState, onboarded: true }, sync: syncInfo() });
+    await fireEvent.press(await screen.findByRole('button', { name: button }, wait));
+    expect(await screen.findByText('Today screen', {}, wait)).toBeOnTheScreen();
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(/GO_BACK/);
+    warn.mockRestore();
+  });
+});
+
 describe('onboarding with an account', () => {
   beforeEach(() => onState.mockClear());
 
