@@ -42,14 +42,17 @@ export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) 
 }
 
 /**
- * How a screen makes room for the keyboard. Android already resizes the window above the
- * keyboard, so padding there too would leave a keyboard-high gap; iOS needs the padding.
+ * How a screen makes room for the keyboard, on both platforms. The app draws edge to edge, so
+ * Android doesn't resize the window for the keyboard (without this the Talk composer ended up
+ * behind it). The padding is only the part of the screen the keyboard actually covers, so it
+ * stays right even where a window does resize.
  */
-export const keyboardBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
+export const keyboardBehavior = 'padding' as const;
 
 /**
- * The bottom inset to keep clear. While the keyboard is open the window ends above it, so the
- * navigation-bar inset no longer applies there (iOS keeps the inset: its padding covers it).
+ * The bottom inset to keep clear. While the keyboard is open on Android, the keyboard padding
+ * already covers the navigation bar, so keeping its inset too left an empty band above the
+ * keyboard (iOS keeps the inset, as before).
  */
 export function useBottomInset(inset: number) {
   const [keyboard, setKeyboard] = useState(false);

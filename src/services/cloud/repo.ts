@@ -18,9 +18,20 @@ export class CloudError extends Error {
   constructor(
     message: string,
     readonly kind: 'offline' | 'auth' | 'rejected' | 'unknown',
+    /** The server's error code (e.g. `42501`, `PGRST301`), safe to show; never a message. */
+    readonly code?: string,
   ) {
     super(message);
   }
+}
+
+const safeCode = (code: unknown) => (typeof code === 'string' && /^[A-Z0-9_]{1,20}$/i.test(code) ? code : undefined);
+
+/** What a thrown, non-server error means: a failed fetch is offline; anything else is a bug, not a connection. */
+export function unexpected(e: unknown): CloudError {
+  if (e instanceof CloudError) return e;
+  if (e instanceof TypeError && /fetch|network/i.test(e.message)) return new CloudError('Network unavailable', 'offline');
+  return new CloudError('Cloud data could not be read', 'unknown', e instanceof Error && /^\w{1,40}$/.test(e.name) ? e.name : 'unexpected');
 }
 
 const KEYS: Record<keyof typeof TABLES, string> = {
@@ -35,9 +46,10 @@ export function fail(error: { message?: string; code?: string; status?: number }
   const msg = error?.message ?? '';
   // Only the category leaves this function; messages may echo row content.
   if (/fetch|network|timed? ?out/i.test(msg)) throw new CloudError('Network unavailable', 'offline');
-  if (error?.code === 'PGRST301' || error?.code === '42501' || error?.status === 401) throw new CloudError('Not authorized', 'auth');
-  if (error?.code?.startsWith('23')) throw new CloudError('Rejected by the server', 'rejected');
-  throw new CloudError('Cloud request failed', 'unknown');
+  const code = safeCode(error?.code) ?? (error?.status ? `http_${error.status}` : undefined);
+  if (error?.code === 'PGRST301' || error?.code === '42501' || error?.status === 401) throw new CloudError('Not authorized', 'auth', code);
+  if (error?.code?.startsWith('23')) throw new CloudError('Rejected by the server', 'rejected', code);
+  throw new CloudError('Cloud request failed', 'unknown', code);
 }
 
 export function supabaseRepo(client: SupabaseClient): CloudRepo {
@@ -80,8 +92,7 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
         ]);
         return normalizeRows({ profile: profiles[0] ?? null, compass, entries, links, tomorrow, feedback });
       } catch (e) {
-        if (e instanceof CloudError) throw e;
-        throw new CloudError('Network unavailable', 'offline');
+        throw unexpected(e);
       }
     },
 
@@ -100,8 +111,7 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
         await upsert('tomorrow_actions', userId, KEYS.tomorrow, c.upserts.tomorrow);
         await upsert('insight_feedback', userId, KEYS.feedback, c.upserts.feedback);
       } catch (e) {
-        if (e instanceof CloudError) throw e;
-        throw new CloudError('Network unavailable', 'offline');
+        throw unexpected(e);
       }
     },
 

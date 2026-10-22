@@ -304,7 +304,7 @@ describe('keyboard handling', () => {
     jest.restoreAllMocks();
   });
 
-  it('pads for the keyboard only on iOS; Android resizes the window itself', () => {
+  it('pads for the keyboard on Android too: the app is edge to edge, so the window is not resized', () => {
     expect(Platform.OS).toBe('ios');
     expect(keyboardBehavior).toBe('padding');
     jest.isolateModules(() => {
@@ -312,7 +312,7 @@ describe('keyboard handling', () => {
       const RN = require('react-native');
       RN.Platform.OS = 'android';
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      expect(require('@/components/screen').keyboardBehavior).toBeUndefined();
+      expect(require('@/components/screen').keyboardBehavior).toBe('padding');
     });
   });
 

@@ -39,25 +39,30 @@ The publishable key is safe to ship only because every table enforces Row Level 
 
 **Authentication → URL Configuration**
 
-- **Site URL:** `kindway://`
-- **Redirect URLs:**
-  - `kindway://**`: development and release builds (the app's scheme from `app.json`).
-  - `exp://**`: **development only**, for Expo Go, whose links look like `exp://192.168.1.20:8081/--/reset-password`. Remove it before a public release.
+- **Site URL:** `kindway:///auth/confirm`. Kindway has no website, so there's no HTTPS page to use. The app always asks for an explicit redirect, so the Site URL is only used when Supabase rejects that redirect (and by any email template that uses `{{ .SiteURL }}`). Pointing it at the confirm screen means a fallback still opens the installed app and finishes signing in there, instead of landing on a screen that ignores the link. Never set it to an Expo Go (`exp://`) address. If Kindway gets a website, use an HTTPS page there instead.
+- **Redirect URLs** (exact entries for release, globs only for development):
+  - `kindway:///auth/confirm` and `kindway:///reset-password`: development and release builds.
+  - `exp://**` and `exps://**`: **development only**, for Expo Go on a LAN (`exp://`) or through `npx expo start --tunnel` (`exps://`). Remove both before a public release.
 
-The app asks Supabase to send email links back to `Linking.createURL(path)` (`src/services/auth.ts`), which depends on where the app runs. Nothing is hardcoded, so a development server's LAN address never ends up in a build:
+**Authentication → Emails → Templates:** the repository has no custom templates (`supabase/config.toml` leaves them commented out), so the hosted project should use Supabase's defaults, whose link is `{{ .ConfirmationURL }}`. Its `redirect_to` is the app's requested redirect when that's allow-listed, otherwise the Site URL. If someone edited the hosted *Confirm signup* or *Reset password* template, check that it still uses `{{ .ConfirmationURL }}` (or `{{ .RedirectTo }}`), not a hand-written `{{ .SiteURL }}` link, which would ignore the app's redirect every time.
+
+The app chooses the redirect in `redirectTo()` (`src/services/auth.ts`), by where it runs. A development server's address only ever appears in Expo Go links, which only Expo Go can open:
 
 | Flow | Expo Go (development) | Development or release build | Route |
 | --- | --- | --- | --- |
-| Email confirmation | `exp://<lan-ip>:8081/--/auth/confirm` | `kindway:///auth/confirm` | `src/app/auth/confirm.tsx` |
-| Password reset | `exp://<lan-ip>:8081/--/reset-password` | `kindway:///reset-password` | `src/app/reset-password.tsx` |
+| Email confirmation | `exp://<lan-ip>:8081/--/auth/confirm` (`exps://<tunnel-host>/--/auth/confirm` with `--tunnel`) | `kindway:///auth/confirm` | `src/app/auth/confirm.tsx` |
+| Password reset | `exp://<lan-ip>:8081/--/reset-password` (`exps://…` with `--tunnel`) | `kindway:///reset-password` | `src/app/reset-password.tsx` |
+
+In development, the redirect the app sent is printed in the Metro log (`[auth] confirmation links return to …`) and shown on the "Check your email" screen. Only that address is logged, never a token, code or session.
 
 Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges the code on the same device that requested it. A link opened on another device can't finish signing in there. For a confirmation link the email is still confirmed, so the person can just sign in. For a reset link they request a new one from the device they'll use. An expired or already-used link comes back with `error_code` (for example `otp_expired`) in the URL fragment and the query; both routes read the full URL and say what went wrong instead of showing an empty screen.
 
 **If a confirmation email links to the wrong place (blank page after tapping it):**
 
-- Supabase uses the requested redirect only if it matches **Redirect URLs**; otherwise it silently falls back to the **Site URL**. If an email requested from Expo Go has a `redirect_to` that isn't `exp://…`, the hosted project rejected the Expo Go address and used its Site URL. Check that `exp://**` is listed under Redirect URLs (development only) and that the Site URL is `kindway://`, then sign up again: links already sent keep their old target.
-- A `kindway://` link can't open Expo Go, which only answers to `exp://`. The browser then has nowhere to go and shows a blank page. Use a development build (`npx expo run:android` or `eas build --profile development`) to test `kindway://` links.
-- An Expo Go link points at the computer running Metro, so it only works while `npx expo start` is running on the same network, and only on the phone that signed up (the PKCE code verifier is stored there). If the LAN address changes, request a new email.
+- Compare the email's `redirect_to` with the address on the app's "Check your email" screen (or the Metro log) from the same sign-up. If they match, the email is fresh and Supabase accepted it. If the app showed `exp://…` or `exps://…` but the email says `kindway:///auth/confirm`, Supabase rejected the Expo Go address and used the Site URL: add the matching `exp://**` / `exps://**` entry. If the screen shows `kindway:///…`, the app isn't running in Expo Go.
+- A `kindway://` link can't open Expo Go, which only answers to `exp://` and `exps://`. The browser then has nowhere to go and shows a blank page. Use a development build (`npx expo run:android` or `eas build --profile development`) to test `kindway://` links.
+- An Expo Go link points at the computer running Metro, so it only works while `npx expo start` is running (same network, or the same tunnel), and only on the phone that signed up (the PKCE code verifier is stored there). If the address changes, request a new email.
+- Emails already sent keep the redirect they were sent with. After changing any setting, sign up again with a new address to test.
 - Opening the link again after it worked shows "You're already signed in"; it doesn't sign anyone else in.
 
 **Email sending:** Supabase's built-in email service is heavily rate-limited (a few emails per hour) and meant for testing. Before real users, set up custom SMTP under **Authentication → Emails → SMTP Settings**.

@@ -88,6 +88,7 @@ export default function Settings() {
               <>
                 <Text variant="small" style={styles.gapSm}>
                   Cloud sync is on. {sync ? SYNC_TEXT[sync.status] : ''}
+                  {sync?.errorCode && sync.status !== 'synced' ? ` (Reference: ${sync.errorCode})` : ''}
                 </Text>
                 {sync && (sync.status === 'error' || sync.status === 'offline') && <Button variant="text" label="Try again now" onPress={sync.retry} />}
                 {sync?.status === 'signed-out' && <Button variant="text" label="Sign in again" onPress={() => router.push('/account?mode=signin')} />}

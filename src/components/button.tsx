@@ -46,7 +46,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
       ) : (
         <View style={[styles.row, trailingIcon && styles.spread]}>
           {icon && <MaterialCommunityIcons name={icon} size={20} color={fg} />}
-          <Text variant="label" style={{ color: fg, fontSize: variant === 'primary' ? 16 : 14 }}>
+          <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
             {label}
           </Text>
           {trailingIcon && <MaterialCommunityIcons name={trailingIcon} size={20} color={fg} />}
@@ -87,6 +87,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     paddingHorizontal: space.gutter,
+    // A long label wraps onto more lines and the button grows; short ones keep the touch height.
+    paddingVertical: space.xs,
     justifyContent: 'center',
     overflow: 'hidden',
   },
@@ -95,6 +97,8 @@ const styles = StyleSheet.create({
   textOnly: { paddingHorizontal: space.sm, marginLeft: -space.sm, alignSelf: 'flex-start' },
   pressed: { opacity: 0.92 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs },
+  // In a row a label doesn't shrink by default, so a long one ran past the edge and was clipped.
+  label: { flexShrink: 1, textAlign: 'center' },
   spread: { justifyContent: 'space-between' },
   icon: { width: touch, height: touch, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
 });

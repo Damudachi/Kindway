@@ -10,12 +10,16 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import { useStore } from '@/state/demo-store';
+import { useSession } from '@/state/session';
 import { space } from '@/theme/tokens';
 
 const MAX = 3;
 
 export default function CompassSetup() {
   const { state, dispatch } = useStore();
+  const { user } = useSession();
+  // Someone already signed in has an account; offering to create one again is what looped them.
+  const next = user ? '/consent' : '/account';
   const [picked, setPicked] = useState<string[]>(state.compass.map((c) => c.area).slice(0, MAX));
   const [goals, setGoals] = useState<Record<string, string>>(Object.fromEntries(state.compass.map((c) => [c.area, c.note])));
 
@@ -30,7 +34,7 @@ export default function CompassSetup() {
         return { id: existing?.id ?? `c-${area}`, area, note: (goals[area] ?? '').trim(), aiMayReference: existing?.aiMayReference ?? true };
       }),
     });
-    router.push('/account');
+    router.push(next);
   };
 
   return (
@@ -45,7 +49,7 @@ export default function CompassSetup() {
             style={styles.center}
             onPress={() => {
               dispatch({ type: 'compass', compass: [] });
-              router.push('/account');
+              router.push(next);
             }}
           />
         </>

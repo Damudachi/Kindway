@@ -8,6 +8,8 @@ import { Notice } from '@/components/notice';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { redirectTo } from '@/services/auth';
+import { useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { space } from '@/theme/tokens';
@@ -24,7 +26,8 @@ export default function Account() {
   const { auth, user } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
+  const sync = useSync();
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string; reference?: string }>({});
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<'confirm' | 'reset' | null>(null);
   const passwordRef = useRef<TextInputInstance>(null);
@@ -56,12 +59,12 @@ export default function Account() {
       if (forgot) {
         const result = await auth.requestPasswordReset(address);
         if (result.ok) setSent('reset');
-        else setErrors({ form: result.message });
+        else setErrors({ form: result.message, reference: result.reference });
         return;
       }
       const result = signup ? await auth.signUp(address, password) : await auth.signIn(address, password);
       if (!result.ok) {
-        setErrors({ form: result.message });
+        setErrors({ form: result.message, reference: result.reference });
         return;
       }
       setPassword('');
@@ -69,9 +72,15 @@ export default function Account() {
         setSent('confirm');
         return;
       }
+      // Signing in again as the account already syncing here doesn't restart its sync by itself.
+      // Another account gets its own journal and sync instead, so the old one is left alone.
+      if (sync?.status === 'signed-out' && user?.email.toLowerCase() === address.toLowerCase()) sync.retry();
       // Signing in never uploads anything by itself; the next screen asks first.
       if (!signup || state.onboarded) router.replace('/sync');
       else continueOnboarding();
+    } catch {
+      // Never leave the person with a spinner that just stops: say it didn't work.
+      setErrors({ form: 'Something went wrong. Try again in a moment.', reference: 'unexpected' });
     } finally {
       setBusy(false);
     }
@@ -96,6 +105,12 @@ export default function Account() {
             : `If an account exists for ${email.trim()}, we sent a link to choose a new password. Open it on this phone.`}
         </Text>
         <Notice>The link can take a minute to arrive. Check spam if you don’t see it.</Notice>
+        {__DEV__ && sent === 'confirm' && (
+          // Development only: a fresh email's redirect_to matches this; an old one won't.
+          <Text variant="small" style={styles.lede}>
+            Development build: this link should return to {redirectTo('auth/confirm')}
+          </Text>
+        )}
       </Screen>
     );
 
@@ -145,6 +160,7 @@ export default function Account() {
       {errors.form && (
         <Notice tone="warn" title={forgot ? 'Link not sent' : signup ? 'Account not created' : 'Couldn’t sign in'}>
           {errors.form}
+          {errors.reference ? ` (Reference: ${errors.reference})` : ''}
         </Notice>
       )}
       <Field

@@ -9,6 +9,7 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { accountStateAfter, planMigration, runMigration, type MigrationPlan } from '@/services/cloud/migrate';
 import type { CloudSnapshot } from '@/services/cloud/records';
+import { CloudError } from '@/services/cloud/repo';
 import { toSnapshot, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { eraseScope, scopedStorage, syncBaseStorage } from '@/storage/persistence';
@@ -36,6 +37,7 @@ export default function Sync() {
   const [step, setStep] = useState<Step>({ kind: 'loading' });
 
   const [attempt, setAttempt] = useState(0);
+  const [loadError, setLoadError] = useState<CloudError | null>(null);
   // Plans against the journal as it is when the screen opens.
   const journal = useRef(state);
 
@@ -44,7 +46,11 @@ export default function Sync() {
     let cancelled = false;
     repo.pull(user.id).then(
       (cloud) => !cancelled && setStep({ kind: 'ready', cloud, plan: planMigration(journal.current, cloud) }),
-      () => !cancelled && setStep({ kind: 'load-failed' }),
+      (e: unknown) => {
+        if (cancelled) return;
+        setLoadError(e instanceof CloudError ? e : null);
+        setStep({ kind: 'load-failed' });
+      },
     );
     return () => {
       cancelled = true;
@@ -86,7 +92,12 @@ export default function Sync() {
   if (mode === 'cloud-sync')
     return (
       <Screen top={{ back: true, title: 'Cloud backup' }}>
-        <StateView title="Cloud sync is on" body={`This device shows the journal saved to ${user?.email}.`} action={<Button label="Done" onPress={() => router.back()} />} />
+        <StateView
+          title="Cloud sync is on"
+          body={`This device shows the journal saved to ${user?.email}.`}
+          // Reached from sign-in during onboarding, going back would re-enter the steps just left.
+          action={<Button label="Done" onPress={() => (state.onboarded ? router.back() : router.replace('/consent?next=today'))} />}
+        />
       </Screen>
     );
 
@@ -100,8 +111,10 @@ export default function Sync() {
     return (
       <Screen top={{ back: true, title: 'Cloud backup' }}>
         <StateView
-          title="Couldn’t reach your account"
-          body="Nothing was uploaded and your journal on this device is unchanged. Check your connection and try again."
+          title={loadError?.kind === 'offline' ? 'Couldn’t reach your account' : 'Couldn’t read your account'}
+          body={`Nothing was uploaded and your journal on this device is unchanged. ${
+            loadError?.kind === 'offline' ? 'Check your connection and try again.' : 'Your account’s data couldn’t be read; try again.'
+          }${loadError?.code ? ` (Reference: ${loadError.code})` : ''}`}
           action={
             <Button
               label="Try again"

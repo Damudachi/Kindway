@@ -1,11 +1,13 @@
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Linking from 'expo-linking';
 
 /**
  * Email/password auth on Supabase. Every call resolves to a result with a message written for
  * the person using the app; raw server errors, tokens and passwords are never logged or shown.
  */
-export type AuthResult = { ok: true } | { ok: false; message: string };
+/** `reference` is a safe error code (never a message, token or address) to quote when reporting a problem. */
+export type AuthResult = { ok: true } | { ok: false; message: string; reference?: string };
 export type SignUpResult = AuthResult | { ok: true; needsConfirmation: true };
 
 export interface AuthService {
@@ -19,8 +21,32 @@ export interface AuthService {
   deleteAccount(): Promise<AuthResult>;
 }
 
-/** Where email links send people back to. Matches the redirect URLs in docs/supabase-setup.md. */
-export const redirectTo = (path: 'auth/confirm' | 'reset-password') => Linking.createURL(`/${path}`);
+/**
+ * Where email links send people back to. Every form must be allow-listed in Supabase
+ * (docs/supabase-setup.md); otherwise Supabase silently uses its Site URL instead.
+ * - Expo Go: back to the running dev server, `exp://<host>:8081/--/<path>` (`exps://` over an
+ *   HTTPS tunnel). Only Expo Go can open these, and only while that server runs.
+ * - Development and release builds: the app's own scheme, `kindway:///<path>`. Linking.createURL
+ *   would add the dev server's address in a development build, which changes and isn't a route.
+ */
+export function redirectTo(path: 'auth/confirm' | 'reset-password') {
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return Linking.createURL(`/${path}`);
+  return `${Linking.resolveScheme({})}:///${path}`;
+}
+
+/** A safe identifier for an auth failure: its error code, else its HTTP status, else its class. */
+export function authReference(error: { code?: string; status?: number; name?: string } | null | undefined): string | undefined {
+  const code = error?.code && /^[a-z0-9_]{1,60}$/i.test(error.code) ? error.code : undefined;
+  return code ?? (error?.status ? `http_${error.status}` : error?.name && /^\w{1,60}$/.test(error.name) ? error.name : undefined);
+}
+
+const failed = (error: Pick<AuthError, 'code' | 'status' | 'name' | 'message'>) => ({ ok: false as const, message: authMessage(error), reference: authReference(error) });
+
+/** Anything thrown instead of returned (for example by a sign-in listener) is reported, not lost. */
+const thrown = (e: unknown) => {
+  const name = e instanceof Error ? e.name : undefined;
+  return { ok: false as const, message: authMessage({ name, message: e instanceof Error ? e.message : '' } as AuthError), reference: authReference({ name }) ?? 'unexpected' };
+};
 
 /**
  * What an email link brought back. With PKCE a good link carries `?code=`; Supabase reports a
@@ -90,15 +116,22 @@ export function authMessage(error: Pick<AuthError, 'code' | 'status' | 'name' | 
 export function supabaseAuth(client: SupabaseClient): AuthService {
   return {
     async signUp(email, password) {
-      const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo('auth/confirm') } });
-      if (error) return { ok: false, message: authMessage(error) };
+      const emailRedirectTo = redirectTo('auth/confirm');
+      // Development only, and only the address the link returns to: compare it with the email's redirect_to.
+      if (__DEV__) console.info(`[auth] confirmation links return to ${emailRedirectTo}`);
+      const { data, error } = await client.auth.signUp({ email, password, options: { emailRedirectTo } }).catch((e: unknown) => ({ data: null, error: e as AuthError }));
+      if (error || !data) return error ? failed(error) : thrown(null);
       // With confirmations on, an existing address also returns a user with no identities.
       if (data.user && data.user.identities?.length === 0) return { ok: false, message: authMessage({ code: 'user_already_exists' } as AuthError) };
       return data.session ? { ok: true } : { ok: true, needsConfirmation: true };
     },
     async signIn(email, password) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      return error ? { ok: false, message: authMessage(error) } : { ok: true };
+      try {
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        return error ? failed(error) : { ok: true };
+      } catch (e) {
+        return thrown(e);
+      }
     },
     async signOut() {
       // Only this device; the account stays signed in elsewhere.

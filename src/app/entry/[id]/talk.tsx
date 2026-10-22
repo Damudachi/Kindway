@@ -96,6 +96,10 @@ export default function Talk() {
         data={messages}
         keyExtractor={(m) => m.id}
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
+        // The list gets shorter when the keyboard opens; keep the newest message in view.
+        onLayout={() => list.current?.scrollToEnd({ animated: false })}
+        // Style chips and other controls work on the first tap while typing.
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.header}>

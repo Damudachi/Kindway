@@ -26,6 +26,11 @@ export type SyncInfo = {
    * Real AI reads all of these from the account, so it waits for this.
    */
   ensureSynced(entries: { id: string; body: string }[]): Promise<boolean>;
+  /** False until the account's cloud copy has been read once on this device since it opened; the
+   * account's onboarding state may be waiting on it. Left out by stand-ins that don't track it. */
+  loaded?: boolean;
+  /** The server's code for the last failure, safe to show so a problem can be reported. */
+  errorCode?: string;
 };
 
 /** Exported for tests that stand in for cloud backup. */
@@ -50,6 +55,8 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
   const storage = useMemo(() => baseStorage ?? syncBaseStorage(userId), [baseStorage, userId]);
   const [status, setStatus] = useState<SyncStatus>('connecting');
   const [pending, setPending] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [errorCode, setErrorCode] = useState<string>();
   const base = useRef<CloudSnapshot | null>(null);
   const latest = useRef(state);
   const busy = useRef(false);
@@ -69,6 +76,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
   }, [state]);
 
   const fail = useCallback((e: unknown) => {
+    setErrorCode(e instanceof CloudError ? e.code : undefined);
     setStatus(e instanceof CloudError ? (e.kind === 'offline' ? 'offline' : e.kind === 'auth' ? 'signed-out' : 'error') : 'error');
   }, []);
 
@@ -94,6 +102,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
         pulled.current = true;
         merging.current = true;
         dispatch({ type: 'applyCloud', base: before, remote });
+        setLoaded(true);
         await storage.save(remote);
         again.current = true;
         return;
@@ -123,6 +132,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
       }
       attempt.current = 0;
       setPending(0);
+      setErrorCode(undefined);
       setStatus('synced');
     } catch (e) {
       if (!alive.current) return;
@@ -143,6 +153,8 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
 
   useEffect(() => {
     alive.current = true;
+    // On mount sync() first awaits the stored base copy, so it never sets state synchronously here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void sync();
     const sub = AppState.addEventListener('change', (s) => {
       if (s !== 'active') return;
@@ -191,7 +203,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
     [sync],
   );
 
-  const value = useMemo(() => ({ status, pending, retry, ensureSynced }), [status, pending, retry, ensureSynced]);
+  const value = useMemo(() => ({ status, pending, retry, ensureSynced, loaded, errorCode }), [status, pending, retry, ensureSynced, loaded, errorCode]);
   return <SyncContext value={value}>{children}</SyncContext>;
 }
 
