@@ -638,6 +638,26 @@ describe('generate-follow-up', () => {
     expect(sent.schemaName).toBe('kindway_follow_up');
   });
 
+  it('never sends the stored reflection’s compass connection, even one saved while compass sharing was on', async () => {
+    const withCompass = {
+      ...storedReflection(ID(9)),
+      output: {
+        acknowledgment: 'Fictional acknowledgment: a long, unfair day.',
+        compass_connection: { value: 'Fictional-Compass-Area-Zq', text: 'Fictional-Compass-Connection-Zq: this ties to what you value.' },
+        suggested_step: 'Fictional step: ask about the next deadline early.',
+        reflection_question: 'Fictional question: what would a fair week look like?',
+      },
+    };
+    const { run, store, provider } = setup({ reflections: [withCompass] });
+    expect((await run(ask({ reflection_id: ID(9) }))).status).toBe(200);
+    expect(store.compassLinks).not.toHaveBeenCalled();
+    const sent = provider.calls[0];
+    expect(sent.user).toContain('Fictional acknowledgment: a long, unfair day.');
+    expect(sent.user).toContain('Fictional step: ask about the next deadline early.');
+    expect(sent.user).toContain('Fictional question: what would a fair week look like?');
+    expect(JSON.stringify(sent)).not.toContain('Fictional-Compass');
+  });
+
   it('respects a smaller configured turn limit, including none', async () => {
     const one = setup();
     await one.run(ask({ context_ids: [ID(1), ID(2), ID(3)] }), config({ AI_FOLLOW_UP_MAX_TURNS: '1' }));

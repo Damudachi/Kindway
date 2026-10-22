@@ -74,11 +74,12 @@ Fields:
 - safety_concern: true if anything suggests the user may be at risk of harming themselves or someone else, or is in danger; then Kindway shows reviewed support information instead of your reply. Otherwise false.`;
 }
 
+// Leaves out the compass connection: follow-ups never carry compass data, even from a reflection
+// written while compass sharing was on.
 const reflectionText = (r: StoredReflection) => {
   const o = isObject(r.output) ? r.output : {};
   const s = (v: unknown) => (typeof v === 'string' && v.trim() ? fence(v.trim()) : null);
-  const compass = isObject(o.compass_connection) ? s(o.compass_connection.text) : null;
-  return [s(o.acknowledgment), s(o.events_and_interpretations), s(o.possible_perspective), compass, s(o.suggested_step), s(o.reflection_question)].filter(Boolean).join('\n');
+  return [s(o.acknowledgment), s(o.events_and_interpretations), s(o.possible_perspective), s(o.suggested_step), s(o.reflection_question)].filter(Boolean).join('\n');
 };
 
 export function followUpUserPrompt(entry: EntryRow, reflection: StoredReflection | null, turns: StoredFollowUp[], message: string) {
