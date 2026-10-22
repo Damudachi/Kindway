@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
+import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
@@ -100,7 +101,7 @@ export function ReflectionView({ entry, onRest }: Props) {
           <>
             <Text variant="bodyMuted">No reflection on this entry. That’s fine; your words stand on their own.</Text>
             <Button variant="secondary" label={mode === 'ai' ? 'Reflect on this entry with AI' : 'Reflect on this entry'} icon="creation-outline" onPress={() => request(entry)} />
-            {mode === 'ai' && <Text variant="small">Sends this entry, its tags and good thing to GroqCloud.</Text>}
+            {mode === 'ai' ? <Text variant="small">Sends this entry, its tags and good thing to GroqCloud.</Text> : <AiUnavailableNote scope="entry_reflection" />}
           </>
         ) : (
           <Text variant="bodyMuted">Reflection previews are off. Turn them on in AI & memory if you want them.</Text>
@@ -163,6 +164,7 @@ export function ReflectionView({ entry, onRest }: Props) {
           </Text>
         </View>
       )}
+      {!isAi && <AiUnavailableNote scope="entry_reflection" />}
 
       {edited && (
         <Notice title="Based on an earlier version">

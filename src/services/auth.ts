@@ -22,6 +22,41 @@ export interface AuthService {
 /** Where email links send people back to. Matches the redirect URLs in docs/supabase-setup.md. */
 export const redirectTo = (path: 'auth/confirm' | 'reset-password') => Linking.createURL(`/${path}`);
 
+/**
+ * What an email link brought back. With PKCE a good link carries `?code=`; Supabase reports a
+ * failed one (expired, already used) with `error_code`/`error_description`, in the fragment and,
+ * for PKCE, also in the query. Expo Router only exposes the query, so the full URL is read too.
+ */
+export type AuthCallback = { kind: 'code'; code: string } | { kind: 'error'; message: string } | { kind: 'missing' };
+
+export function parseAuthCallback(url: string | null | undefined, params: Record<string, string | string[] | undefined> = {}): AuthCallback {
+  const found = new Map<string, string>();
+  const take = (key: string, value: unknown) => {
+    const v = Array.isArray(value) ? value[0] : value;
+    if (typeof v === 'string' && v && !found.has(key)) found.set(key, v);
+  };
+  for (const [key, value] of Object.entries(params)) take(key, value);
+  if (url) {
+    const hash = url.indexOf('#');
+    const query = url.indexOf('?');
+    const parts = [query >= 0 ? url.slice(query + 1, hash > query ? hash : undefined) : '', hash >= 0 ? url.slice(hash + 1) : ''];
+    for (const part of parts) {
+      try {
+        new URLSearchParams(part).forEach((value, key) => take(key, value));
+      } catch {
+        // A malformed part is treated as absent.
+      }
+    }
+  }
+  const errorCode = found.get('error_code');
+  if (errorCode || found.has('error') || found.has('error_description'))
+    return { kind: 'error', message: authMessage({ code: errorCode ?? (found.get('error') === 'access_denied' ? 'otp_expired' : undefined) } as AuthError) };
+  const code = found.get('code');
+  // Supabase codes are UUID-like; anything else is a mangled link and isn't sent to the server.
+  if (code && /^[\w-]{8,200}$/.test(code)) return { kind: 'code', code };
+  return { kind: 'missing' };
+}
+
 export function authMessage(error: Pick<AuthError, 'code' | 'status' | 'name' | 'message'> | null | undefined): string {
   const code = error?.code;
   if (error?.name === 'AuthRetryableFetchError' || /fetch|network/i.test(error?.message ?? ''))

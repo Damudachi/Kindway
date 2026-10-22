@@ -44,14 +44,21 @@ The publishable key is safe to ship only because every table enforces Row Level 
   - `kindway://**`: development and release builds (the app's scheme from `app.json`).
   - `exp://**`: **development only**, for Expo Go, whose links look like `exp://192.168.1.20:8081/--/reset-password`. Remove it before a public release.
 
-The app asks Supabase to send email links back to:
+The app asks Supabase to send email links back to `Linking.createURL(path)` (`src/services/auth.ts`), which depends on where the app runs. Nothing is hardcoded, so a development server's LAN address never ends up in a build:
 
-| Flow | Redirect (from `src/services/auth.ts`) | Route |
-| --- | --- | --- |
-| Email confirmation | `Linking.createURL('/auth/confirm')` → `kindway://auth/confirm` | `src/app/auth/confirm.tsx` |
-| Password reset | `Linking.createURL('/reset-password')` → `kindway://reset-password` | `src/app/reset-password.tsx` |
+| Flow | Expo Go (development) | Development or release build | Route |
+| --- | --- | --- | --- |
+| Email confirmation | `exp://<lan-ip>:8081/--/auth/confirm` | `kindway:///auth/confirm` | `src/app/auth/confirm.tsx` |
+| Password reset | `exp://<lan-ip>:8081/--/reset-password` | `kindway:///reset-password` | `src/app/reset-password.tsx` |
 
-Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges the code on the same device that requested it. A link opened on another device can't finish signing in there. For a confirmation link the email is still confirmed, so the person can just sign in. For a reset link they request a new one from the device they'll use.
+Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges the code on the same device that requested it. A link opened on another device can't finish signing in there. For a confirmation link the email is still confirmed, so the person can just sign in. For a reset link they request a new one from the device they'll use. An expired or already-used link comes back with `error_code` (for example `otp_expired`) in the URL fragment and the query; both routes read the full URL and say what went wrong instead of showing an empty screen.
+
+**If a confirmation email links to the wrong place (blank page after tapping it):**
+
+- Supabase uses the requested redirect only if it matches **Redirect URLs**; otherwise it silently falls back to the **Site URL**. If an email requested from Expo Go has a `redirect_to` that isn't `exp://…`, the hosted project rejected the Expo Go address and used its Site URL. Check that `exp://**` is listed under Redirect URLs (development only) and that the Site URL is `kindway://`, then sign up again: links already sent keep their old target.
+- A `kindway://` link can't open Expo Go, which only answers to `exp://`. The browser then has nowhere to go and shows a blank page. Use a development build (`npx expo run:android` or `eas build --profile development`) to test `kindway://` links.
+- An Expo Go link points at the computer running Metro, so it only works while `npx expo start` is running on the same network, and only on the phone that signed up (the PKCE code verifier is stored there). If the LAN address changes, request a new email.
+- Opening the link again after it worked shows "You're already signed in"; it doesn't sign anyone else in.
 
 **Email sending:** Supabase's built-in email service is heavily rate-limited (a few emails per hour) and meant for testing. Before real users, set up custom SMTP under **Authentication → Emails → SMTP Settings**.
 

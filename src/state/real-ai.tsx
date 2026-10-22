@@ -1,5 +1,6 @@
 import { createContext, use, useMemo, type ReactNode } from 'react';
 
+import type { AiScope } from '@/services/ai/consent';
 import { supabaseAiOutputs, supabaseInvoke, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
 import { supabase } from '@/services/supabase/client';
 import { useAiConsent } from '@/state/ai-consent';
@@ -56,4 +57,22 @@ export function RealAiProvider({ children, invoke = defaultInvoke, outputs = def
 
 export function useRealAi() {
   return use(RealAiContext);
+}
+
+/**
+ * Why real AI isn't used for a scope, so a simulated screen can say exactly what's missing;
+ * null when it is used. Consent that couldn't be read counts as no consent, never as consent.
+ */
+export type AiBlocker = 'account' | 'cloud-sync' | 'consent-loading' | 'consent-error' | 'none' | 'outdated' | 'withdrawn';
+
+export function useAiBlocker(scope: AiScope): AiBlocker | null {
+  const real = useRealAi();
+  const consent = useAiConsent();
+  const allowed = scope === 'entry_reflection' ? real.reflections : scope === 'follow_up' ? real.followUps : real.insights;
+  if (allowed) return null;
+  if (real.needs) return real.needs;
+  if (consent.load === 'loading') return 'consent-loading';
+  if (consent.load === 'error') return 'consent-error';
+  const status = consent.status(scope);
+  return status === 'active' ? null : status;
 }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Field } from '@/components/controls';
@@ -118,24 +119,40 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         </Text>
       </Animated.View>
 
-      <TextInput
-        ref={input}
-        value={draft.text}
-        onChangeText={onChange}
-        onBlur={() => setTyping(false)}
-        multiline
-        textAlignVertical="top"
-        placeholder="Today was…"
-        placeholderTextColor={color.pencil}
-        cursorColor={color.trail}
-        selectionColor={color.trailContainer}
-        accessibilityLabel="Journal entry"
-        accessibilityHint="Write freely. Nothing here is required."
-        style={styles.page}
-      />
+      <View style={styles.page}>
+        <TextInput
+          ref={input}
+          value={draft.text}
+          onChangeText={onChange}
+          onBlur={() => setTyping(false)}
+          multiline
+          textAlignVertical="top"
+          placeholder="Today was…"
+          placeholderTextColor={color.pencil}
+          cursorColor={color.trail}
+          selectionColor={color.trailContainer}
+          accessibilityLabel="Journal entry"
+          accessibilityHint="Write freely. Nothing here is required."
+          style={styles.input}
+        />
+        <View style={styles.tools}>
+          <IconButton icon="microphone-outline" label="Speak instead" onPress={() => router.push('/voice?from=write')} />
+        </View>
+      </View>
       <Text variant="labelSmall" style={styles.status} accessibilityLiveRegion="polite">
         {empty ? 'No minimum length. No required questions.' : 'Draft saved on this device, even if you close the app'}
       </Text>
+
+      <Animated.View style={recede}>
+        <Text variant="label" style={styles.helpLabel}>
+          A little help getting started
+        </Text>
+        <ChipRow>
+          {PROMPTS.map((p) => (
+            <Chip key={p.id} kind="assist" icon="plus" label={p.label} onPress={() => insertPrompt(p.insert)} />
+          ))}
+        </ChipRow>
+      </Animated.View>
 
       <Animated.View style={recede}>
         <Text variant="label" style={styles.groupLabel}>
@@ -145,16 +162,6 @@ export function Composer({ first, onSaved, onSkip }: Props) {
           {FEELINGS.map((f) => (
             <Chip key={f} label={f} selected={draft.feelings.includes(f)} onPress={() => toggleFeeling(f)} />
           ))}
-        </ChipRow>
-
-        <Text variant="label" style={styles.groupLabel}>
-          A little help getting started
-        </Text>
-        <ChipRow>
-          {PROMPTS.map((p) => (
-            <Chip key={p.id} kind="assist" icon="plus" label={p.label} onPress={() => insertPrompt(p.insert)} />
-          ))}
-          <Chip kind="assist" icon="microphone-outline" label="Speak instead" onPress={() => router.push('/voice?from=write')} />
         </ChipRow>
 
         {state.compass.length > 0 && (
@@ -195,7 +202,10 @@ export function Composer({ first, onSaved, onSkip }: Props) {
                 <Chip key={s.id} label={s.title} selected={style === s.id} onPress={() => dispatch({ type: 'draft', patch: { style: s.id } })} />
               ))}
             </ChipRow>
-            <Text variant="small">Default: {STYLE_LABEL[state.supportStyle]}. The reflection is a simulated preview made on this device; nothing is sent anywhere.</Text>
+            <Text variant="small">
+              Default: {STYLE_LABEL[state.supportStyle]}.{mode === 'ai' ? '' : ' The reflection is a simulated preview made on this device; nothing is sent anywhere.'}
+            </Text>
+            {mode === 'simulated' && <AiUnavailableNote scope="entry_reflection" />}
           </>
         )}
         {!canReflect && !editing && (
@@ -227,15 +237,17 @@ export function Composer({ first, onSaved, onSkip }: Props) {
 const styles = StyleSheet.create({
   lede: { marginTop: space.xs, marginBottom: space.md },
   page: {
-    ...type.entry,
     minHeight: 220,
     backgroundColor: color.raised,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.sand,
-    padding: space.md,
   },
-  status: { marginTop: space.xs, marginBottom: space.lg },
+  input: { ...type.entry, flexGrow: 1, minHeight: 172, padding: space.md, paddingBottom: 0 },
+  // The voice control sits at the template's lower-left, inside the page.
+  tools: { flexDirection: 'row', paddingHorizontal: space.xxs, paddingBottom: space.xxs },
+  status: { marginTop: space.xs },
+  helpLabel: { marginTop: space.sm, marginBottom: 2 },
   groupLabel: { marginTop: space.md, marginBottom: 2 },
   gratitude: { marginTop: space.md },
   notice: { marginTop: space.lg },

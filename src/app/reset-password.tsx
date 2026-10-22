@@ -1,3 +1,4 @@
+import { useLinkingURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -7,12 +8,16 @@ import { Field } from '@/components/controls';
 import { Notice, StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { parseAuthCallback } from '@/services/auth';
 import { useSession } from '@/state/session';
 import { space } from '@/theme/tokens';
 
-/** Where the password-reset link opens (kindway://reset-password?code=…). */
+/** Where the password-reset link opens (kindway:///reset-password?code=…, or exp://…/--/reset-password in Expo Go). */
 export default function ResetPassword() {
-  const { code } = useLocalSearchParams<{ code?: string }>();
+  const params = useLocalSearchParams<{ code?: string; error_code?: string; error_description?: string; error?: string }>();
+  const linked = useLinkingURL();
+  const callback = parseAuthCallback(linked?.includes('reset-password') ? linked : null, params);
+  const code = callback.kind === 'code' ? callback.code : null;
   const { auth } = useSession();
   const [checked, setPhase] = useState<'checking' | 'choose' | 'done' | 'invalid'>('checking');
   const [linkMessage, setMessage] = useState('');
@@ -23,7 +28,7 @@ export default function ResetPassword() {
 
   const unusable = !auth || !code;
   const phase = unusable ? 'invalid' : checked;
-  const message = unusable ? 'This link is incomplete or has expired.' : linkMessage;
+  const message = unusable ? (callback.kind === 'error' ? callback.message : 'This link is incomplete or has expired.') : linkMessage;
 
   useEffect(() => {
     if (started.current || !auth || !code) return;

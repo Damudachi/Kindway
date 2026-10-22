@@ -8,7 +8,7 @@ import { Field } from '@/components/controls';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { COMPASS_AREAS } from '@/data/sample';
+import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import { useStore } from '@/state/demo-store';
 import { space } from '@/theme/tokens';
 
@@ -69,7 +69,7 @@ export default function CompassSetup() {
         <Field
           key={area}
           label={`${area}: anything you're working toward? (optional)`}
-          placeholder="For example: finish my portfolio this term"
+          placeholder={COMPASS_EXAMPLES[area]}
           value={goals[area] ?? ''}
           onChangeText={(t) => setGoals((g) => ({ ...g, [area]: t }))}
         />

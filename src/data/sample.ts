@@ -27,6 +27,17 @@ export const COMPASS_AREAS = [
   'Faith & meaning',
 ];
 
+/** Example text for each area's optional note. Shown as a placeholder only; never saved. */
+export const COMPASS_EXAMPLES: Record<string, string> = {
+  'Growth & learning': 'For example: read one chapter a week, even on busy weeks',
+  'Career & purpose': 'For example: finish my portfolio this term',
+  Relationships: 'For example: call my sister on Sundays',
+  'Health & peace': 'For example: be in bed by eleven most nights',
+  Independence: 'For example: cook for myself instead of ordering in',
+  Creativity: 'For example: sketch something small every day',
+  'Faith & meaning': 'For example: keep a few quiet minutes for prayer or stillness each morning',
+};
+
 export const FEELINGS = ['Overwhelmed', 'Worried', 'Tired', 'Lonely', 'Calm', 'Hopeful', 'Grateful', 'Proud'];
 
 export const PROMPTS = [

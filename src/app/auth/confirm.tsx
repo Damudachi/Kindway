@@ -1,18 +1,28 @@
+import { useLinkingURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/button';
 import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
+import { parseAuthCallback } from '@/services/auth';
 import { useSession } from '@/state/session';
 
-/** Where the email-confirmation link opens (kindway://auth/confirm?code=…). */
+/**
+ * Where the email-confirmation link opens: kindway:///auth/confirm in a build, or
+ * exp://…/--/auth/confirm in Expo Go (see docs/supabase-setup.md). The code is exchanged once;
+ * the link's code and the session are never logged or shown.
+ */
 export default function ConfirmEmail() {
-  const { code, error_description } = useLocalSearchParams<{ code?: string; error_description?: string }>();
-  const { auth } = useSession();
+  const params = useLocalSearchParams<{ code?: string; error_code?: string; error_description?: string; error?: string }>();
+  // Only this link's own URL: the one that launched the app may be an older, different link.
+  const linked = useLinkingURL();
+  const url = linked?.includes('auth/confirm') ? linked : null;
+  const { auth, user } = useSession();
   const [result, setResult] = useState<{ ok: boolean; message?: string } | null>(null);
   const started = useRef(false);
-  const unusable = !auth || !code ? { ok: false, message: error_description ? 'This link has expired or was already used.' : 'This link is incomplete.' } : null;
+  const callback = parseAuthCallback(url, params);
+  const code = callback.kind === 'code' ? callback.code : null;
 
   useEffect(() => {
     if (started.current || !auth || !code) return;
@@ -20,7 +30,15 @@ export default function ConfirmEmail() {
     void auth.exchangeCode(code).then((r) => setResult(r.ok ? { ok: true } : { ok: false, message: r.message }));
   }, [auth, code]);
 
+  const unusable = !auth
+    ? { ok: false, message: 'Accounts aren’t available in this version of the app.' }
+    : callback.kind === 'error'
+      ? { ok: false, message: callback.message }
+      : callback.kind === 'missing'
+        ? { ok: false, message: 'This link is incomplete. Open the newest email from Kindway again.' }
+        : null;
   const shown = unusable ?? result;
+
   return (
     <Screen top={{ title: 'Confirm email' }}>
       {!shown ? (
@@ -31,10 +49,17 @@ export default function ConfirmEmail() {
           body="You’re signed in. Nothing has been uploaded; you can choose whether to back up your journal next."
           action={<Button label="Continue" onPress={() => router.replace('/sync')} />}
         />
+      ) : user ? (
+        // A link opened again after it worked, or one for an account that is already signed in here.
+        <StateView
+          title="You’re already signed in"
+          body={`This device is signed in as ${user.email || 'your account'}, so there’s nothing more to confirm here.`}
+          action={<Button label="Continue" onPress={() => router.replace('/sync')} />}
+        />
       ) : (
         <StateView
           title="Couldn’t confirm here"
-          body={`${shown.message} If you confirmed on another device, your email is still confirmed: just sign in.`}
+          body={`${shown.message} If you already confirmed, on this or another device, your email is confirmed: just sign in.`}
           action={<Button label="Sign in" onPress={() => router.replace('/account?mode=signin')} />}
         />
       )}

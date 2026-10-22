@@ -3,11 +3,12 @@ import { useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, IconButton } from '@/components/button';
+import { AiUnavailableNote } from '@/components/ai-unavailable';
+import { IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
-import { TopBar } from '@/components/screen';
+import { keyboardBehavior, TopBar, useBottomInset } from '@/components/screen';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
 import { SUPPORT_STYLES } from '@/data/sample';
@@ -54,6 +55,7 @@ export default function Talk() {
   const snack = useSnackbar();
   const [confirmClear, setConfirmClear] = useState(false);
   const list = useRef<FlatList<ChatMessage>>(null);
+  const bottom = useBottomInset(insets.bottom);
 
   const send = () => {
     const body = text.trim();
@@ -83,7 +85,7 @@ export default function Talk() {
   const title = entry?.title ? ` (“${entry.title}”)` : '';
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={[styles.root, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView behavior={keyboardBehavior} style={[styles.root, { paddingTop: insets.top }]}>
       <TopBar
         back
         title={entry ? `Talking through · ${shortDate(entry.date)}` : 'Talking through'}
@@ -107,9 +109,7 @@ export default function Talk() {
                 Only this entry{title} and its reflection. Other entries aren’t searched. Replies here are simulated: pre-written by style, not generated from your words.
               </Notice>
             )}
-            {mode === 'simulated' && real.needs === null && (
-              <Button variant="text" label="Allow AI follow-up replies" onPress={() => router.push('/settings/ai-consent')} />
-            )}
+            {mode === 'simulated' && <AiUnavailableNote scope="follow_up" />}
             <Text variant="label" style={styles.styleLabel}>
               Response style
             </Text>
@@ -159,7 +159,7 @@ export default function Talk() {
           </View>
         }
       />
-      <View style={[styles.composer, { paddingBottom: space.sm + insets.bottom }]}>
+      <View style={[styles.composer, { paddingBottom: space.sm + bottom }]}>
         <TextInput
           value={text}
           onChangeText={setText}

@@ -9,7 +9,7 @@ import { Dialog, useSnackbar } from '@/components/feedback';
 import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { COMPASS_AREAS } from '@/data/sample';
+import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import type { CompassValue } from '@/data/types';
 import { useStore } from '@/state/demo-store';
 import { color, space } from '@/theme/tokens';
@@ -68,7 +68,7 @@ export default function Compass() {
                 onChangeText={setDraftNote}
                 multiline
                 autoFocus
-                placeholder="What does this mean for you right now?"
+                placeholder={COMPASS_EXAMPLES[c.area] ?? 'What does this mean for you right now?'}
               />
               <View style={styles.row}>
                 <Button

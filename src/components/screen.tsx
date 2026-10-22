@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import type { ReactNode, Ref } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/button';
@@ -41,6 +41,30 @@ export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) 
   );
 }
 
+/**
+ * How a screen makes room for the keyboard. Android already resizes the window above the
+ * keyboard, so padding there too would leave a keyboard-high gap; iOS needs the padding.
+ */
+export const keyboardBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
+
+/**
+ * The bottom inset to keep clear. While the keyboard is open the window ends above it, so the
+ * navigation-bar inset no longer applies there (iOS keeps the inset: its padding covers it).
+ */
+export function useBottomInset(inset: number) {
+  const [keyboard, setKeyboard] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const shown = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+  return keyboard ? 0 : inset;
+}
+
 type ScreenProps = {
   children: ReactNode;
   top?: TopBarProps | false;
@@ -56,7 +80,7 @@ type ScreenProps = {
 
 export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef }: ScreenProps) {
   const insets = useSafeAreaInsets();
-  const bottom = inTabs ? 0 : insets.bottom;
+  const bottom = useBottomInset(inTabs ? 0 : insets.bottom);
   const body = scroll ? (
     <ScrollView
       ref={scrollRef}
@@ -68,7 +92,7 @@ export function Screen({ children, top, footer, scroll = true, contentStyle, inT
     <View style={[styles.content, styles.fill, contentStyle]}>{children}</View>
   );
   return (
-    <KeyboardAvoidingView behavior="padding" style={[styles.root, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView behavior={keyboardBehavior} style={[styles.root, { paddingTop: insets.top }]}>
       {top !== false && <TopBar {...top} />}
       {body}
       {footer && <View style={[styles.footer, { paddingBottom: space.sm + bottom }]}>{footer}</View>}
