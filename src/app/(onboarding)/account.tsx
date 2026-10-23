@@ -99,8 +99,8 @@ export default function Account() {
         top={{ back: true }}
         footer={
           <>
-            {sent === 'confirm' && !state.onboarded && <Button label="Continue on this device for now" onPress={continueOnboarding} />}
-            <Button variant={sent === 'confirm' && !state.onboarded ? 'text' : 'primary'} style={styles.center} label="Back to sign in" onPress={() => switchTo('signin')} />
+            <Button label="Go back to sign in" onPress={() => switchTo('signin')} />
+            {sent === 'confirm' && !state.onboarded && <Button variant="text" style={styles.center} label="Use without an account instead" onPress={continueOnboarding} />}
           </>
         }>
         <Text variant="headline" accessibilityRole="header" style={styles.title}>

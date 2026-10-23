@@ -24,8 +24,13 @@ export type Session = {
   scope: Scope;
   auth: AuthService | null;
   repo: CloudRepo | null;
-  /** Switches this device to the account's synced journal. Call only after the user confirmed. */
-  enableSync(): Promise<void>;
+  /**
+   * Switches this device to the account's synced journal. Call only after the user confirmed.
+   * `resumeOnboarding`: they were partway through onboarding, so it carries on at consent.
+   */
+  enableSync(options?: { resumeOnboarding?: boolean }): Promise<void>;
+  /** The account that should carry on with onboarding after switching journals (this run only). */
+  resumeOnboardingFor: string | null;
   /** Signs out on this device. The local-only journal stays; this account's cache is hidden. */
   signOut(): Promise<void>;
   /** After the server deleted the account: forget its session and its cache on this device. */
@@ -42,6 +47,7 @@ const localOnly: Session = {
   auth: null,
   repo: null,
   enableSync: async () => {},
+  resumeOnboardingFor: null,
   signOut: async () => {},
   forgetAccount: async () => {},
 };
@@ -76,6 +82,8 @@ const defaultRepo = supabase ? supabaseRepo(supabase) : null;
 export function SessionProvider({ children, auth = defaultAuth, repo = defaultRepo, watchUser = supabaseWatch, settings = deviceSettingsStorage }: Props) {
   const [user, setUser] = useState<AuthUser | null | undefined>(undefined);
   const [device, setDevice] = useState<DeviceSettings | null>(null);
+  // Kept in memory, above the journal that remounts on switching; after a restart, onboarding starts over.
+  const [resumeOnboardingFor, setResumeOnboardingFor] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,10 +127,12 @@ export function SessionProvider({ children, auth = defaultAuth, repo = defaultRe
       scope: syncing && user ? `user:${user.id}` : 'guest',
       auth,
       repo,
-      enableSync: async () => {
+      enableSync: async (options) => {
         if (!user || device.syncUsers.includes(user.id)) return;
+        if (options?.resumeOnboarding) setResumeOnboardingFor(user.id);
         await writeDevice({ syncUsers: [...device.syncUsers, user.id] });
       },
+      resumeOnboardingFor,
       signOut: async () => {
         await auth?.signOut();
         setUser(null);
@@ -135,7 +145,7 @@ export function SessionProvider({ children, auth = defaultAuth, repo = defaultRe
         setUser(null);
       },
     };
-  }, [user, device, auth, repo, writeDevice]);
+  }, [user, device, auth, repo, writeDevice, resumeOnboardingFor]);
 
   if (!value) return null;
   return <SessionContext value={value}>{children}</SessionContext>;

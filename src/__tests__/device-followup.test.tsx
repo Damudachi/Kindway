@@ -14,12 +14,13 @@ import Sync from '@/app/sync';
 import { Button } from '@/components/button';
 import { SnackbarProvider } from '@/components/feedback';
 import { authReference, supabaseAuth, type AuthService } from '@/services/auth';
+import { emptySnapshot, toCloud } from '@/services/cloud/records';
 import { CloudError, fail, supabaseRepo, unexpected } from '@/services/cloud/repo';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, useStore, type DemoState } from '@/state/demo-store';
 import { RealAiProvider, type RealAi } from '@/state/real-ai';
-import { SessionProvider, type AuthUser } from '@/state/session';
-import { memoryStorage } from '@/storage/persistence';
+import { SessionProvider, useSession, type AuthUser } from '@/state/session';
+import { memoryStorage, scopedStorage } from '@/storage/persistence';
 import { entry } from '@/test-utils/entries';
 import { space } from '@/theme/tokens';
 
@@ -274,6 +275,80 @@ describe('onboarding with an account', () => {
     expect(sync.retry).toHaveBeenCalledTimes(1);
     await fireEvent.press(screen.getByRole('button', { name: 'Set up on this device for now' }));
     expect(await screen.findByText('Welcome screen', {}, wait)).toBeOnTheScreen();
+  });
+
+  /** Signed up partway through onboarding (style chosen, not finished), then turns on sync from Cloud Backup. */
+  async function turnOnSyncMidOnboarding(signedInAs: AuthUser) {
+    const partway: DemoState = { ...initialState, supportStyle: 'honest' };
+    let uploaded = false;
+    const repo = {
+      pull: jest.fn(async () => (uploaded ? toCloud(partway) : emptySnapshot())),
+      push: jest.fn(async () => {}),
+      markConsented: jest.fn(async () => {
+        uploaded = true;
+      }),
+    };
+    const guest = memoryStorage({ version: 1, state: partway });
+    // Like the app's journal: switching to the account's journal remounts everything below and
+    // loads it from storage, so the navigator starts again at the root route.
+    function Journal({ children }: { children: React.ReactNode }) {
+      const { scope } = useSession();
+      return (
+        <DemoStoreProvider key={scope} storage={scope === 'guest' ? guest : scopedStorage(scope)}>
+          {children}
+        </DemoStoreProvider>
+      );
+    }
+    function Layout() {
+      return (
+        <SessionProvider auth={null} repo={repo as never} watchUser={(on) => (on(signedInAs), () => {})} settings={memoryStorage({ syncUsers: [] })}>
+          <Journal>
+            <Stack />
+          </Journal>
+        </SessionProvider>
+      );
+    }
+    await renderRouter(
+      { _layout: Layout, index: Index, sync: Sync, welcome: () => <Text>Welcome screen</Text>, consent: Consent, 'first-entry': () => <Text>First entry screen</Text> },
+      { initialUrl: '/sync' },
+    );
+    await fireEvent.press(await screen.findByRole('button', { name: 'Turn on cloud sync' }, wait));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Open my synced journal' }, wait));
+  }
+
+  it('turning on sync partway through onboarding carries on at consent, not back at Welcome', async () => {
+    await turnOnSyncMidOnboarding({ id: 'user-resume', email: 'resume@example.test' });
+    expect(await screen.findByText('Your thoughts deserve care.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Welcome screen')).toBeNull();
+  });
+
+  it('without that, an account that hasn’t finished onboarding still starts at Welcome', async () => {
+    await openApp('/', { user: A, syncing: true });
+    expect(await screen.findByText('Welcome screen', {}, wait)).toBeOnTheScreen();
+  });
+
+  it('“Check your email” leads with going back to sign in, and offers going on without an account last', async () => {
+    const auth = { signUp: jest.fn(async () => ({ ok: true, needsConfirmation: true })) } as unknown as AuthService;
+    function Wrapped() {
+      return (
+        <SessionProvider auth={auth} repo={null} watchUser={(on) => (on(null), () => {})} settings={memoryStorage()}>
+          <DemoStoreProvider initial={initialState}>
+            <Account />
+          </DemoStoreProvider>
+        </SessionProvider>
+      );
+    }
+    await renderRouter({ _layout: () => <Stack />, account: Wrapped, consent: () => <Text>Consent screen</Text> }, { initialUrl: '/account' });
+    await fireEvent.changeText(await screen.findByLabelText('Email address', {}, wait), 'new@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'fictional-password');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    expect(await screen.findByText('Check your email.', {}, wait)).toBeOnTheScreen();
+    const labels = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel);
+    expect(labels.indexOf('Go back to sign in')).toBeGreaterThan(-1);
+    expect(labels.indexOf('Use without an account instead')).toBeGreaterThan(labels.indexOf('Go back to sign in'));
+    expect(screen.queryByRole('button', { name: 'Continue on this device for now' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Use without an account instead' }));
+    expect(await screen.findByText('Consent screen', {}, wait)).toBeOnTheScreen();
   });
 
   it('onboarding finished before an app restart is restored from device storage', async () => {

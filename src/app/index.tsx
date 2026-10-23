@@ -5,18 +5,21 @@ import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
+import { useSession } from '@/state/session';
 
 /**
  * Opens Today or onboarding, from the journal this device shows. For a synced account whose
  * copy here doesn't say onboarding is done (new device, or finished on another one), the
  * account's own record decides, so it waits for the first read of the cloud copy. If that
  * read fails it says so, rather than sending someone who already finished back to the start.
+ * Someone who turned on sync partway through onboarding carries on at consent.
  */
 export default function Index() {
   const { state } = useStore();
   const sync = useSync();
+  const { user, resumeOnboardingFor } = useSession();
   if (state.onboarded) return <Redirect href="/today" />;
-  if (!sync || sync.loaded !== false) return <Redirect href="/welcome" />;
+  if (!sync || sync.loaded !== false) return <Redirect href={user && resumeOnboardingFor === user.id ? '/consent?next=today' : '/welcome'} />;
   const failed = sync.status === 'offline' || sync.status === 'error' || sync.status === 'signed-out';
   return (
     <Screen top={false}>

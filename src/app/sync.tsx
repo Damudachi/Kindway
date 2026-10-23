@@ -79,8 +79,9 @@ export default function Sync() {
     await scopedStorage(`user:${user.id}`).save(toSnapshot(accountStateAfter(state, plan, after)));
     await syncBaseStorage(user.id).save(after);
     if (!keepLocal) await eraseScope('guest');
-    // Switches the app to this account's journal; the root route then opens it.
-    await enableSync();
+    // Switches the app to this account's journal; the root route then opens it, carrying on
+    // with onboarding at consent for someone who signed up partway through.
+    await enableSync({ resumeOnboarding: !state.onboarded });
   };
 
   if (mode === 'local-only')
