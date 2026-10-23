@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 import { AiUnavailableNote } from '@/components/ai-unavailable';
@@ -17,7 +18,7 @@ import { useAnotherPerspective, useReflectionMode, useRequestReflection } from '
 import { useStore } from '@/state/demo-store';
 import { useRealAi } from '@/state/real-ai';
 import { fitStep } from '@/state/tomorrow';
-import { color, radius, space } from '@/theme/tokens';
+import { color, radius, space, touch } from '@/theme/tokens';
 
 type Props = { entry: Entry; onRest: () => void };
 
@@ -56,6 +57,7 @@ export function ReflectionView({ entry, onRest }: Props) {
   const reduce = useReducedMotion();
   const mode = useReflectionMode();
   const real = useRealAi();
+  const [aboutOpen, setAboutOpen] = useState(false);
   const r = entry.reflection;
 
   if (entry.reflectionStatus === 'loading') {
@@ -164,6 +166,9 @@ export function ReflectionView({ entry, onRest }: Props) {
           </Text>
         </View>
       )}
+      <Text variant="small">
+        Style: “{STYLE_LABEL[r.style]}”. {isAi ? 'Sent' : 'Used'}: {used.join(', ')}.{related.length === 0 ? ' Past entries: not used.' : ''}
+      </Text>
       {!isAi && <AiUnavailableNote scope="entry_reflection" />}
 
       {edited && (
@@ -238,10 +243,6 @@ export function ReflectionView({ entry, onRest }: Props) {
         </Text>
       )}
 
-      <Text variant="small">
-        Style: “{STYLE_LABEL[r.style]}”. {isAi ? 'Sent' : 'Used'}: {used.join(', ')}.{related.length === 0 ? ' Past entries: not used.' : ''}
-      </Text>
-
       <View style={styles.part}>
         <Text variant="label">Does this fit?</Text>
         <ChipRow>
@@ -263,21 +264,37 @@ export function ReflectionView({ entry, onRest }: Props) {
 
       <View style={styles.choices}>
         <Button label="Talk this through" trailingIcon="arrow-right" onPress={() => router.push(`/entry/${entry.id}/talk`)} />
-        {!listening && <Button variant="secondary" label="Plan one small step for tomorrow" onPress={() => router.push(`/tomorrow?from=${entry.id}`)} />}
+        {/* A suggested next step already offers Tomorrow Bridge above; this is the way in without one. */}
+        {!listening && !nextStep && <Button variant="secondary" label="Plan one small step for tomorrow" onPress={() => router.push(`/tomorrow?from=${entry.id}`)} />}
         <Button variant="text" label="Let this sit for tonight" onPress={onRest} />
       </View>
 
-      <View style={styles.row}>
-        <Button variant="text" label="Adjust how Kindway reflects" onPress={() => router.push('/settings/ai-memory')} />
-        <Button variant="text" label="Remove this reflection" onPress={remove} />
-      </View>
-
-      <Text variant="small">
-        Kindway is a reflection aid, not a therapist, and it can be wrong.{' '}
+      <View style={styles.about}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="About this reflection"
+          accessibilityState={{ expanded: aboutOpen }}
+          onPress={() => setAboutOpen((open) => !open)}
+          style={styles.aboutToggle}>
+          <Text variant="label" style={styles.flex}>
+            About this reflection
+          </Text>
+          <MaterialCommunityIcons name={aboutOpen ? 'chevron-up' : 'chevron-down'} size={20} color={color.inkMuted} />
+        </Pressable>
+        {aboutOpen && (
+          <View style={styles.part}>
+            <Text variant="small">Kindway is a reflection aid, not a therapist, and it can be wrong.</Text>
+            <View style={styles.row}>
+              <Button variant="text" label="Adjust how Kindway reflects" onPress={() => router.push('/settings/ai-memory')} />
+              <Button variant="text" label="Remove this reflection" onPress={remove} />
+            </View>
+          </View>
+        )}
+        {/* Support is never folded away. */}
         <Text variant="small" style={styles.link} accessibilityRole="link" onPress={() => router.push('/support')}>
           Need more support?
         </Text>
-      </Text>
+      </View>
     </Animated.View>
   );
 }
@@ -291,6 +308,8 @@ const styles = StyleSheet.create({
   compass: { backgroundColor: color.trailContainer, borderRadius: radius.md, padding: space.md, gap: space.xxs },
   question: { fontSize: 18, lineHeight: 28 },
   choices: { gap: space.xs, marginTop: space.xs },
+  about: { borderTopWidth: 1, borderTopColor: color.sand, paddingTop: space.xs, gap: space.xs },
+  aboutToggle: { flexDirection: 'row', alignItems: 'center', minHeight: touch },
   link: { color: color.trail, textDecorationLine: 'underline' },
   skeletonGroup: { gap: space.xs },
   skeleton: { height: 14, borderRadius: 7, backgroundColor: color.sunk },

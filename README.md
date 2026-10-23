@@ -50,6 +50,8 @@ Settings → **Preview states** simulates reflection failure, rate limits, offli
 
 ## Not built yet (next milestones)
 
+The phase plan, with what counts as done for each phase, is in `docs/roadmap.md`.
+
 - Realtime sync and field-level conflict handling (sync is per record, last writer wins), data export.
 - A manual check of the app on a device against the hosted project (`docs/phase-4-hosted-smoke-test.md`).
 - Follow-up conversations on other devices: they're stored on the account but only shown on the device that had them.

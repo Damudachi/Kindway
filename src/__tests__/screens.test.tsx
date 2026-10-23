@@ -113,6 +113,32 @@ describe('daily reflection preview', () => {
     expect(screen.getByRole('checkbox', { name: 'Doesn’t quite fit' })).toBeChecked();
   });
 
+  it('keeps the reflection’s small print folded, with support always visible', async () => {
+    const screen = await renderRouter({ 'entry/[id]': withProviders(EntryDetail, withReflection('understand')) }, { initialUrl: '/entry/e1' });
+    expect(screen.getByRole('link', { name: 'Need more support?' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Remove this reflection' })).toBeNull();
+    const about = screen.getByRole('button', { name: 'About this reflection' });
+    expect(about).toBeCollapsed();
+    await fireEvent.press(about);
+    expect(screen.getByRole('button', { name: 'About this reflection' })).toBeExpanded();
+    expect(screen.getByRole('button', { name: 'Remove this reflection' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Adjust how Kindway reflects' })).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Entry options' })).toBeOnTheScreen();
+  });
+
+  it('without a suggested next step, “Plan one small step for tomorrow” is the way to Tomorrow Bridge', async () => {
+    const screen = await renderRouter({ 'entry/[id]': withProviders(EntryDetail, withReflection('understand')) }, { initialUrl: '/entry/e1' });
+    expect(screen.getByRole('button', { name: 'Plan one small step for tomorrow' })).toBeOnTheScreen();
+  });
+
+  it('with a suggested next step, only “Save to Tomorrow Bridge” is offered', async () => {
+    const state = withReflection('understand');
+    state.entries[0] = { ...state.entries[0], reflection: { ...state.entries[0].reflection!, nextStep: 'Fictional: a short walk.' } };
+    const screen = await renderRouter({ 'entry/[id]': withProviders(EntryDetail, state) }, { initialUrl: '/entry/e1' });
+    expect(screen.getByRole('button', { name: 'Save to Tomorrow Bridge' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Plan one small step for tomorrow' })).toBeNull();
+  });
+
   it('"Try another perspective" replaces the perspective with a different one', async () => {
     const screen = await renderRouter({ 'entry/[id]': withProviders(EntryDetail, withReflection('understand')) }, { initialUrl: '/entry/e1' });
     await fireEvent.press(screen.getByRole('button', { name: 'Try another perspective' }));

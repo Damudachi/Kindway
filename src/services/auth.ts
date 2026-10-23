@@ -1,5 +1,6 @@
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
+import { getBundleOrigin } from 'expo/internal/bundle-origin';
 import * as Linking from 'expo-linking';
 
 /**
@@ -28,9 +29,26 @@ export interface AuthService {
  *   HTTPS tunnel). Only Expo Go can open these, and only while that server runs.
  * - Development and release builds: the app's own scheme, `kindway:///<path>`. Linking.createURL
  *   would add the dev server's address in a development build, which changes and isn't a route.
+ * With EXPO_PUBLIC_AUTH_LINK_URL set, links go to that HTTPS landing page (web/auth-link) with the
+ * app address as `?to=`, so a browser that can't open the app shows a page instead of nothing.
  */
 export function redirectTo(path: 'auth/confirm' | 'reset-password') {
-  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return Linking.createURL(`/${path}`);
+  const target = appTarget(path);
+  const page = process.env.EXPO_PUBLIC_AUTH_LINK_URL?.trim();
+  return page ? `${page}?to=${encodeURIComponent(target)}` : target;
+}
+
+/** Where the app itself receives an email link in this environment. */
+export function appTarget(path: 'auth/confirm' | 'reset-password') {
+  // Expo Go on SDK 58 reports executionEnvironment "bare", like a build, and Linking.createURL
+  // decides by that, so it can't be relied on for an exp:// address. Built from the dev server.
+  if (isRunningInExpoGo()) {
+    const origin = getBundleOrigin();
+    if (origin) {
+      const { host, protocol } = new URL(origin);
+      return `${protocol === 'https:' ? 'exps' : 'exp'}://${host}/--/${path}`;
+    }
+  }
   return `${Linking.resolveScheme({})}:///${path}`;
 }
 

@@ -8,7 +8,7 @@ import { Notice } from '@/components/notice';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { redirectTo } from '@/services/auth';
+import { appTarget, redirectTo } from '@/services/auth';
 import { useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
@@ -19,6 +19,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Mode = 'signup' | 'signin' | 'forgot';
 
 /** Email/password sign-up, sign-in and password reset. An account is always optional. */
+/** Where a confirmation link goes: the app, or the landing page and then the app. */
+function linkRoute() {
+  const [page] = redirectTo('auth/confirm').split('?');
+  const target = appTarget('auth/confirm');
+  return page === target ? target : `${page}, then ${target}`;
+}
+
 export default function Account() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<Mode>(params.mode === 'signin' ? 'signin' : 'signup');
@@ -108,7 +115,7 @@ export default function Account() {
         {__DEV__ && sent === 'confirm' && (
           // Development only: a fresh email's redirect_to matches this; an old one won't.
           <Text variant="small" style={styles.lede}>
-            Development build: this link should return to {redirectTo('auth/confirm')}
+            Development build: this link should return to {linkRoute()}
           </Text>
         )}
       </Screen>

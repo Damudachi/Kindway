@@ -206,7 +206,8 @@ describe('a real AI reflection on an entry', () => {
     const outputs = fakeOutputs();
     const reflection = { style: 'understand' as const, source: 'ai' as const, ai: { id: 'ref-9', provider: 'groq', model: 'openai/gpt-oss-120b', createdAt: '' }, acknowledge: 'Stored.', basedOn: 'Fictional: the deadline moved again.' };
     await render('entry/[id]', EntryDetail, withEntry({ reflection, reflectionStatus: 'ready' }), { reflections: true, invoke: respond(500, {}), outputs });
-    await fireEvent.press(await screen.findByRole('button', { name: 'Remove this reflection' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'About this reflection' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove this reflection' }));
     await waitFor(() => expect(outputs.deleteReflection).toHaveBeenCalledWith('ref-9'));
     expect(await screen.findByText(/deleted from this device and your account/)).toBeOnTheScreen();
   });

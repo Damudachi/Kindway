@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
-import { SwitchRow } from '@/components/controls';
+import { Section, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { StateView } from '@/components/notice';
 import { ReflectionView } from '@/components/reflection-view';
@@ -77,19 +77,21 @@ export default function EntryDetail() {
         <ReflectionView entry={entry} onRest={() => router.back()} />
       </View>
 
-      <SwitchRow
-        title="Use in insights and as context"
-        detail={entry.excludeFromAnalysis ? 'Kept out. Patterns and other entries’ reflections won’t use this entry.' : 'Patterns and other entries’ reflections may use its tags and links.'}
-        value={!entry.excludeFromAnalysis}
-        onChange={(v) => dispatch({ type: 'updateEntry', id: entry.id, patch: { excludeFromAnalysis: !v } })}
-      />
+      <Section title="Entry options">
+        <SwitchRow
+          title="Use in insights and as context"
+          detail={entry.excludeFromAnalysis ? 'Kept out. Patterns and other entries’ reflections won’t use this entry.' : 'Patterns and other entries’ reflections may use its tags and links.'}
+          value={!entry.excludeFromAnalysis}
+          onChange={(v) => dispatch({ type: 'updateEntry', id: entry.id, patch: { excludeFromAnalysis: !v } })}
+        />
 
-      <SwitchRow
-        title="Come back to this"
-        detail="Listed under “Still open” in Patterns until you turn it off."
-        value={!!entry.revisit}
-        onChange={(revisit) => dispatch({ type: 'updateEntry', id: entry.id, patch: { revisit } })}
-      />
+        <SwitchRow
+          title="Come back to this"
+          detail="Listed under “Still open” in Patterns until you turn it off."
+          value={!!entry.revisit}
+          onChange={(revisit) => dispatch({ type: 'updateEntry', id: entry.id, patch: { revisit } })}
+        />
+      </Section>
 
       <Dialog
         visible={confirmDelete}
