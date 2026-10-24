@@ -59,8 +59,12 @@ export function groqProvider({ apiKey, model, timeoutMs, fetch: doFetch = fetch 
           }),
         });
         if (!res.ok) {
-          // Drain without reading the message into anything that could be logged.
-          await res.body?.cancel().catch(() => {});
+          // Drain without reading the message into anything that could be logged. Groq's 400 is
+          // often json_validate_failed (the model's output broke the schema), so it maps to
+          // `invalid`. A body without cancel() (node-fetch, in the live eval) must not hide it.
+          await Promise.resolve()
+            .then(() => res.body?.cancel())
+            .catch(() => {});
           return { ok: false, error: errorFor(res.status), status: res.status, retryAfter: retryAfter(res.headers.get('retry-after')) };
         }
         const data = (await res.json().catch(() => null)) as GroqResponse | null;

@@ -234,9 +234,10 @@ export async function handleInsights(body: unknown, { store, provider, config }:
     // Advisors first, then the answer written with their notes (see council.ts).
     const council = await runCouncil(provider, 'insights', request.user);
     const councilNotes = council.notes.length;
+    const councilFailed = council.failed;
     if (council.safety) {
       await store.finishRequest(requestId, 'succeeded', 'safety');
-      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts: 0, usage: council.usage, councilNotes } };
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts: 0, usage: council.usage, councilNotes, councilFailed } };
     }
     const answer = withCouncil(request, council);
 
@@ -255,11 +256,11 @@ export async function handleInsights(body: unknown, { store, provider, config }:
     if (!parsed) {
       const error = result && !result.ok ? result.error : 'invalid';
       await store.finishRequest(requestId, 'failed', error);
-      return { ...providerFailed(error, result && !result.ok ? result.retryAfter : undefined), meta: { outcome: error, requestId, attempts, usage, councilNotes } };
+      return { ...providerFailed(error, result && !result.ok ? result.retryAfter : undefined), meta: { outcome: error, requestId, attempts, usage, councilNotes, councilFailed } };
     }
     if (parsed.safety) {
       await store.finishRequest(requestId, 'succeeded', 'safety');
-      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage, councilNotes } };
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage, councilNotes, councilFailed } };
     }
 
     const saved = await store.saveInsight(
@@ -278,7 +279,7 @@ export async function handleInsights(body: unknown, { store, provider, config }:
       entries,
     );
     await store.finishRequest(requestId, 'succeeded');
-    return ready(saved, requestId, { attempts, usage, councilNotes, droppedRefs: parsed.droppedRefs });
+    return ready(saved, requestId, { attempts, usage, councilNotes, councilFailed, droppedRefs: parsed.droppedRefs });
   } catch (e) {
     await store.finishRequest(requestId, 'failed', 'server_error').catch(() => {});
     throw e;

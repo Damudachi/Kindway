@@ -18,6 +18,8 @@ export type LogFields = {
   dropped_refs?: number;
   /** How many council advisors' notes the answer was written with. */
   council_notes?: number;
+  /** Advisors left out after failing. */
+  council_failed?: number;
   config_problem?: ConfigProblem;
 };
 export type Log = (fields: LogFields) => void;
@@ -26,7 +28,7 @@ export type HandlerResult = {
   status: number;
   body: Record<string, unknown>;
   /** Extra metadata for the log line. */
-  meta?: { outcome?: string; requestId?: string; usage?: Usage; attempts?: number; droppedRefs?: number; councilNotes?: number };
+  meta?: { outcome?: string; requestId?: string; usage?: Usage; attempts?: number; droppedRefs?: number; councilNotes?: number; councilFailed?: number };
 };
 
 export type AiContext = { store: AiStore; provider: AiProvider; config: AiConfig };
@@ -63,6 +65,7 @@ export async function serveAi(fn: string, req: Request, deps: Deps, handle: Hand
       ...(m.attempts !== undefined && { attempts: m.attempts }),
       ...(m.droppedRefs !== undefined && { dropped_refs: m.droppedRefs }),
       ...(m.councilNotes !== undefined && { council_notes: m.councilNotes }),
+      ...(m.councilFailed !== undefined && { council_failed: m.councilFailed }),
       ...extra,
     });
     const retry = typeof result.body.retry_after === 'number' ? { 'Retry-After': String(result.body.retry_after) } : undefined;
