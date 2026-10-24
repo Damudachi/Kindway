@@ -1,11 +1,14 @@
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import { Text } from 'react-native';
 
 import Talk from '@/app/entry/[id]/talk';
 import { SnackbarProvider } from '@/components/feedback';
 import type { ChatMessage, Entry, Reflection } from '@/data/types';
+import type { AiScope } from '@/services/ai/consent';
 import type { AiOutputsRepo, Invoke } from '@/services/ai/remote';
+import { AiConsentProvider, type AiConsentInfo } from '@/state/ai-consent';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, reducer, type DemoState } from '@/state/demo-store';
 import { RealAiProvider, type RealAi } from '@/state/real-ai';
@@ -72,30 +75,101 @@ async function say(text: string) {
 }
 
 describe('follow-up conversation without follow-up consent', () => {
-  it('stays simulated, says so on every reply, and never calls the AI service', async () => {
+  /** Talk with consent that `grant` really changes, the way the app's providers behave. */
+  async function openAsking(grantResult = true, chat: ChatMessage[] = []) {
     const invoke = respond(200, followUp());
-    // Reflections are allowed, follow-ups aren't: still simulated.
-    await open(journal([{ id: 'old-me', from: 'me', text: 'Fictional older message' }, { id: 'old-k', from: 'kindway', text: 'Fictional older canned reply' }]), {
-      reflections: true,
-      followUps: false,
-      invoke,
-    });
-    expect(screen.getByText(/Replies here are simulated/)).toBeOnTheScreen();
+    const grant = jest.fn(async (_scope: AiScope) => grantResult);
+    const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => true) };
+    function Wrapped() {
+      const [allowed, setAllowed] = useState(false);
+      const consent: AiConsentInfo = {
+        load: 'ready',
+        records: [],
+        status: () => (allowed ? 'active' : 'none'),
+        grant: async (scope) => {
+          const ok = await grant(scope);
+          if (ok) setAllowed(true);
+          return ok;
+        },
+        revoke: async () => false,
+        reload: () => {},
+      };
+      const real: RealAi = { reflections: true, insights: false, followUps: allowed, needs: null, account: 'user-a', invoke, outputs: fakeOutputs() };
+      return (
+        <AiConsentProvider value={consent}>
+          <RealAiProvider value={real}>
+            <DemoStoreProvider initial={journal(chat)}>
+              <SyncContext value={sync}>
+                <SnackbarProvider>
+                  <Talk />
+                </SnackbarProvider>
+              </SyncContext>
+            </DemoStoreProvider>
+          </RealAiProvider>
+        </AiConsentProvider>
+      );
+    }
+    await renderRouter({ _layout: () => <Stack />, 'entry/[id]/talk': Wrapped }, { initialUrl: '/entry/e1/talk' });
+    return { invoke, grant };
+  }
+
+  it('asks for consent instead of replying, and sends nothing until it is given', async () => {
+    const { invoke, grant } = await openAsking(true, [{ id: 'old-me', from: 'me', text: 'Fictional older message' }, { id: 'old-k', from: 'kindway', text: 'Fictional older canned reply' }]);
     // A reply saved before replies were labelled is still shown as simulated.
     expect(screen.getByLabelText('Simulated reply: Fictional older canned reply')).toBeOnTheScreen();
     await say('Fictional: why did I stay?');
-    await waitFor(() => expect(screen.getAllByText('Simulated reply')).toHaveLength(2), wait);
-    expect(screen.queryByText('Written by AI')).toBeNull();
+    expect(await screen.findByText('Allow AI replies here?', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByLabelText('You: Fictional: why did I stay?')).toBeNull();
+    expect(screen.getAllByText('Simulated reply')).toHaveLength(1);
+    expect(screen.getByLabelText('Follow-up message').props.value).toBe('Fictional: why did I stay?');
+    // Allowing needs the box ticked first.
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow and send' }));
+    expect(grant).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText(/I’ve read what would be sent/));
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow and send' }));
+    expect(grant).toHaveBeenCalledWith('follow_up');
+    expect(await screen.findByText('Fictional AI reply: staying late made sense.', {}, wait)).toBeOnTheScreen();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke.mock.calls[0][1]).toMatchObject({ message: 'Fictional: why did I stay?' });
+    expect(screen.getAllByText('Simulated reply')).toHaveLength(1);
+  });
+
+  it('cancelling keeps the message and sends nothing', async () => {
+    const { invoke, grant } = await openAsking();
+    await say('Fictional: hello');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Cancel' }, wait));
+    await waitFor(() => expect(screen.queryByText('Allow AI replies here?')).toBeNull(), wait);
+    expect(screen.getByLabelText('Follow-up message').props.value).toBe('Fictional: hello');
+    expect(grant).not.toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  it('a local-only journal (no account) never calls the AI service either', async () => {
+  it('a consent that can’t be recorded says so and keeps the message', async () => {
+    const { invoke } = await openAsking(false);
+    await say('Fictional: hello');
+    await screen.findByText('Allow AI replies here?', {}, wait);
+    await fireEvent.press(screen.getByLabelText(/I’ve read what would be sent/));
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow and send' }));
+    expect(await screen.findByText(/Couldn’t record that. Nothing was sent/, {}, wait)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Follow-up message').props.value).toBe('Fictional: hello');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('a local-only journal (no account) is asked to sign in, with no reply of either kind', async () => {
     const invoke = respond(200, followUp());
     await open(journal(), { followUps: false, needs: 'account', account: null, invoke: null, outputs: null });
     await say('Fictional: hello');
-    expect(await screen.findByText('Simulated reply', {}, wait)).toBeOnTheScreen();
-    expect(screen.queryByText('Allow AI follow-up replies')).toBeNull();
+    expect(await screen.findByText('Sign in to talk this through', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeOnTheScreen();
+    expect(screen.queryByText('Simulated reply')).toBeNull();
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('without cloud backup, points to it', async () => {
+    await open(journal(), { followUps: false, needs: 'cloud-sync' });
+    await say('Fictional: hello');
+    expect(await screen.findByText('Turn on cloud backup first', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Simulated reply')).toBeNull();
   });
 });
 

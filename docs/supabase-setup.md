@@ -204,6 +204,8 @@ No request carries entry text or a user id; the server reads both itself (a foll
 
 **Provider.** GroqCloud, model `openai/gpt-oss-120b`, ordinary chat-completions endpoint only (no tools, web search, Batch, Files or fine-tuning), strict JSON-schema output, `reasoning_effort: low`, reasoning excluded from the reply. Model availability was checked in Groq's docs on 2026-10-20 (listed as production). The app only knows the `AiService`/review contracts; another provider means a new adapter in `ai-provider.ts` plus a new disclosure version.
 
+**Council (against sycophancy).** Before each reflection, review or follow-up reply, `council.ts` sends the same request three times in parallel as different "advisors" (Feelings first, Fair witness, Grounded friend). Each writes short notes (≤ 700 chars, 500 output tokens), and the answer is then written by the same model with those notes and a self-check against taking the user's side or flattering them. If an advisor fails, its notes are dropped; if all fail, the answer is written alone. If any advisor flags a safety concern, the request goes to the support route. The provider, model and data sent are unchanged, so consent versions were not bumped, but Groq now receives each request's content **four times** under the same retention terms. Logs record `council_notes` (a count). Cost: about 4× the input tokens and one extra round trip. Prompt versions `reflection-p4`, `insights-p2`, `follow-up-p2`.
+
 **Settings** (Edge Function secrets; invalid values make AI fail closed with `not_configured`):
 
 | Variable | Default | Range |
@@ -221,7 +223,7 @@ No request carries entry text or a user id; the server reads both itself (a foll
 | `AI_FOLLOW_UP_MAX_CHARS` / `AI_FOLLOW_UP_MAX_TURNS` | 1500 / 3 | 100–2000 / 0–6 |
 | `AI_FOLLOW_UP_COOLDOWN_SECONDS` / `AI_FOLLOW_UP_DAILY_LIMIT` | 5 / 60 | per user |
 
-The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while".
+The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while". With the council, one request uses about 4× the tokens, so a long entry or a full review can reach the 8,000 tokens/min limit by itself.
 
 **Limits and duplicates** (`ai_requests`, no content): `ai_begin_request` serializes each user's requests with an advisory lock, returns the earlier result for a repeated idempotency key, allows one request in progress per user (stale ones are released after two minutes), and applies the cooldown and the rolling 24-hour cap per kind. Failed requests count too. Users can read their ledger but not change it.
 

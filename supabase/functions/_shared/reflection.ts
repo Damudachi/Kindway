@@ -3,11 +3,12 @@
 // (and only when "What reflections can see" isn't "this entry only"). Never other entries.
 import { type AiContext, fence, type HandlerResult, invalid, isEntryId, isObject, isUuid, onlyKeys, providerFailed, refused } from './ai-http.ts';
 import type { CompletionResult } from './ai-provider.ts';
+import { addUsage, runCouncil, withCouncil } from './council.ts';
 import type { CompassLink, EntryRow, ProfileRow, StoredReflection } from './ai-store.ts';
 import { needsSafetyRoute } from './safety.ts';
 
 export const REFLECTION_SCHEMA_VERSION = 'reflection-1';
-export const REFLECTION_PROMPT_VERSION = 'reflection-p3';
+export const REFLECTION_PROMPT_VERSION = 'reflection-p4';
 
 /** The longest part of a compass note sent with a reflection; the rest is left out. */
 export const MAX_COMPASS_NOTE = 400;
@@ -87,7 +88,8 @@ How to write:
 - Validate feelings without automatically agreeing with every conclusion. Feelings are real; interpretations can be looked at.
 - Never diagnose, name a disorder, suggest medication or treatment, promise outcomes, or make confident claims about anyone's personality or motives from limited text.
 - Don't make major life decisions for the user. Present any inference as a tentative possibility ("It might be…", "One possibility is…"), never as fact.
-- Not every painful feeling is a distortion. When the entry describes real mistreatment, unfairness, loss or a practical problem, acknowledge it as real. Don't recast what someone else plainly did as only the user's interpretation, and don't offer the other person's point of view as a counterweight to mistreatment; any perspective should help the user, for example about their options or what they need.
+- Not every painful feeling is a distortion. When the entry plainly shows mistreatment, unfairness, loss or a practical problem, acknowledge it as real, and don't recast what someone else plainly did as only the user's interpretation or offer their point of view as a counterweight to it. But the entry is one account: when it describes a disagreement or conflict, don't rule on who was right, and don't assume the other person's motives either way. Any perspective should help the user, for example about their options or what they need.
+- Don't flatter. No unprompted praise of the user's choices or character. Validating a feeling is not endorsing what the user concluded or did, and being asked "right?" is not a reason to agree.
 - Be concise and specific to what the user actually wrote. Warm, plain and natural. No platitudes, therapy jargon, exclamation marks, or stock openings like "It sounds like" in every sentence. Address the user as "you".
 - You don't remember anything. Only refer to what is in this request.
 - Don't encourage reliance on Kindway. Where it fits, point to the user's own judgement or people in their life.
@@ -215,27 +217,36 @@ export async function handleReflection(body: unknown, { store, provider, config 
     };
 
     // At most one repeat, and only when the reply couldn't be used.
+    // Advisors first, then the answer written with their notes (see council.ts).
+    const council = await runCouncil(provider, 'reflection', request.user);
+    const councilNotes = council.notes.length;
+    if (council.safety) {
+      await store.finishRequest(requestId, 'succeeded', 'safety');
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts: 0, usage: council.usage, councilNotes } };
+    }
+    const answer = withCouncil(request, council);
+
     let result: CompletionResult | null = null;
     let parsed: ReturnType<typeof parseReflection> = null;
     let attempts = 0;
     while (attempts < 2) {
       attempts++;
-      result = await provider.complete(request);
+      result = await provider.complete(answer);
       if (!result.ok && result.error !== 'invalid') break;
       parsed = result.ok ? parseReflection(result.text, s, compass) : null;
       if (parsed) break;
     }
-    const usage = result?.ok ? result.usage : undefined;
+    const usage = addUsage(council.usage, result?.ok ? result.usage : undefined);
 
     if (!parsed) {
       const error = result && !result.ok ? result.error : 'invalid';
       await store.finishRequest(requestId, 'failed', error);
       const failed = providerFailed(error, result && !result.ok ? result.retryAfter : undefined);
-      return { ...failed, meta: { outcome: error, requestId, attempts, usage } };
+      return { ...failed, meta: { outcome: error, requestId, attempts, usage, councilNotes } };
     }
     if (parsed.safety) {
       await store.finishRequest(requestId, 'succeeded', 'safety');
-      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage } };
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage, councilNotes } };
     }
 
     const saved = await store.saveReflection({
@@ -250,7 +261,7 @@ export async function handleReflection(body: unknown, { store, provider, config 
       entry_updated_at: entry.updated_at,
     });
     await store.finishRequest(requestId, 'succeeded');
-    return ready(saved, requestId, { attempts, usage });
+    return ready(saved, requestId, { attempts, usage, councilNotes });
   } catch (e) {
     await store.finishRequest(requestId, 'failed', 'server_error').catch(() => {});
     throw e;

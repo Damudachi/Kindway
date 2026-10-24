@@ -16,6 +16,8 @@ export type LogFields = {
   output_tokens?: number;
   attempts?: number;
   dropped_refs?: number;
+  /** How many council advisors' notes the answer was written with. */
+  council_notes?: number;
   config_problem?: ConfigProblem;
 };
 export type Log = (fields: LogFields) => void;
@@ -24,7 +26,7 @@ export type HandlerResult = {
   status: number;
   body: Record<string, unknown>;
   /** Extra metadata for the log line. */
-  meta?: { outcome?: string; requestId?: string; usage?: Usage; attempts?: number; droppedRefs?: number };
+  meta?: { outcome?: string; requestId?: string; usage?: Usage; attempts?: number; droppedRefs?: number; councilNotes?: number };
 };
 
 export type AiContext = { store: AiStore; provider: AiProvider; config: AiConfig };
@@ -60,6 +62,7 @@ export async function serveAi(fn: string, req: Request, deps: Deps, handle: Hand
       ...(m.usage?.outputTokens !== undefined && { output_tokens: m.usage.outputTokens }),
       ...(m.attempts !== undefined && { attempts: m.attempts }),
       ...(m.droppedRefs !== undefined && { dropped_refs: m.droppedRefs }),
+      ...(m.councilNotes !== undefined && { council_notes: m.councilNotes }),
       ...extra,
     });
     const retry = typeof result.body.retry_after === 'number' ? { 'Retry-After': String(result.body.retry_after) } : undefined;
@@ -130,4 +133,4 @@ export function providerFailed(error: 'rate' | 'timeout' | 'unavailable' | 'inva
 }
 
 /** Untrusted text goes inside tags; stop it from closing or opening them. */
-export const fence = (s: string) => s.replace(/<\s*\/?\s*(entry|entries|context|reflection|conversation|turn|message)\b/gi, '‹$1');
+export const fence = (s: string) => s.replace(/<\s*\/?\s*(entry|entries|context|reflection|conversation|turn|message|council|note)\b/gi, '‹$1');

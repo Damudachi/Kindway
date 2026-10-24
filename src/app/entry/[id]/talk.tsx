@@ -3,10 +3,10 @@ import { useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
+import { FollowUpConsentDialog } from '@/components/follow-up-consent-dialog';
 import { Notice } from '@/components/notice';
 import { keyboardBehavior, TopBar, useBottomInset } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -17,7 +17,7 @@ import type { FollowUpError } from '@/services/ai';
 import { FOLLOW_UP_CONTEXT_TURNS } from '@/services/ai/remote';
 import { useFollowUpMode, useSendFollowUp } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
-import { useRealAi } from '@/state/real-ai';
+import { useAiBlocker, useRealAi } from '@/state/real-ai';
 import { color, radius, space, type } from '@/theme/tokens';
 
 const ERROR_COPY: Record<FollowUpError, string> = {
@@ -36,8 +36,9 @@ const ERROR_COPY: Record<FollowUpError, string> = {
 };
 
 /**
- * Entry-linked follow-up conversation. With follow-up consent, replies come from the real AI
- * service; otherwise they are simulated, pre-written on the device. Each reply says which.
+ * Entry-linked follow-up conversation. Replies come from the real AI service. Without follow-up
+ * consent, sending asks for it (or for the account and cloud backup it needs) and sends nothing
+ * until it's given. Simulated replies from before are still shown, labelled as simulated.
  */
 export default function Talk() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,22 +53,36 @@ export default function Talk() {
   const sendFollowUp = useSendFollowUp();
   const mode = useFollowUpMode();
   const real = useRealAi();
+  const blocker = useAiBlocker('follow_up');
   const snack = useSnackbar();
   const [confirmClear, setConfirmClear] = useState(false);
+  const [asking, setAsking] = useState(false);
   const list = useRef<FlatList<ChatMessage>>(null);
   const bottom = useBottomInset(insets.bottom);
 
-  const send = () => {
+  /** `consentJustGiven`: the account recorded follow-up consent before the app re-read it. */
+  const send = (consentJustGiven = false) => {
     const body = text.trim();
     if (!body || thinking || !entry) return;
+    if (mode !== 'ai' && !consentJustGiven) {
+      if (blocker === 'consent-loading') snack({ message: 'Still checking your AI choices. Try again in a moment.' });
+      else setAsking(true);
+      return;
+    }
     setText('');
     setFailed(null);
     setThinking(true);
-    sendFollowUp(entry, body, style, (error) => {
-      setThinking(false);
-      setFailed(error ?? null);
-      if (error === 'safety') router.push('/support');
-    });
+    sendFollowUp(
+      entry,
+      body,
+      style,
+      (error) => {
+        setThinking(false);
+        setFailed(error ?? null);
+        if (error === 'safety') router.push('/support');
+      },
+      consentJustGiven,
+    );
   };
 
   const clear = () => {
@@ -109,11 +124,10 @@ export default function Talk() {
                 entries aren’t sent.
               </Notice>
             ) : (
-              <Notice title="Context for this conversation">
-                Only this entry{title} and its reflection. Other entries aren’t searched. Replies here are simulated: pre-written by style, not generated from your words.
+              <Notice title="Replies here come from real AI">
+                You’ll be asked before anything is sent. Only this entry{title}, its reflection and this conversation would be sent; other entries aren’t.
               </Notice>
             )}
-            {mode === 'simulated' && <AiUnavailableNote scope="follow_up" />}
             <Text variant="label" style={styles.styleLabel}>
               Response style
             </Text>
@@ -158,7 +172,7 @@ export default function Talk() {
             <Text variant="small">
               {mode === 'ai'
                 ? 'AI replies are written by openai/gpt-oss-120b on GroqCloud, not by a person, and can be wrong. Kindway is a reflection aid, not a therapist.'
-                : 'Simulated replies: pre-written by style, not generated from your words. Kindway is a reflection aid, not a therapist.'}
+                : 'Once allowed, replies are written by AI, not by a person, and can be wrong. Kindway is a reflection aid, not a therapist.'}
             </Text>
           </View>
         }
@@ -174,8 +188,17 @@ export default function Talk() {
           multiline
           style={styles.input}
         />
-        <IconButton icon="send" label="Send follow-up" tint={text.trim() ? color.trail : color.outline} onPress={send} />
+        <IconButton icon="send" label="Send follow-up" tint={text.trim() ? color.trail : color.outline} onPress={() => send()} />
       </View>
+      <FollowUpConsentDialog
+        blocker={asking && blocker !== 'consent-loading' ? blocker : null}
+        onCancel={() => setAsking(false)}
+        onAllowed={() => {
+          setAsking(false);
+          send(true);
+        }}
+        onGrantFailed={() => snack({ message: 'Couldn’t record that. Nothing was sent; your message is still here. Try again when you’re online.' })}
+      />
       <Dialog
         visible={confirmClear}
         title="Clear this conversation?"

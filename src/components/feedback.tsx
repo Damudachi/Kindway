@@ -69,13 +69,15 @@ type DialogProps = {
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
+  confirmDisabled?: boolean;
+  confirmLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   children?: ReactNode;
 };
 
 /** Material basic dialog. Only for decisions that must interrupt (delete, sign out). */
-export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Cancel', destructive, onConfirm, onCancel, children }: DialogProps) {
+export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Cancel', destructive, confirmDisabled, confirmLoading, onConfirm, onCancel, children }: DialogProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent navigationBarTranslucent>
       <View style={styles.scrim}>
@@ -87,7 +89,7 @@ export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Canc
           {children}
           <View style={styles.dialogActions}>
             <Button variant="text" label={cancelLabel} onPress={onCancel} />
-            <Button variant={destructive ? 'dangerText' : 'text'} label={confirmLabel} onPress={onConfirm} />
+            <Button variant={destructive ? 'dangerText' : 'text'} label={confirmLabel} disabled={confirmDisabled} loading={confirmLoading} onPress={onConfirm} />
           </View>
         </View>
       </View>

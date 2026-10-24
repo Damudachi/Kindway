@@ -3,11 +3,12 @@
 // user's "keep out of analysis" choices, and refuses rather than silently trimming anything.
 import { type AiContext, fence, type HandlerResult, invalid, isEntryId, isObject, isUuid, onlyKeys, providerFailed, refused } from './ai-http.ts';
 import type { CompletionResult } from './ai-provider.ts';
+import { addUsage, runCouncil, withCouncil } from './council.ts';
 import type { CompassLink, EntryRow, StoredInsight } from './ai-store.ts';
 import { needsSafetyRoute } from './safety.ts';
 
 export const INSIGHTS_SCHEMA_VERSION = 'insights-1';
-export const INSIGHTS_PROMPT_VERSION = 'insights-p1';
+export const INSIGHTS_PROMPT_VERSION = 'insights-p2';
 
 const PERIOD_DAYS = { week: 7, month: 30 } as const;
 type Period = keyof typeof PERIOD_DAYS;
@@ -70,7 +71,7 @@ How to review:
 - A theme or pattern needs support from at least two entries. Don't invent a pattern from thin or inconsistent evidence. If there isn't enough to go on, set enough_evidence to false and return few or no observations. Saying so is a good answer.
 - grounding is "observed" for something directly in what the user wrote or tagged (for example the same feeling tag on three entries), and "interpretation" for a possible reading. Word interpretations tentatively ("One possibility is…") and leave room for the user to disagree.
 - Don't state how often something happens unless you can count it in these entries. Never diagnose, name a disorder, suggest medication or treatment, or make confident claims about the user's personality or other people's motives.
-- Don't force a negative reading. Include strengths and efforts where the entries show them. Not every painful feeling is a distortion; when entries describe real mistreatment, loss or practical problems, treat them as real.
+- Don't force a negative reading. Include strengths and efforts where the entries show them. Not every painful feeling is a distortion; when entries describe real mistreatment, loss or practical problems, treat them as real. Entries are the user's own account: where they describe conflicts with others, don't rule on who was right or assume others' motives. Don't flatter: a strength needs evidence in the entries, not praise.
 - kind: "theme" is a recurring topic; "pattern" is things that tend to go together; "strength" is effort, coping or something going well; "concern" is something unresolved the user may want to come back to, stated plainly without alarm or diagnosis.
 - At most six observations. title is a few words; body is at most two sentences, specific to the entries, plain and warm. No platitudes or therapy jargon. Address the user as "you".
 - summary: one to three gentle sentences, or null if there's not enough to say.
@@ -230,26 +231,35 @@ export async function handleInsights(body: unknown, { store, provider, config }:
       maxTokens: limits.maxTokens,
     };
 
+    // Advisors first, then the answer written with their notes (see council.ts).
+    const council = await runCouncil(provider, 'insights', request.user);
+    const councilNotes = council.notes.length;
+    if (council.safety) {
+      await store.finishRequest(requestId, 'succeeded', 'safety');
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts: 0, usage: council.usage, councilNotes } };
+    }
+    const answer = withCouncil(request, council);
+
     let result: CompletionResult | null = null;
     let parsed: ReturnType<typeof parseInsights> = null;
     let attempts = 0;
     while (attempts < 2) {
       attempts++;
-      result = await provider.complete(request);
+      result = await provider.complete(answer);
       if (!result.ok && result.error !== 'invalid') break;
       parsed = result.ok ? parseInsights(result.text, entries) : null;
       if (parsed) break;
     }
-    const usage = result?.ok ? result.usage : undefined;
+    const usage = addUsage(council.usage, result?.ok ? result.usage : undefined);
 
     if (!parsed) {
       const error = result && !result.ok ? result.error : 'invalid';
       await store.finishRequest(requestId, 'failed', error);
-      return { ...providerFailed(error, result && !result.ok ? result.retryAfter : undefined), meta: { outcome: error, requestId, attempts, usage } };
+      return { ...providerFailed(error, result && !result.ok ? result.retryAfter : undefined), meta: { outcome: error, requestId, attempts, usage, councilNotes } };
     }
     if (parsed.safety) {
       await store.finishRequest(requestId, 'succeeded', 'safety');
-      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage } };
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage, councilNotes } };
     }
 
     const saved = await store.saveInsight(
@@ -268,7 +278,7 @@ export async function handleInsights(body: unknown, { store, provider, config }:
       entries,
     );
     await store.finishRequest(requestId, 'succeeded');
-    return ready(saved, requestId, { attempts, usage, droppedRefs: parsed.droppedRefs });
+    return ready(saved, requestId, { attempts, usage, councilNotes, droppedRefs: parsed.droppedRefs });
   } catch (e) {
     await store.finishRequest(requestId, 'failed', 'server_error').catch(() => {});
     throw e;

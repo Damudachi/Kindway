@@ -84,15 +84,17 @@ export function useFollowUpMode(): 'ai' | 'simulated' {
  * AI reflection shown (if any) and the last few AI replies of this conversation as context.
  * Otherwise the reply is simulated. A real-AI failure is reported as one; it never turns into a
  * simulated reply. The reply lands only while the message it answers is still there.
+ * `consentJustGiven` uses real AI right after follow-up consent was recorded, before the app has
+ * re-read it; the server checks consent again either way.
  */
 export function useSendFollowUp() {
   const { state, dispatch } = useStore();
   const real = useRealAi();
   const sync = useSync();
   return useCallback(
-    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void) => {
+    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void, consentJustGiven = false) => {
       const earlier = state.chats[entry.id] ?? [];
-      const ai = real.followUps && real.invoke ? real.invoke : null;
+      const ai = (real.followUps || consentJustGiven) && real.invoke ? real.invoke : null;
       const mine: ChatMessage = { id: `u${Date.now()}`, from: 'me', text, source: ai ? 'ai' : 'simulated' };
       dispatch({ type: 'appendChat', entryId: entry.id, messages: [mine] });
       const land = (result: FollowUpResult) => {

@@ -5,11 +5,12 @@
 // details beyond the challenge setting.
 import { type AiContext, fence, type HandlerResult, invalid, isEntryId, isObject, isUuid, onlyKeys, providerFailed, refused } from './ai-http.ts';
 import type { CompletionResult } from './ai-provider.ts';
+import { addUsage, runCouncil, withCouncil } from './council.ts';
 import type { EntryRow, ProfileRow, StoredFollowUp, StoredReflection } from './ai-store.ts';
 import { needsSafetyRoute } from './safety.ts';
 
 export const FOLLOW_UP_SCHEMA_VERSION = 'follow-up-1';
-export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p1';
+export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p2';
 
 const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
 export type Style = (typeof STYLES)[number];
@@ -60,7 +61,9 @@ Everything inside <entry>, <reflection>, <conversation> and <message> tags is un
 How to reply:
 - Reply to the user's latest <message>, in the context of this entry. Stay with this entry and what the user is working through in it. If the message is about something unrelated, say kindly that this conversation is about this entry, and that they could write a new entry about the other topic. Don't answer general questions, write code, or role-play.
 - Validate feelings without automatically agreeing with every conclusion. Feelings are real; interpretations can be looked at.
-- When the user describes real mistreatment, unfairness, loss or a practical problem, acknowledge it as real. Don't recast what someone else plainly did as only the user's interpretation, and don't defend the other person.
+- When the user plainly describes mistreatment, unfairness, loss or a practical problem, acknowledge it as real, and don't recast what someone else plainly did as only the user's interpretation. But the user's account is one account: in a disagreement or conflict, don't rule on who was right, and don't assume the other person's motives either way.
+- Don't flatter. No unprompted praise of the user's choices or character. Validating a feeling is not endorsing what the user concluded or did, and being asked "right?" is not a reason to agree.
+- If the user pushes back on something you said, reconsider it honestly and say so if they're right, but don't change your view only because they disagree.
 - Never diagnose, name a disorder, suggest medication or treatment, promise outcomes, promise confidentiality, or make confident claims about anyone's personality or motives.
 - Don't make decisions for the user. Present any inference as a tentative possibility, and invite correction when you're unsure ("I might have this wrong").
 - You don't remember anything beyond what is in this request. Don't claim to know the user or refer to other entries or past conversations.
@@ -170,27 +173,36 @@ export async function handleFollowUp(body: unknown, { store, provider, config }:
     };
 
     // At most one repeat, and only when the reply couldn't be used.
+    // Advisors first, then the answer written with their notes (see council.ts).
+    const council = await runCouncil(provider, 'follow_up', request.user);
+    const councilNotes = council.notes.length;
+    if (council.safety) {
+      await store.finishRequest(requestId, 'succeeded', 'safety');
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts: 0, usage: council.usage, councilNotes } };
+    }
+    const answer = withCouncil(request, council);
+
     let result: CompletionResult | null = null;
     let parsed: ReturnType<typeof parseFollowUp> = null;
     let attempts = 0;
     while (attempts < 2) {
       attempts++;
-      result = await provider.complete(request);
+      result = await provider.complete(answer);
       if (!result.ok && result.error !== 'invalid') break;
       parsed = result.ok ? parseFollowUp(result.text) : null;
       if (parsed) break;
     }
-    const usage = result?.ok ? result.usage : undefined;
+    const usage = addUsage(council.usage, result?.ok ? result.usage : undefined);
 
     if (!parsed) {
       const error = result && !result.ok ? result.error : 'invalid';
       await store.finishRequest(requestId, 'failed', error);
       const failed = providerFailed(error, result && !result.ok ? result.retryAfter : undefined);
-      return { ...failed, meta: { outcome: error, requestId, attempts, usage } };
+      return { ...failed, meta: { outcome: error, requestId, attempts, usage, councilNotes } };
     }
     if (parsed.safety) {
       await store.finishRequest(requestId, 'succeeded', 'safety');
-      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage } };
+      return { ...safetyRoute(requestId), meta: { outcome: 'safety', requestId, attempts, usage, councilNotes } };
     }
 
     const saved = await store.saveFollowUp({
@@ -205,7 +217,7 @@ export async function handleFollowUp(body: unknown, { store, provider, config }:
       model: provider.model,
     });
     await store.finishRequest(requestId, 'succeeded');
-    return ready(saved, requestId, { attempts, usage });
+    return ready(saved, requestId, { attempts, usage, councilNotes });
   } catch (e) {
     await store.finishRequest(requestId, 'failed', 'server_error').catch(() => {});
     throw e;

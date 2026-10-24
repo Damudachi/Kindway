@@ -31,9 +31,10 @@ const AiConsentContext = createContext<AiConsentInfo>(unavailable);
 
 const defaultRepo = supabase ? supabaseConsentRepo(supabase) : null;
 
-type Props = { children: ReactNode; repo?: ConsentRepo | null };
+/** `value` is a test seam that replaces the computed state; the app never passes it. */
+type Props = { children: ReactNode; repo?: ConsentRepo | null; value?: AiConsentInfo };
 
-export function AiConsentProvider({ children, repo = defaultRepo }: Props) {
+export function AiConsentProvider({ children, repo = defaultRepo, value: fixed }: Props) {
   const { user } = useSession();
   const userId = user?.id;
   const [attempt, setAttempt] = useState(0);
@@ -83,7 +84,7 @@ export function AiConsentProvider({ children, repo = defaultRepo }: Props) {
     };
   }, [userId, repo, result, change, reload]);
 
-  return <AiConsentContext value={value}>{children}</AiConsentContext>;
+  return <AiConsentContext value={fixed ?? value}>{children}</AiConsentContext>;
 }
 
 export function useAiConsent() {
