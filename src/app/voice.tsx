@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { Button } from '@/components/button';
@@ -8,7 +8,8 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
-import { color, radius, space, type } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 type Step = 'intro' | 'permission' | 'denied' | 'recording' | 'transcribing' | 'review' | 'failed';
 
@@ -20,6 +21,8 @@ const SAMPLE_TRANSCRIPT =
  * TODO(voice): microphone permission via expo-audio, on-device or server transcription, discard raw audio after use.
  */
 export default function Voice() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const { state, dispatch } = useStore();
   const [step, setStep] = useState<Step>('intro');
@@ -151,7 +154,7 @@ export default function Voice() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color, type) => ({
   lede: { marginTop: space.xs, marginBottom: space.lg },
   block: { gap: space.sm },
   recRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.md, flexWrap: 'wrap' },
@@ -165,4 +168,4 @@ const styles = StyleSheet.create({
     borderColor: color.outline,
     padding: space.md,
   },
-});
+}));

@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import type { AiScope } from '@/services/ai/consent';
 import { useAiConsent } from '@/state/ai-consent';
 import { useAiBlocker, type AiBlocker } from '@/state/real-ai';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const WHAT: Record<AiScope, string> = {
@@ -26,6 +27,7 @@ const COPY: Record<AiBlocker, (what: string) => string> = {
 
 /** Says why a simulated response was used instead of real AI, and offers the one fix. */
 export function AiUnavailableNote({ scope }: { scope: AiScope }) {
+  const styles = useStyles();
   const blocker = useAiBlocker(scope);
   const consent = useAiConsent();
   if (!blocker) return null;
@@ -47,6 +49,6 @@ export function AiUnavailableNote({ scope }: { scope: AiScope }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { gap: space.xxs },
-});
+}));

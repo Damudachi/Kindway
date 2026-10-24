@@ -1,14 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ReflectionView } from '@/components/reflection-view';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
-import { color, radius, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 export default function FirstReflection() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useStore();
   const entry = state.entries.find((e) => e.id === id);
@@ -37,7 +39,7 @@ export default function FirstReflection() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   quote: {
     marginTop: space.md,
     padding: space.md,
@@ -47,4 +49,4 @@ const styles = StyleSheet.create({
     borderColor: color.sand,
     gap: space.xxs,
   },
-});
+}));

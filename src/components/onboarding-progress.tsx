@@ -1,12 +1,14 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 const TOTAL = 5;
 
 /** Linear progress for onboarding, drawn as a short stretch of trail. */
 export function OnboardingProgress({ step }: { step: number }) {
+  const styles = useStyles();
   return (
     <View
       style={styles.wrap}
@@ -23,8 +25,8 @@ export function OnboardingProgress({ step }: { step: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   track: { flex: 1, height: 4, borderRadius: 2, backgroundColor: color.sand, overflow: 'hidden' },
   fill: { height: 4, backgroundColor: color.trail },
-});
+}));

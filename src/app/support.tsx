@@ -1,19 +1,21 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 /**
  * Extra support. PLACEHOLDER until the copy is clinically reviewed and resources are verified
  * for each supported region. Do not add phone numbers or services that haven't been verified.
  */
 export default function Support() {
+  const styles = useStyles();
   const { dispatch } = useStore();
   const [showOptions, setShowOptions] = useState(false);
   const leave = () => {
@@ -58,9 +60,9 @@ export default function Support() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.sm, marginBottom: space.md },
   block: { paddingVertical: space.md, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   btn: { marginTop: space.xs, alignSelf: 'flex-start' },
   foot: { marginTop: space.md },
-});
+}));

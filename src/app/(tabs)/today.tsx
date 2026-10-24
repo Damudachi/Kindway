@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -15,9 +15,11 @@ import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function Today() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
@@ -214,7 +216,7 @@ export default function Today() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   banner: { marginBottom: space.md },
   bannerActions: { flexDirection: 'row', gap: space.xs },
   lede: { marginTop: space.xs },
@@ -225,4 +227,4 @@ const styles = StyleSheet.create({
   trailTitle: { marginBottom: space.xs },
   emptyNote: { marginTop: space.xs },
   links: { marginTop: space.xs },
-});
+}));

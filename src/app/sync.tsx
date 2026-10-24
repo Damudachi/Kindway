@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Section } from '@/components/controls';
@@ -13,6 +13,7 @@ import { CloudError } from '@/services/cloud/repo';
 import { toSnapshot, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { eraseScope, scopedStorage, syncBaseStorage } from '@/storage/persistence';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -32,6 +33,7 @@ type Step =
  * been read back and checked, and then only removed if they choose to.
  */
 export default function Sync() {
+  const styles = useStyles();
   const { state } = useStore();
   const { user, repo, mode, enableSync } = useSession();
   const [step, setStep] = useState<Step>({ kind: 'loading' });
@@ -230,9 +232,9 @@ export default function Sync() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   counts: { marginTop: space.sm, gap: space.xxs },
   gap: { marginTop: space.xs },
   center: { alignSelf: 'center' },
-});
+}));

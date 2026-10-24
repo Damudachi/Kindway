@@ -1,7 +1,6 @@
 import { useLinkingURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Field } from '@/components/controls';
@@ -10,10 +9,12 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { parseAuthCallback } from '@/services/auth';
 import { useSession } from '@/state/session';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 /** Where the password-reset link opens (kindway:///reset-password?code=…, or exp://…/--/reset-password in Expo Go). */
 export default function ResetPassword() {
+  const styles = useStyles();
   const params = useLocalSearchParams<{ code?: string; error_code?: string; error_description?: string; error?: string }>();
   const linked = useLinkingURL();
   const callback = parseAuthCallback(linked?.includes('reset-password') ? linked : null, params);
@@ -91,6 +92,6 @@ export default function ResetPassword() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   lede: { marginTop: space.xs, marginBottom: space.lg },
-});
+}));

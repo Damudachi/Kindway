@@ -1,15 +1,17 @@
 import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Notice, StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { longDate } from '@/data/dates';
 import { SAMPLE_ENTRIES } from '@/data/sample';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 /** Read-only view of one fictional sample entry. It can't be edited, reflected on or saved to the journal. */
 export default function SampleEntry() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const entry = SAMPLE_ENTRIES.find((e) => e.id === id);
 
@@ -57,8 +59,8 @@ export default function SampleEntry() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   date: { marginTop: space.md },
   words: { marginTop: space.lg, paddingBottom: space.lg, gap: space.xs },
   reflection: { borderTopWidth: 1, borderTopColor: color.sand, paddingTop: space.lg, gap: space.sm },
-});
+}));

@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -11,11 +10,13 @@ import { Text } from '@/components/text';
 import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const MAX = 3;
 
 export default function CompassSetup() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const { user } = useSession();
   // Someone already signed in has an account; offering to create one again is what looped them.
@@ -82,9 +83,9 @@ export default function CompassSetup() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   title: { marginTop: space.lg },
   lede: { marginTop: space.xs, marginBottom: space.md },
   count: { marginTop: space.xs, marginBottom: space.lg },
   center: { alignSelf: 'center' },
-});
+}));

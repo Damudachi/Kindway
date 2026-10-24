@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { RadioRow, SwitchRow } from '@/components/controls';
 import { Button } from '@/components/button';
@@ -8,7 +8,8 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Blaze } from '@/components/trail';
-import { color, radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 type Style = 'prompt' | 'quick' | 'reminder';
 
@@ -23,6 +24,8 @@ const STYLES: { id: Style; title: string; detail: string }[] = [
  * TODO(widget): native Android App Widget spike (Glance / RemoteViews via a config plugin). A React Native view is not a widget.
  */
 export default function Widget() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const [style, setStyle] = useState<Style>('prompt');
   const [showText, setShowText] = useState(false);
 
@@ -78,7 +81,7 @@ export default function Widget() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   lede: { marginTop: space.xs, marginBottom: space.lg },
   wallpaper: { borderRadius: radius.xl, backgroundColor: '#5B6B66', padding: space.lg, alignItems: 'flex-start' },
   widget: { width: '100%', borderRadius: 24, backgroundColor: '#2A2C30', padding: space.md, gap: space.sm },
@@ -88,4 +91,4 @@ const styles = StyleSheet.create({
   widgetText: { color: '#F4F2EC' },
   widgetBtn: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', paddingHorizontal: space.md, borderRadius: radius.full, backgroundColor: '#ECEAE3' },
   groupTitle: { marginTop: space.xl, marginBottom: space.sm },
-});
+}));

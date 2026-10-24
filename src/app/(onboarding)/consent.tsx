@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { CheckRow } from '@/components/controls';
@@ -10,9 +10,12 @@ import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Consent() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { next } = useLocalSearchParams<{ next?: string }>();
   const { dispatch } = useStore();
   const [understood, setUnderstood] = useState(false);
@@ -71,11 +74,11 @@ export default function Consent() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   title: { marginTop: space.lg },
   lede: { marginTop: space.xs, marginBottom: space.md },
   block: { flexDirection: 'row', gap: space.md, paddingVertical: space.md },
   rule: { borderTopWidth: 1, borderTopColor: color.sand, marginBottom: space.xs },
   flex: { flex: 1, gap: space.xxs },
   gap: { marginTop: space.md },
-});
+}));

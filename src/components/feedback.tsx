@@ -1,11 +1,12 @@
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Modal, Pressable, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
-import { color, radius, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 type Snack = { message: string; action?: { label: string; onPress: () => void } };
 
@@ -13,6 +14,8 @@ const SnackContext = createContext<(s: Snack) => void>(() => {});
 
 /** Material snackbar for transient feedback, announced to TalkBack. */
 export function SnackbarProvider({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const { color } = useTheme();
   const [snack, setSnack] = useState<Snack | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const insets = useSafeAreaInsets();
@@ -78,6 +81,7 @@ type DialogProps = {
 
 /** Material basic dialog. Only for decisions that must interrupt (delete, sign out). */
 export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Cancel', destructive, confirmDisabled, confirmLoading, onConfirm, onCancel, children }: DialogProps) {
+  const styles = useStyles();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent navigationBarTranslucent>
       <View style={styles.scrim}>
@@ -97,7 +101,7 @@ export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Canc
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   snack: {
     position: 'absolute',
     left: space.md,
@@ -116,4 +120,4 @@ const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: color.scrim, justifyContent: 'center', padding: space.lg },
   dialog: { backgroundColor: color.raised, borderRadius: radius.xl, padding: space.lg, gap: space.md },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space.xs },
-});
+}));

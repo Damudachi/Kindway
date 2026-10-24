@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -13,7 +13,8 @@ import { Blaze } from '@/components/trail';
 import type { TomorrowStep } from '@/data/types';
 import { useStore } from '@/state/demo-store';
 import { editText, fitStep, newStep, STEP_MAX } from '@/state/tomorrow';
-import { color, radius, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 const IDEAS = ['Start with 10 minutes', 'Ask someone for help', 'Rest first', 'Send one message I’ve been putting off'];
 
@@ -60,6 +61,7 @@ function suggestionFrom(params: Params, entries: ReturnType<typeof useStore>['st
 }
 
 export default function Tomorrow() {
+  const styles = useStyles();
   const params = useLocalSearchParams<Params>();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
@@ -162,7 +164,7 @@ export default function Tomorrow() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   mark: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginVertical: space.md },
   dash: { width: 40, height: 0, borderTopWidth: 2, borderStyle: 'dashed', borderColor: color.lichen },
   lede: { marginTop: space.xs, marginBottom: space.md },
@@ -170,4 +172,4 @@ const styles = StyleSheet.create({
   groupLabel: { marginTop: space.md },
   field: { marginTop: space.md },
   center: { alignSelf: 'center' },
-});
+}));

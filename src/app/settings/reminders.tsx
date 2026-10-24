@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -9,7 +9,8 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
-import { color, radius, space, touch } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space, touch } from '@/theme/tokens';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const TIMES = ['8:00 PM', '9:00 PM', '10:00 PM'];
@@ -19,6 +20,8 @@ const TIMES = ['8:00 PM', '9:00 PM', '10:00 PM'];
  * TODO(notifications): expo-notifications scheduling and the Android 13+ POST_NOTIFICATIONS request.
  */
 export default function Reminders() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const r = state.reminders;
@@ -132,7 +135,7 @@ export default function Reminders() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.xs },
   dim: { opacity: 0.45 },
   days: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -147,4 +150,4 @@ const styles = StyleSheet.create({
   },
   dayOn: { backgroundColor: color.trailContainer, borderColor: color.trailContainer },
   preview: { padding: space.md, borderRadius: radius.lg, backgroundColor: color.raised, borderWidth: 1, borderColor: color.sand, gap: 2 },
-});
+}));

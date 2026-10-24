@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -12,9 +12,11 @@ import { Text } from '@/components/text';
 import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import type { CompassValue } from '@/data/types';
 import { useStore } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Compass() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const [editing, setEditing] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export default function Compass() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   value: { paddingVertical: space.md, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   valueHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
@@ -154,4 +156,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
   add: { marginTop: space.md },
   foot: { marginTop: space.xl },
-});
+}));

@@ -1,6 +1,7 @@
 import { Text as RNText, type TextProps } from 'react-native';
 
-import { type, type TypeRole } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
+import { type TypeRole } from '@/theme/tokens';
 
 type Props = TextProps & { variant?: TypeRole };
 
@@ -8,5 +9,6 @@ type Props = TextProps & { variant?: TypeRole };
 const MAX_SCALE: Partial<Record<TypeRole, number>> = { display: 1.5, headline: 1.6 };
 
 export function Text({ variant = 'body', style, ...rest }: Props) {
+  const { type } = useTheme();
   return <RNText maxFontSizeMultiplier={MAX_SCALE[variant]} style={[type[variant], style]} {...rest} />;
 }

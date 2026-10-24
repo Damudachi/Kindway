@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Section } from '@/components/controls';
@@ -8,10 +8,12 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 /** Privacy & data. Describes only what the app actually does. */
 export default function Privacy() {
+  const styles = useStyles();
   const { state } = useStore();
   const { mode, user } = useSession();
 
@@ -73,8 +75,8 @@ export default function Privacy() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   gap: { marginTop: space.md },
   gapSm: { marginTop: space.xs },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-});
+}));

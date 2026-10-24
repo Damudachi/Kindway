@@ -1,21 +1,24 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { ReactNode, Ref } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
+import { Pressable, Switch, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { Text } from '@/components/text';
-import { color, radius, space, touch, type } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { alpha, radius, space, touch } from '@/theme/tokens';
 
 type RadioRowProps = { title: string; detail?: string; selected: boolean; onPress: () => void };
 
 /** Full-width single-choice row with a Material radio. */
 export function RadioRow({ title, detail, selected, onPress }: RadioRowProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={detail ? `${title}. ${detail}` : title}
       onPress={onPress}
-      android_ripple={{ color: 'rgba(37,39,43,0.06)' }}
+      android_ripple={{ color: alpha(color.ink, 0.06) }}
       style={[styles.choice, selected && styles.choiceSelected]}>
       <View style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot} />}</View>
       <View style={styles.flex}>
@@ -31,6 +34,8 @@ export function RadioRow({ title, detail, selected, onPress }: RadioRowProps) {
 type SwitchRowProps = { title: string; detail?: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean };
 
 export function SwitchRow({ title, detail, value, onChange, disabled }: SwitchRowProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole="switch"
@@ -49,7 +54,8 @@ export function SwitchRow({ title, detail, value, onChange, disabled }: SwitchRo
         disabled={disabled}
         importantForAccessibility="no"
         trackColor={{ false: color.sand, true: color.trail }}
-        thumbColor={color.raised}
+        // Material 3: an outline-coloured thumb when off keeps the control visible on either paper.
+        thumbColor={value ? color.raised : color.outline}
       />
     </Pressable>
   );
@@ -58,6 +64,8 @@ export function SwitchRow({ title, detail, value, onChange, disabled }: SwitchRo
 type CheckRowProps = { label: string; checked: boolean; onChange: (v: boolean) => void };
 
 export function CheckRow({ label, checked, onChange }: CheckRowProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -91,6 +99,8 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
   label: string;
 }) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.segmented}>
       {options.map((o, i) => {
@@ -118,6 +128,8 @@ type FieldProps = TextInputProps & { label: string; error?: string; helper?: str
 
 /** Outlined text field with a persistent label (not placeholder-only). */
 export function Field({ label, error, helper, style, ref, ...rest }: FieldProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <View style={styles.field}>
       <Text variant="label" style={styles.fieldLabel} nativeID={`${label}-label`}>
@@ -146,6 +158,7 @@ export function Field({ label, error, helper, style, ref, ...rest }: FieldProps)
 
 /** A titled group separated by the single hairline rule. */
 export function Section({ title, children, first }: { title?: string; children: ReactNode; first?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={[styles.section, !first && styles.sectionRule]}>
       {title && (
@@ -161,12 +174,14 @@ export function Section({ title, children, first }: { title?: string; children: 
 type NavRowProps = { title: string; detail?: string; onPress: () => void; icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'] };
 
 export function NavRow({ title, detail, onPress, icon }: NavRowProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={detail ? `${title}. ${detail}` : title}
       onPress={onPress}
-      android_ripple={{ color: 'rgba(37,39,43,0.06)' }}
+      android_ripple={{ color: alpha(color.ink, 0.06) }}
       style={styles.navRow}>
       {icon && <MaterialCommunityIcons name={icon} size={24} color={color.inkMuted} />}
       <View style={styles.flex}>
@@ -178,7 +193,7 @@ export function NavRow({ title, detail, onPress, icon }: NavRowProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color, type) => ({
   flex: { flex: 1, minWidth: 0 },
   choice: {
     flexDirection: 'row',
@@ -234,4 +249,4 @@ const styles = StyleSheet.create({
   sectionRule: { borderTopWidth: 1, borderTopColor: color.sand },
   sectionTitle: { marginBottom: space.sm },
   navRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm },
-});
+}));

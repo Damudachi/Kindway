@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -8,7 +8,8 @@ import { shortDate } from '@/data/dates';
 import type { InsightFeedback } from '@/data/types';
 import type { Insight, InsightReview, SourceRef, SuggestedAction } from '@/services/insights';
 import { useStore } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 const RESPONSES: { id: InsightFeedback; label: string }[] = [
   { id: 'fits', label: 'Fits' },
@@ -33,6 +34,7 @@ type Props = {
 
 /** One insight review, shared by the user's own Patterns and the fictional sample demo. */
 export function InsightReviewView({ review, resolve, onSaveStep }: Props) {
+  const styles = useStyles();
   return (
     <View style={styles.block}>
       {SECTIONS.map((s) => (
@@ -60,6 +62,7 @@ function Sources({ refs, resolve }: { refs: SourceRef[]; resolve: Props['resolve
 const live = (refs: SourceRef[], resolve: Props['resolve']) => refs.some((r) => resolve(r));
 
 function InsightSection({ title, none, insights, resolve }: { title: string; none: string; insights: Insight[]; resolve: Props['resolve'] }) {
+  const styles = useStyles();
   const { state } = useStore();
   // An insight whose sources were all deleted or kept out has nothing left to stand on.
   const shown = insights.filter((i) => state.insightFeedback[i.id] !== 'hidden' && live(i.sources, resolve));
@@ -74,6 +77,7 @@ function InsightSection({ title, none, insights, resolve }: { title: string; non
 }
 
 function InsightItem({ insight: ins, resolve }: { insight: Insight; resolve: Props['resolve'] }) {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const fb = state.insightFeedback[ins.id];
@@ -116,6 +120,7 @@ function InsightItem({ insight: ins, resolve }: { insight: Insight; resolve: Pro
 }
 
 function ActionSection({ actions, resolve, onSaveStep }: { actions: SuggestedAction[]; resolve: Props['resolve']; onSaveStep?: Props['onSaveStep'] }) {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const shown = actions.filter((a) => state.insightFeedback[a.id] !== 'hidden' && live(a.sources, resolve));
@@ -154,11 +159,11 @@ function ActionSection({ actions, resolve, onSaveStep }: { actions: SuggestedAct
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   block: { gap: space.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, alignItems: 'center' },
   section: { gap: space.xxs, paddingTop: space.md },
   insight: { paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: color.sand, gap: space.xxs },
   pencilTitle: { fontSize: 20, lineHeight: 28 },
   evidenceLabel: { marginTop: space.sm },
-});
+}));

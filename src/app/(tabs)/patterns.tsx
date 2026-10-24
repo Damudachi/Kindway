@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import { View, type ScrollViewInstance } from 'react-native';
 
 import { AiReviewPanel } from '@/components/ai-review-panel';
 import { Button } from '@/components/button';
@@ -15,7 +15,8 @@ import { getInsightsService, type InsightPeriod, type SourceRef } from '@/servic
 import { analysableEntries, entriesInPeriod, insightsRequest } from '@/state/ai-context';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useInsightsReview } from '@/state/use-insights';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 const PERIODS: { id: InsightPeriod; label: string }[] = [
   { id: 'week', label: 'This week' },
@@ -28,6 +29,7 @@ const PERIOD_NAME: Record<InsightPeriod, string> = { week: 'this week', month: '
 
 
 export default function Patterns() {
+  const styles = useStyles();
   const { state } = useStore();
   const entries = useEntries();
   const [period, setPeriod] = useState<InsightPeriod>('week');
@@ -181,7 +183,7 @@ export default function Patterns() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   week: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: space.sm, borderTopWidth: 1, borderBottomWidth: 1, borderColor: color.sand, marginTop: space.sm },
   day: { alignItems: 'center', gap: space.xxs, width: 36 },
@@ -191,4 +193,4 @@ const styles = StyleSheet.create({
   block: { gap: space.md },
   actions: { gap: space.xs, alignItems: 'flex-start' },
   skeleton: { height: 14, borderRadius: 7, backgroundColor: color.sunk },
-});
+}));

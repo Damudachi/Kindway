@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { RadioRow, SwitchRow } from '@/components/controls';
@@ -8,9 +8,11 @@ import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { SUPPORT_STYLES } from '@/data/sample';
 import { useStore } from '@/state/demo-store';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function SupportStyle() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   return (
     <Screen
@@ -57,8 +59,8 @@ export default function SupportStyle() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   title: { marginTop: space.lg },
   lede: { marginTop: space.xs, marginBottom: space.lg },
   center: { alignSelf: 'center' },
-});
+}));

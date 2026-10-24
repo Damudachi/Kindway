@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode, type Ref } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/button';
 import { Text } from '@/components/text';
-import { color, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 type TopBarProps = {
   title?: string;
@@ -27,6 +28,8 @@ export function goBack() {
 
 /** Material small top app bar: 64dp, back on the left, actions on the right. */
 export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <View style={styles.bar}>
       {back ? (
@@ -91,6 +94,7 @@ type ScreenProps = {
 };
 
 export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef }: ScreenProps) {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const bottom = useBottomInset(inTabs ? 0 : insets.bottom);
   const body = scroll ? (
@@ -112,7 +116,7 @@ export function Screen({ children, top, footer, scroll = true, contentStyle, inT
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   root: { flex: 1, backgroundColor: color.paper },
   fill: { flex: 1 },
   bar: { height: 64, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xxs },
@@ -129,4 +133,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: color.sand,
   },
-});
+}));

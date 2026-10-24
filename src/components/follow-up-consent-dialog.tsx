@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView } from 'react-native';
 
 import { CheckRow } from '@/components/controls';
 import { Dialog } from '@/components/feedback';
@@ -8,6 +8,7 @@ import { Text } from '@/components/text';
 import { PROVIDER_COPY, SCOPE_COPY } from '@/data/ai-disclosure';
 import { useAiConsent } from '@/state/ai-consent';
 import type { AiBlocker } from '@/state/real-ai';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 type Blocker = Exclude<AiBlocker, 'consent-loading'>;
@@ -32,6 +33,7 @@ type Props = {
  * either for follow-up consent, or for the account or cloud backup that consent needs.
  */
 export function FollowUpConsentDialog({ blocker, onCancel, onAllowed, onGrantFailed }: Props) {
+  const styles = useStyles();
   const consent = useAiConsent();
   const [understood, setUnderstood] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -122,8 +124,8 @@ export function FollowUpConsentDialog({ blocker, onCancel, onAllowed, onGrantFai
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   scroll: { maxHeight: 240 },
   content: { gap: space.xxs },
   gap: { marginTop: space.xs },
-});
+}));

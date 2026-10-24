@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { CheckRow, Section } from '@/components/controls';
@@ -15,6 +15,7 @@ import { useAiConsent } from '@/state/ai-consent';
 import { useStore } from '@/state/demo-store';
 import { useRealAi } from '@/state/real-ai';
 import { useSession } from '@/state/session';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const STATUS_TEXT = {
@@ -26,6 +27,7 @@ const STATUS_TEXT = {
 
 /** AI processing consent: three separate choices, recorded on the user's account. */
 export default function AiConsent() {
+  const styles = useStyles();
   const session = useSession();
   const consent = useAiConsent();
 
@@ -107,6 +109,7 @@ export default function AiConsent() {
 }
 
 function ScopeSection({ scope }: { scope: AiScope }) {
+  const styles = useStyles();
   const consent = useAiConsent();
   const snack = useSnackbar();
   const [understood, setUnderstood] = useState(false);
@@ -184,6 +187,7 @@ function ScopeSection({ scope }: { scope: AiScope }) {
 
 /** Deletes every AI reflection and review, on the account and on this device. Entries stay. */
 function DeleteOutputsSection() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const real = useRealAi();
   const snack = useSnackbar();
@@ -226,9 +230,9 @@ function DeleteOutputsSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   gap: { marginTop: space.md },
   gapSm: { marginTop: space.xs },
   bullet: { marginTop: space.xxs },
-});
+}));

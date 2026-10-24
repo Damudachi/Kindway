@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { useSnackbar } from '@/components/feedback';
@@ -14,12 +14,14 @@ import { createSampleInsightsService, type SourceRef } from '@/services/insights
 import { toContext } from '@/state/ai-context';
 import { useStore } from '@/state/demo-store';
 import { useInsightsReview } from '@/state/use-insights';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const isSample = (id: string) => id.startsWith('sample:');
 
 /** A separate, clearly fictional demo of how an AI insight review could read. Never touches the user's journal. */
 export default function SampleInsights() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const [review] = useInsightsReview(
@@ -91,7 +93,7 @@ export default function SampleInsights() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   heading: { marginTop: space.lg, marginBottom: space.xs },
   footer: { marginTop: space.md },
-});
+}));

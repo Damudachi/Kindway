@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/button';
@@ -18,7 +18,8 @@ import { FOLLOW_UP_CONTEXT_TURNS } from '@/services/ai/remote';
 import { useFollowUpMode, useSendFollowUp } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
 import { useAiBlocker, useRealAi } from '@/state/real-ai';
-import { color, radius, space, type } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space } from '@/theme/tokens';
 
 const ERROR_COPY: Record<FollowUpError, string> = {
   failed: 'The reply didn’t come through. Send your message again to try again.',
@@ -41,6 +42,8 @@ const ERROR_COPY: Record<FollowUpError, string> = {
  * until it's given. Simulated replies from before are still shown, labelled as simulated.
  */
 export default function Talk() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useStore();
   const insets = useSafeAreaInsets();
@@ -212,7 +215,7 @@ export default function Talk() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color, type) => ({
   root: { flex: 1, backgroundColor: color.paper },
   list: { paddingHorizontal: space.gutter, paddingBottom: space.lg, gap: space.sm },
   header: { gap: space.xs, marginBottom: space.sm },
@@ -246,4 +249,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
-});
+}));

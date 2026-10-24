@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 import { AiUnavailableNote } from '@/components/ai-unavailable';
@@ -18,7 +18,8 @@ import { useAnotherPerspective, useReflectionMode, useRequestReflection } from '
 import { useStore } from '@/state/demo-store';
 import { useRealAi } from '@/state/real-ai';
 import { fitStep } from '@/state/tomorrow';
-import { color, radius, space, touch } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space, touch } from '@/theme/tokens';
 
 type Props = { entry: Entry; onRest: () => void };
 
@@ -50,6 +51,8 @@ const FEEDBACK: { id: ReflectionFeedback; label: string }[] = [
 
 /** The reflection layer of an entry, kept visibly separate from the user's own words. */
 export function ReflectionView({ entry, onRest }: Props) {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { state, dispatch } = useStore();
   const request = useRequestReflection();
   const another = useAnotherPerspective();
@@ -299,7 +302,7 @@ export function ReflectionView({ entry, onRest }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   wrap: { gap: space.md, paddingVertical: space.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, alignItems: 'center' },
   part: { gap: space.xxs },
@@ -313,4 +316,4 @@ const styles = StyleSheet.create({
   link: { color: color.trail, textDecorationLine: 'underline' },
   skeletonGroup: { gap: space.xs },
   skeleton: { height: 14, borderRadius: 7, backgroundColor: color.sunk },
-});
+}));

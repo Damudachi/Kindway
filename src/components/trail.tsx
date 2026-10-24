@@ -1,9 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Rect } from 'react-native-svg';
 
-import { color, motion, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { alpha, motion, space } from '@/theme/tokens';
 
 export type BlazeState = 'painted' | 'open' | 'next' | 'tentative';
 
@@ -17,6 +18,8 @@ type BlazeProps = { state?: BlazeState; size?: keyof typeof SIZE; paint?: boolea
  * `paint` plays the fill from bottom to top once (instant under reduced motion).
  */
 export function Blaze({ state = 'painted', size = 'mark', paint, onPainted }: BlazeProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { w, h } = SIZE[size];
   const reduce = useReducedMotion();
   const fill = useSharedValue(paint ? 0 : 1);
@@ -73,6 +76,8 @@ type StopProps = {
 
 /** One stop on the trail: blaze on the line, content beside it. */
 export function TrailStop({ blaze, paint, onPainted, onPress, accessibilityLabel, last, children }: StopProps) {
+  const styles = useStyles();
+  const { color } = useTheme();
   const content = (
     <View style={styles.stop}>
       <View style={styles.marker}>
@@ -87,7 +92,7 @@ export function TrailStop({ blaze, paint, onPainted, onPress, accessibilityLabel
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      android_ripple={{ color: 'rgba(37,39,43,0.06)' }}>
+      android_ripple={{ color: alpha(color.ink, 0.06) }}>
       {content}
     </Pressable>
   );
@@ -95,6 +100,7 @@ export function TrailStop({ blaze, paint, onPainted, onPress, accessibilityLabel
 
 /** The trail: a single slate line threading its stops. */
 export function Trail({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.trail}>
       <View style={styles.line} />
@@ -107,7 +113,7 @@ export function Trail({ children }: { children: ReactNode }) {
 const LINE_X = 10;
 const MARKER_W = 22;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   outline: { backgroundColor: color.paper },
   blazeBox: { justifyContent: 'flex-end', borderRadius: 1, overflow: 'hidden', backgroundColor: 'transparent' },
   fill: { backgroundColor: color.trail },
@@ -117,4 +123,4 @@ const styles = StyleSheet.create({
   marker: { width: MARKER_W, paddingTop: space.sm + 4, alignItems: 'center' },
   stopBody: { flex: 1, minWidth: 0, paddingVertical: space.sm },
   rule: { borderBottomWidth: 1, borderBottomColor: color.sand },
-});
+}));

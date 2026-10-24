@@ -1,13 +1,15 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Blaze } from '@/components/trail';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Welcome() {
+  const styles = useStyles();
   return (
     <Screen
       top={false}
@@ -43,7 +45,7 @@ export default function Welcome() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   content: { paddingTop: space.xxl },
   mark: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginBottom: space.lg },
   line: { width: 28, height: 2, backgroundColor: color.trail, opacity: 0.45 },
@@ -52,4 +54,4 @@ const styles = StyleSheet.create({
   lines: { gap: space.xxs, marginBottom: space.lg },
   quiet: { maxWidth: 320 },
   center: { alignSelf: 'center' },
-});
+}));

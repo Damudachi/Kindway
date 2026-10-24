@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { CheckRow, Field, NavRow, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
@@ -13,7 +13,8 @@ import { STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import type { ChallengeLevel, Memory } from '@/data/types';
 import { useAiConsent } from '@/state/ai-consent';
 import { useEntries, useStore, type DemoState } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 const LEVELS: { id: ChallengeLevel; label: string }[] = [
   { id: 'gentle', label: 'Gentle' },
@@ -22,6 +23,8 @@ const LEVELS: { id: ChallengeLevel; label: string }[] = [
 ];
 
 export default function AiMemory() {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
@@ -189,10 +192,10 @@ export default function AiMemory() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   gap: { marginTop: space.md },
   memory: { flexDirection: 'row', gap: space.sm, paddingTop: space.md },
   memIcon: { marginTop: 3 },
   flex: { flex: 1, gap: 2 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },
-});
+}));

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
+import { TextInput, View, type TextInputInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { AiUnavailableNote } from '@/components/ai-unavailable';
@@ -14,7 +14,8 @@ import { Text } from '@/components/text';
 import { FEELINGS, PROMPTS, STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import { useReflectionMode, useSaveDraft } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
-import { color, motion, radius, space, type } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { motion, radius, space } from '@/theme/tokens';
 
 type Props = {
   /** First entry during onboarding uses warmer copy and its own exit routes. */
@@ -25,6 +26,8 @@ type Props = {
 };
 
 export function Composer({ first, onSaved, onSkip }: Props) {
+  const styles = useStyles();
+  const { color } = useTheme();
   const { state, dispatch } = useStore();
   const { draft } = state;
   const save = useSaveDraft();
@@ -234,7 +237,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color, type) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   page: {
     minHeight: 220,
@@ -252,4 +255,4 @@ const styles = StyleSheet.create({
   gratitude: { marginTop: space.md },
   notice: { marginTop: space.lg },
   actions: { gap: space.xs },
-});
+}));

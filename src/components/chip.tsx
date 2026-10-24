@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import type { IconName } from '@/components/button';
 import { Text } from '@/components/text';
-import { color, radius, space, touch } from '@/theme/tokens';
+import { makeStyles, useTheme } from '@/theme/theme';
+import { radius, space, touch } from '@/theme/tokens';
 
 type Props = {
   label: string;
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export function Chip({ label, selected = false, onPress, icon, disabled, kind = 'filter' }: Props) {
+  const styles = useStyles();
+  const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole={kind === 'filter' ? 'checkbox' : 'button'}
@@ -40,10 +43,11 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
 }
 
 export function ChipRow({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.row}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   target: { minHeight: touch, justifyContent: 'center', maxWidth: '100%' },
   label: { flexShrink: 1 },
   chip: {
@@ -60,4 +64,4 @@ const styles = StyleSheet.create({
   selected: { backgroundColor: color.trailContainer, borderColor: color.trailContainer },
   disabled: { opacity: 0.45 },
   row: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.xs },
-});
+}));

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -13,7 +13,8 @@ import { requestAiReview, type AiReviewError } from '@/services/ai/remote';
 import type { InsightPeriod, InsightReview, SourceRef, SuggestedAction } from '@/services/insights';
 import { useSync } from '@/state/cloud-sync';
 import { useRealAi } from '@/state/real-ai';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 /**
  * Mirrors the server's default limits so the app can explain them before anything is sent.
@@ -59,6 +60,7 @@ type Props = {
  * runs only when asked, lists exactly which entries go, and needs its own permission.
  */
 export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
+  const styles = useStyles();
   const real = useRealAi();
   const sync = useSync();
   const [run, setRun] = useState<Run>({ status: 'idle' });
@@ -243,6 +245,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
 }
 
 function AiReview({ review, stored, resolve, onSaveStep }: { review: InsightReview; stored: boolean } & Pick<Props, 'resolve' | 'onSaveStep'>) {
+  const styles = useStyles();
   return (
     <View style={styles.block}>
       <Notice title={stored && review.ai ? `Your last AI review, ${longDate(review.ai.createdAt)}` : 'Written by AI'}>
@@ -260,9 +263,9 @@ function AiReview({ review, stored, resolve, onSaveStep }: { review: InsightRevi
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   panel: { gap: space.xs, marginTop: space.xl, paddingTop: space.lg, borderTopWidth: 1, borderTopColor: color.sand },
   block: { gap: space.md, marginTop: space.sm },
   gap: { marginTop: space.xs },
   thin: { color: color.inkMuted },
-});
+}));

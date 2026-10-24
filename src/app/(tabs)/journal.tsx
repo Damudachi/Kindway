@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -11,9 +11,11 @@ import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
 import { relativeDay } from '@/data/dates';
 import { useEntries, useStore } from '@/state/demo-store';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function Journal() {
+  const styles = useStyles();
   const { state } = useStore();
   const entries = useEntries();
   const [query, setQuery] = useState('');
@@ -117,9 +119,9 @@ export default function Journal() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   search: { marginTop: space.md },
   list: { marginTop: space.md, marginBottom: space.lg },
   skeletons: { gap: space.sm, marginVertical: space.lg },
   skeleton: { height: 64, borderRadius: 12, backgroundColor: color.sunk },
-});
+}));

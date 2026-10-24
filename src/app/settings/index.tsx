@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { NavRow, RadioRow, Section, SwitchRow } from '@/components/controls';
+import { NavRow, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
 import { Dialog } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
@@ -12,6 +12,7 @@ import type { DemoAi } from '@/data/types';
 import { useSync, type SyncStatus } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { makeStyles, useTheme, type Appearance } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const SYNC_TEXT: Record<SyncStatus, string> = {
@@ -23,6 +24,12 @@ const SYNC_TEXT: Record<SyncStatus, string> = {
   'signed-out': 'Your session ended. Sign in again to keep backing up; changes stay on this device.',
 };
 
+const APPEARANCES: { id: Appearance; label: string }[] = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'night', label: 'Night' },
+];
+
 const AI_STATES: { id: DemoAi; title: string; detail: string }[] = [
   { id: 'ok', title: 'Everything works', detail: 'Reflections arrive after a short wait.' },
   { id: 'fail', title: 'AI request fails', detail: 'Entry saves; reflection offers retry.' },
@@ -31,9 +38,11 @@ const AI_STATES: { id: DemoAi; title: string; detail: string }[] = [
 ];
 
 export default function Settings() {
+  const styles = useStyles();
   const { state, dispatch } = useStore();
   const session = useSession();
   const sync = useSync();
+  const { appearance, setAppearance } = useTheme();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -64,6 +73,10 @@ export default function Settings() {
         <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
         <NavRow icon="widgets-outline" title="Home-screen widget" detail="Preview and privacy" onPress={() => router.push('/widget')} />
         <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
+      </Section>
+
+      <Section title="Appearance">
+        <Segmented label="Appearance" options={APPEARANCES} value={appearance} onChange={(a) => void setAppearance(a)} />
       </Section>
 
       <Section title="Account">
@@ -173,7 +186,7 @@ export default function Settings() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   gap: { marginTop: space.md },
   gapSm: { marginTop: space.xs },
-});
+}));

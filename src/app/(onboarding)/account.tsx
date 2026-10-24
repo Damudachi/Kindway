@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, type TextInputInstance } from 'react-native';
+import { type TextInputInstance } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Field } from '@/components/controls';
@@ -12,6 +12,7 @@ import { appTarget, redirectTo } from '@/services/auth';
 import { useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,6 +28,7 @@ function linkRoute() {
 }
 
 export default function Account() {
+  const styles = useStyles();
   const params = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<Mode>(params.mode === 'signin' ? 'signin' : 'signup');
   const { state } = useStore();
@@ -200,8 +202,8 @@ export default function Account() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   title: { marginTop: space.lg },
   lede: { marginTop: space.xs, marginBottom: space.lg },
   center: { alignSelf: 'center' },
-});
+}));

@@ -1,9 +1,10 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
-import { color } from '@/theme/tokens';
+import { useTheme } from '@/theme/theme';
 
 /** Material navigation bar (native) with four destinations. */
 export default function TabsLayout() {
+  const { color } = useTheme();
   return (
     <NativeTabs
       backgroundColor={color.sunk}

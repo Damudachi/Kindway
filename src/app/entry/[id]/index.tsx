@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
 import { Section, SwitchRow } from '@/components/controls';
@@ -12,9 +12,11 @@ import { Text } from '@/components/text';
 import { longDate } from '@/data/dates';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
-import { color, space } from '@/theme/tokens';
+import { makeStyles } from '@/theme/theme';
+import { space } from '@/theme/tokens';
 
 export default function EntryDetail() {
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useStore();
   const { mode } = useSession();
@@ -111,9 +113,9 @@ export default function EntryDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((color) => ({
   title: { marginTop: space.xxs, marginBottom: space.xxs },
   words: { marginTop: space.lg, paddingBottom: space.lg, gap: space.xs },
   gratitude: { marginTop: space.xs, color: color.inkMuted },
   reflection: { borderTopWidth: 1, borderTopColor: color.sand, paddingTop: space.lg },
-});
+}));
