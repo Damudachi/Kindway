@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 import type { IconName } from '@/components/button';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
-import { radius, space, touch } from '@/theme/tokens';
+import { radius, space, touch, type Tint } from '@/theme/tokens';
 
 type Props = {
   label: string;
@@ -14,11 +14,14 @@ type Props = {
   disabled?: boolean;
   /** 'filter' chips toggle; 'assist' chips act. */
   kind?: 'filter' | 'assist';
+  /** A filter chip's own hue when selected (feelings); the trail's otherwise. */
+  tint?: Tint;
 };
 
-export function Chip({ label, selected = false, onPress, icon, disabled, kind = 'filter' }: Props) {
+export function Chip({ label, selected = false, onPress, icon, disabled, kind = 'filter', tint }: Props) {
   const styles = useStyles();
   const { color } = useTheme();
+  const on = tint?.on ?? color.onTrailContainer;
   return (
     <Pressable
       accessibilityRole={kind === 'filter' ? 'checkbox' : 'button'}
@@ -28,13 +31,13 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
       onPress={onPress}
       // 32dp visual chip inside a 48dp touch target.
       style={styles.target}>
-      <View style={[styles.chip, selected && styles.selected, disabled && styles.disabled]}>
+      <View style={[styles.chip, selected && styles.selected, selected && tint && { backgroundColor: tint.container, borderColor: tint.container }, disabled && styles.disabled]}>
         {selected && kind === 'filter' ? (
-          <MaterialCommunityIcons name="check" size={18} color={color.onTrailContainer} />
+          <MaterialCommunityIcons name="check" size={18} color={on} />
         ) : icon ? (
           <MaterialCommunityIcons name={icon} size={18} color={color.ink} />
         ) : null}
-        <Text variant="label" style={[styles.label, { color: selected ? color.onTrailContainer : color.ink }]}>
+        <Text variant="label" style={[styles.label, { color: selected ? on : color.ink }]}>
           {label}
         </Text>
       </View>

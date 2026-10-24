@@ -12,11 +12,12 @@ import { Text } from '@/components/text';
 import { COMPASS_AREAS, COMPASS_EXAMPLES } from '@/data/sample';
 import type { CompassValue } from '@/data/types';
 import { useStore } from '@/state/demo-store';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function Compass() {
   const styles = useStyles();
+  const { tint } = useTheme();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const [editing, setEditing] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function Compass() {
       {compass.map((c) => (
         <View key={c.id} style={styles.value}>
           <View style={styles.valueHead}>
-            <View style={styles.bearing} />
+            <View style={[styles.bearing, { backgroundColor: tint.area(c.area).mark }]} />
             <Text variant="title" style={styles.flex}>
               {c.area}
             </Text>
@@ -150,7 +151,7 @@ const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
   value: { paddingVertical: space.md, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   valueHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  // A bearing tick: the compass's own small mark, drawn in the trail colour.
+  // A bearing tick: the compass's own small mark, drawn in the area's hue.
   bearing: { width: 16, height: 2, backgroundColor: color.trail },
   flex: { flex: 1 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs },

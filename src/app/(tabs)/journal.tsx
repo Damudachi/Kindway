@@ -11,11 +11,12 @@ import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
 import { relativeDay } from '@/data/dates';
 import { useEntries, useStore } from '@/state/demo-store';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function Journal() {
   const styles = useStyles();
+  const { tint } = useTheme();
   const { state } = useStore();
   const entries = useEntries();
   const [query, setQuery] = useState('');
@@ -56,7 +57,7 @@ export default function Journal() {
             <ChipRow>
               <Chip label="All entries" selected={!feeling} onPress={() => setFeeling(null)} />
               {feelings.map((f) => (
-                <Chip key={f} label={f} selected={feeling === f} onPress={() => setFeeling(feeling === f ? null : f)} />
+                <Chip key={f} label={f} tint={tint.feeling(f)} selected={feeling === f} onPress={() => setFeeling(feeling === f ? null : f)} />
               ))}
             </ChipRow>
           )}
@@ -89,6 +90,7 @@ export default function Journal() {
                   <TrailStop
                     key={e.id}
                     blaze="painted"
+                    tint={tint.feeling(e.feelings[0]).mark}
                     last={i === shown.length - 1}
                     onPress={() => router.push(`/entry/${e.id}`)}
                     accessibilityLabel={`${relativeDay(e.date)}: ${e.title}. ${e.feelings.join(', ')}. Open entry.`}>

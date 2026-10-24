@@ -14,7 +14,7 @@ import { createSampleInsightsService, type SourceRef } from '@/services/insights
 import { toContext } from '@/state/ai-context';
 import { useStore } from '@/state/demo-store';
 import { useInsightsReview } from '@/state/use-insights';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const isSample = (id: string) => id.startsWith('sample:');
@@ -22,6 +22,7 @@ const isSample = (id: string) => id.startsWith('sample:');
 /** A separate, clearly fictional demo of how an AI insight review could read. Never touches the user's journal. */
 export default function SampleInsights() {
   const styles = useStyles();
+  const { tint } = useTheme();
   const { state, dispatch } = useStore();
   const snack = useSnackbar();
   const [review] = useInsightsReview(
@@ -56,6 +57,7 @@ export default function SampleInsights() {
           <TrailStop
             key={e.id}
             blaze="painted"
+            tint={tint.feeling(e.feelings[0]).mark}
             last={i === SAMPLE_ENTRIES.length - 1}
             onPress={() => router.push(`/sample/${e.id}`)}
             accessibilityLabel={`Sample entry, ${shortDate(e.date)}: ${e.title}. Open.`}>

@@ -18,15 +18,18 @@ type Props = {
   trailingIcon?: IconName;
   disabled?: boolean;
   loading?: boolean;
+  /** Primary only: the icons take the lantern accent (Write, Talk). */
+  accent?: boolean;
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, onPress, variant = 'primary', icon, trailingIcon, disabled, loading, accessibilityHint, style }: Props) {
+export function Button({ label, onPress, variant = 'primary', icon, trailingIcon, disabled, loading, accent, accessibilityHint, style }: Props) {
   const styles = useStyles();
   const { color } = useTheme();
   const v = variants(color)[variant];
   const fg = disabled ? color.inkMuted : v.fg;
+  const iconColor = accent && variant === 'primary' && !disabled ? color.primaryAccent : fg;
   return (
     <Pressable
       accessibilityRole="button"
@@ -39,7 +42,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
       style={({ pressed }) => [
         styles.base,
         variant === 'primary' && styles.tall,
-        { backgroundColor: disabled && v.bg !== 'transparent' ? color.sunk : v.bg, borderColor: v.border },
+        disabled && v.bg !== 'transparent' ? { backgroundColor: color.sunk, borderColor: color.sand } : { backgroundColor: v.bg, borderColor: v.border },
         (variant === 'text' || variant === 'dangerText') && styles.textOnly,
         pressed && styles.pressed,
         style,
@@ -48,11 +51,14 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
         <ActivityIndicator color={fg} />
       ) : (
         <View style={[styles.row, trailingIcon && styles.spread]}>
-          {icon && <MaterialCommunityIcons name={icon} size={20} color={fg} />}
-          <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
-            {label}
-          </Text>
-          {trailingIcon && <MaterialCommunityIcons name={trailingIcon} size={20} color={fg} />}
+          {/* The leading icon stays with its label; a trailing icon sits at the far edge. */}
+          <View style={[styles.row, styles.lead]}>
+            {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColor} />}
+            <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
+              {label}
+            </Text>
+          </View>
+          {trailingIcon && <MaterialCommunityIcons name={trailingIcon} size={20} color={iconColor} />}
         </View>
       )}
     </Pressable>
@@ -60,7 +66,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
 }
 
 const variants = (color: Palette): Record<Variant, { bg: string; fg: string; border: string; ripple: string }> => ({
-  primary: { bg: color.ink, fg: color.onInk, border: color.ink, ripple: alpha(color.onInk, 0.18) },
+  primary: { bg: color.primary, fg: color.onPrimary, border: color.primary, ripple: alpha(color.onPrimary, 0.18) },
   secondary: { bg: 'transparent', fg: color.ink, border: color.outline, ripple: alpha(color.ink, 0.08) },
   text: { bg: 'transparent', fg: color.trail, border: 'transparent', ripple: alpha(color.trail, 0.12) },
   danger: { bg: color.danger, fg: color.onInk, border: color.danger, ripple: alpha(color.onInk, 0.18) },
@@ -105,5 +111,6 @@ const useStyles = makeStyles(() => ({
   // In a row a label doesn't shrink by default, so a long one ran past the edge and was clipped.
   label: { flexShrink: 1, textAlign: 'center' },
   spread: { justifyContent: 'space-between' },
+  lead: { flexShrink: 1 },
   icon: { width: touch, height: touch, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
 }));

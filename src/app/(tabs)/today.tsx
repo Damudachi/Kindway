@@ -15,11 +15,12 @@ import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function Today() {
   const styles = useStyles();
+  const { tint } = useTheme();
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
@@ -95,7 +96,9 @@ export default function Today() {
 
       <Button
         label={hasDraft ? 'Continue your draft' : 'Write a thought'}
+        icon="feather"
         trailingIcon="arrow-right"
+        accent
         onPress={() => router.push('/write')}
         style={styles.write}
       />
@@ -122,6 +125,7 @@ export default function Today() {
               <TrailStop
                 key={e.id}
                 blaze="painted"
+                tint={tint.feeling(e.feelings[0]).mark}
                 paint={focused && state.justPainted === e.id}
                 onPainted={() => dispatch({ type: 'patch', patch: { justPainted: undefined } })}
                 onPress={() => router.push(`/entry/${e.id}`)}
@@ -176,6 +180,7 @@ export default function Today() {
             <TrailStop
               key={e.id}
               blaze="painted"
+              tint={tint.feeling(e.feelings[0]).mark}
               last={i === earlier.length - 1}
               onPress={() => router.push(`/entry/${e.id}`)}
               accessibilityLabel={`${relativeDay(e.date)}: ${e.title}. Open entry.`}>

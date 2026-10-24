@@ -15,7 +15,7 @@ import { getInsightsService, type InsightPeriod, type SourceRef } from '@/servic
 import { analysableEntries, entriesInPeriod, insightsRequest } from '@/state/ai-context';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useInsightsReview } from '@/state/use-insights';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const PERIODS: { id: InsightPeriod; label: string }[] = [
@@ -30,6 +30,7 @@ const PERIOD_NAME: Record<InsightPeriod, string> = { week: 'this week', month: '
 
 export default function Patterns() {
   const styles = useStyles();
+  const { tint } = useTheme();
   const { state } = useStore();
   const entries = useEntries();
   const [period, setPeriod] = useState<InsightPeriod>('week');
@@ -155,12 +156,15 @@ export default function Patterns() {
       {period === 'week' && (
         // Every week is drawn on the same seven-day frame, so no week looks smaller.
         <View style={styles.week} accessibilityLabel={`This week: entries on ${days.filter((d) => entries.some((e) => sameDay(d, e.date))).length} of 7 days. There's no target.`}>
-          {days.map((d) => (
+          {days.map((d) => {
+            const first = entries.find((e) => sameDay(d, e.date));
+            return (
             <View key={d.toISOString()} style={styles.day} importantForAccessibility="no-hide-descendants">
-              <View style={styles.dayMark}>{entries.some((e) => sameDay(d, e.date)) && <Blaze />}</View>
+              <View style={styles.dayMark}>{first && <Blaze tint={tint.feeling(first.feelings[0]).mark} />}</View>
               <Text variant="labelSmall">{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</Text>
             </View>
-          ))}
+            );
+          })}
         </View>
       )}
       <Text variant="small" style={styles.count}>

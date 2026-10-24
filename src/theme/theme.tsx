@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Appearance as RNAppearance, StyleSheet, useColorScheme } from 'react-native';
 
 import { jsonStorage, type StateStorage } from '@/storage/persistence';
-import { palettes, types, type Palette, type Scheme, type TypeRoles } from '@/theme/tokens';
+import { palettes, tints, trailTint, types, type Palette, type Scheme, type Tint, type TypeRoles } from '@/theme/tokens';
 
 type Styles = Parameters<typeof StyleSheet.create>[0];
 
@@ -13,14 +13,29 @@ type Theme = {
   scheme: Scheme;
   color: Palette;
   type: TypeRoles;
+  /** The hue for a feeling or compass area; the trail's own colours when it has none. */
+  tint: Tinter;
   appearance: Appearance;
   setAppearance(next: Appearance): Promise<void>;
 };
+
+type Tinter = { feeling(name?: string): Tint; area(name?: string): Tint };
+
+function tinter(scheme: Scheme): Tinter {
+  const fallback = trailTint(palettes[scheme]);
+  return {
+    feeling: (name) => (name && tints[scheme].feeling[name]) || fallback,
+    area: (name) => (name && tints[scheme].area[name]) || fallback,
+  };
+}
+
+const tinters: Record<Scheme, Tinter> = { light: tinter('light'), night: tinter('night') };
 
 const lightTheme: Theme = {
   scheme: 'light',
   color: palettes.light,
   type: types.light,
+  tint: tinters.light,
   appearance: 'system',
   setAppearance: async () => {},
 };
@@ -72,7 +87,7 @@ export function ThemeProvider({ children, storage = appearanceStorage }: Props) 
   const value = useMemo<Theme | null>(() => {
     if (appearance === null) return null;
     const scheme: Scheme = appearance === 'system' ? (system === 'dark' ? 'night' : 'light') : appearance;
-    return { scheme, color: palettes[scheme], type: types[scheme], appearance, setAppearance };
+    return { scheme, color: palettes[scheme], type: types[scheme], tint: tinters[scheme], appearance, setAppearance };
   }, [appearance, system, setAppearance]);
 
   // Wait for the saved choice (a local read) so a night user never sees a light frame.

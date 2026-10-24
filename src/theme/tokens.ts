@@ -23,6 +23,16 @@ const light = {
   danger: '#9A3B2E', // destructive actions and errors
   dangerContainer: '#F3E1DC',
   scrim: 'rgba(37,39,43,0.42)',
+  lantern: '#AD721C', // the warm accent: tonight's open blaze, Write, Talk, saved moments (3.5:1, marks only)
+  lanternInk: '#804D0C', // lantern as text (6.1:1 on paper)
+  onLantern: '#F8F7F3',
+  lanternContainer: '#F8E4CF', // demo notices
+  onLanternContainer: '#513716',
+  bar: '#E5EDF1', // navigation bar, tinted toward the trail
+  primary: '#25272B', // the primary button: ink by day
+  onPrimary: '#F8F7F3',
+  primaryAccent: '#E5AB66', // a lantern icon on the primary button
+  barIndicator: '#BCD3E2', // the active destination's pill
 };
 
 export type Palette = typeof light;
@@ -46,11 +56,76 @@ const night: Palette = {
   danger: '#EE9A88',
   dangerContainer: '#3E2522',
   scrim: 'rgba(0,0,0,0.6)',
+  lantern: '#E5AB66', // 8.8:1 on paper
+  lanternInk: '#E5AB66',
+  onLantern: '#14181D',
+  lanternContainer: '#3B2A17',
+  onLanternContainer: '#F4E1CC',
+  bar: '#151D23',
+  primary: '#E5AB66', // lantern on graphite at night
+  onPrimary: '#14181D',
+  primaryAccent: '#14181D',
+  barIndicator: '#294355',
 };
 
 export type Scheme = 'light' | 'night';
 
 export const palettes: Record<Scheme, Palette> = { light, night };
+
+/**
+ * A muted hue per feeling and per compass area, from one OKLCH family (same lightness and
+ * chroma, hues ~45° apart). `mark` is for blazes and spokes (≥3.9:1 on paper), `container`/`on`
+ * for selected chips (≥8.9:1). Colour never carries meaning alone: the label always stays.
+ */
+export type Tint = { mark: string; container: string; on: string };
+
+export const tints: Record<Scheme, { feeling: Record<string, Tint>; area: Record<string, Tint> }> = {
+  light: {
+    feeling: {
+      Overwhelmed: { mark: '#9D5F72', container: '#F6DBE2', on: '#512A37' },
+      Grateful: { mark: '#A06252', container: '#F7DCD5', on: '#522C22' },
+      Worried: { mark: '#946B39', container: '#F1E0CD', on: '#4C3211' },
+      Hopeful: { mark: '#807636', container: '#E7E4CC', on: '#3F380E' },
+      Proud: { mark: '#548255', container: '#D6E9D6', on: '#234024' },
+      Calm: { mark: '#27847F', container: '#CCEAE7', on: '#00423F' },
+      Lonely: { mark: '#427BA1', container: '#D1E6F7', on: '#163C54' },
+      Tired: { mark: '#786AA1', container: '#E4DFF7', on: '#3A3154' },
+    },
+    area: {
+      'Growth & learning': { mark: '#548255', container: '#D6E9D6', on: '#234024' },
+      'Career & purpose': { mark: '#946B39', container: '#F1E0CD', on: '#4C3211' },
+      Relationships: { mark: '#A06252', container: '#F7DCD5', on: '#522C22' },
+      'Health & peace': { mark: '#27847F', container: '#CCEAE7', on: '#00423F' },
+      Independence: { mark: '#427BA1', container: '#D1E6F7', on: '#163C54' },
+      Creativity: { mark: '#936188', container: '#F1DBEB', on: '#4B2B44' },
+      'Faith & meaning': { mark: '#786AA1', container: '#E4DFF7', on: '#3A3154' },
+    },
+  },
+  night: {
+    feeling: {
+      Overwhelmed: { mark: '#DF9BAF', container: '#472D34', on: '#F7DDE4' },
+      Grateful: { mark: '#E19E8D', container: '#482E27', on: '#F8DED7' },
+      Worried: { mark: '#D4A875', container: '#43321E', on: '#F2E2D0' },
+      Hopeful: { mark: '#BDB372', container: '#3A361D', on: '#E9E5CF' },
+      Proud: { mark: '#8FC090', container: '#283B29', on: '#D9EAD9' },
+      Calm: { mark: '#6BC3BD', container: '#1A3C3A', on: '#CFEBE9' },
+      Lonely: { mark: '#7EB9E2', container: '#223848', on: '#D3E8F7' },
+      Tired: { mark: '#B5A7E2', container: '#373148', on: '#E5E1F7' },
+    },
+    area: {
+      'Growth & learning': { mark: '#8FC090', container: '#283B29', on: '#D9EAD9' },
+      'Career & purpose': { mark: '#D4A875', container: '#43321E', on: '#F2E2D0' },
+      Relationships: { mark: '#E19E8D', container: '#482E27', on: '#F8DED7' },
+      'Health & peace': { mark: '#6BC3BD', container: '#1A3C3A', on: '#CFEBE9' },
+      Independence: { mark: '#7EB9E2', container: '#223848', on: '#D3E8F7' },
+      Creativity: { mark: '#D39DC7', container: '#422E3E', on: '#F2DDED' },
+      'Faith & meaning': { mark: '#B5A7E2', container: '#373148', on: '#E5E1F7' },
+    },
+  },
+};
+
+/** The trail's own colours, for a feeling or area without a hue of its own. */
+export const trailTint = (color: Palette): Tint => ({ mark: color.trail, container: color.trailContainer, on: color.onTrailContainer });
 
 /** A palette colour at the given opacity (0–1), e.g. for ripples. */
 export function alpha(hex: string, opacity: number) {

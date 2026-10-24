@@ -27,7 +27,7 @@ type Props = {
 
 export function Composer({ first, onSaved, onSkip }: Props) {
   const styles = useStyles();
-  const { color } = useTheme();
+  const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
   const { draft } = state;
   const save = useSaveDraft();
@@ -163,7 +163,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         </Text>
         <ChipRow>
           {FEELINGS.map((f) => (
-            <Chip key={f} label={f} selected={draft.feelings.includes(f)} onPress={() => toggleFeeling(f)} />
+            <Chip key={f} label={f} tint={tint.feeling(f)} selected={draft.feelings.includes(f)} onPress={() => toggleFeeling(f)} />
           ))}
         </ChipRow>
 

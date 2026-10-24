@@ -11,13 +11,20 @@ export type BlazeState = 'painted' | 'open' | 'next' | 'tentative';
 /** Exactly two sizes, so emphasis never inflates. */
 const SIZE = { mark: { w: 6, h: 16 }, small: { w: 4, h: 10 } };
 
-type BlazeProps = { state?: BlazeState; size?: keyof typeof SIZE; paint?: boolean; onPainted?: () => void };
+type BlazeProps = {
+  state?: BlazeState;
+  size?: keyof typeof SIZE;
+  paint?: boolean;
+  onPainted?: () => void;
+  /** Paint colour of a painted blaze, e.g. the entry's first feeling. Defaults to the trail. */
+  tint?: string;
+};
 
 /**
  * The signature mark: a painted trail blaze.
  * `paint` plays the fill from bottom to top once (instant under reduced motion).
  */
-export function Blaze({ state = 'painted', size = 'mark', paint, onPainted }: BlazeProps) {
+export function Blaze({ state = 'painted', size = 'mark', paint, onPainted, tint }: BlazeProps) {
   const styles = useStyles();
   const { color } = useTheme();
   const { w, h } = SIZE[size];
@@ -39,8 +46,8 @@ export function Blaze({ state = 'painted', size = 'mark', paint, onPainted }: Bl
   const fillStyle = useAnimatedStyle(() => ({ height: fill.value * h }));
 
   if (state !== 'painted') {
-    const stroke = state === 'next' ? color.lichen : state === 'tentative' ? color.pencil : color.trail;
-    // Drawn inside the same footprint as a painted blaze; the open blaze is dashed, waiting to be painted.
+    const stroke = state === 'next' ? color.lichen : state === 'tentative' ? color.pencil : color.lantern;
+    // Drawn inside the same footprint as a painted blaze; tonight's open blaze is a dashed lantern stroke, waiting to be painted.
     return (
       <Svg width={w} height={h} style={styles.outline}>
         <Rect
@@ -59,13 +66,15 @@ export function Blaze({ state = 'painted', size = 'mark', paint, onPainted }: Bl
   }
   return (
     <View style={[styles.blazeBox, { width: w, height: h }]}>
-      <Animated.View style={[styles.fill, { width: w }, fillStyle]} />
+      <Animated.View style={[styles.fill, { width: w }, tint && { backgroundColor: tint }, fillStyle]} />
     </View>
   );
 }
 
 type StopProps = {
   blaze: BlazeState;
+  /** Paint colour of a painted blaze. */
+  tint?: string;
   paint?: boolean;
   onPainted?: () => void;
   onPress?: () => void;
@@ -75,13 +84,13 @@ type StopProps = {
 };
 
 /** One stop on the trail: blaze on the line, content beside it. */
-export function TrailStop({ blaze, paint, onPainted, onPress, accessibilityLabel, last, children }: StopProps) {
+export function TrailStop({ blaze, tint, paint, onPainted, onPress, accessibilityLabel, last, children }: StopProps) {
   const styles = useStyles();
   const { color } = useTheme();
   const content = (
     <View style={styles.stop}>
       <View style={styles.marker}>
-        <Blaze state={blaze} paint={paint} onPainted={onPainted} />
+        <Blaze state={blaze} tint={tint} paint={paint} onPainted={onPainted} />
       </View>
       <View style={[styles.stopBody, !last && styles.rule]}>{children}</View>
     </View>

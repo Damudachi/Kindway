@@ -52,7 +52,7 @@ const FEEDBACK: { id: ReflectionFeedback; label: string }[] = [
 /** The reflection layer of an entry, kept visibly separate from the user's own words. */
 export function ReflectionView({ entry, onRest }: Props) {
   const styles = useStyles();
-  const { color } = useTheme();
+  const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
   const request = useRequestReflection();
   const another = useAnotherPerspective();
@@ -199,11 +199,11 @@ export function ReflectionView({ entry, onRest }: Props) {
       )}
 
       {r.longGame && (
-        <View style={styles.compass}>
-          <Text variant="labelSmall" style={{ color: color.onTrailContainer }}>
+        <View style={[styles.compass, { backgroundColor: tint.area(r.longGame.value).container }]}>
+          <Text variant="labelSmall" style={{ color: tint.area(r.longGame.value).on }}>
             From your compass: {r.longGame.value}
           </Text>
-          <Text variant="body" style={{ color: color.onTrailContainer }}>
+          <Text variant="body" style={{ color: tint.area(r.longGame.value).on }}>
             {r.longGame.text}
           </Text>
           <Button variant="text" label="Not relevant here" onPress={notRelevant} />
@@ -266,7 +266,7 @@ export function ReflectionView({ entry, onRest }: Props) {
       </View>
 
       <View style={styles.choices}>
-        <Button label="Talk this through" trailingIcon="arrow-right" onPress={() => router.push(`/entry/${entry.id}/talk`)} />
+        <Button label="Talk this through" icon="forum-outline" trailingIcon="arrow-right" accent onPress={() => router.push(`/entry/${entry.id}/talk`)} />
         {/* A suggested next step already offers Tomorrow Bridge above; this is the way in without one. */}
         {!listening && !nextStep && <Button variant="secondary" label="Plan one small step for tomorrow" onPress={() => router.push(`/tomorrow?from=${entry.id}`)} />}
         <Button variant="text" label="Let this sit for tonight" onPress={onRest} />

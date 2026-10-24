@@ -3,7 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import { memoryStorage } from '@/storage/persistence';
 import { makeStyles, ThemeProvider, useTheme, type Appearance } from '@/theme/theme';
-import { palettes } from '@/theme/tokens';
+import { COMPASS_AREAS, FEELINGS } from '@/data/sample';
+import { palettes, tints } from '@/theme/tokens';
 
 const useStyles = makeStyles((color) => ({ box: { backgroundColor: color.paper } }));
 
@@ -29,6 +30,13 @@ function Probe() {
 
 test('both palettes name the same roles', () => {
   expect(Object.keys(palettes.night).sort()).toEqual(Object.keys(palettes.light).sort());
+});
+
+test('every feeling and compass area has a hue in both schemes', () => {
+  for (const scheme of ['light', 'night'] as const) {
+    expect(Object.keys(tints[scheme].feeling).sort()).toEqual([...FEELINGS].sort());
+    expect(Object.keys(tints[scheme].area).sort()).toEqual([...COMPASS_AREAS].sort());
+  }
 });
 
 test('follows the system scheme until the user picks one', async () => {

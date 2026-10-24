@@ -19,6 +19,15 @@ colors:
   danger: "#9A3B2E"
   danger-container: "#F3E1DC"
   scrim: "rgba(37,39,43,0.42)"
+  lantern: "#AD721C"
+  lantern-ink: "#804D0C"
+  lantern-container: "#F8E4CF"
+  on-lantern-container: "#513716"
+  bar: "#E5EDF1"
+  bar-indicator: "#BCD3E2"
+  primary: "#25272B"
+  on-primary: "#F8F7F3"
+  primary-accent: "#E5AB66"
 typography:
   display:
     fontFamily: "Literata, Georgia, serif"
@@ -90,8 +99,8 @@ spacing:
   xxl: "48px"
 components:
   button-primary:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-ink}"
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
     typography: "{typography.label}"
     rounded: "{rounded.lg}"
     padding: "0 20px"
@@ -142,8 +151,8 @@ components:
     rounded: "{rounded.md}"
     padding: "16px"
   notice-demo:
-    backgroundColor: "{colors.sunk}"
-    textColor: "{colors.ink-muted}"
+    backgroundColor: "{colors.lantern-container}"
+    textColor: "{colors.on-lantern-container}"
     rounded: "{rounded.md}"
     padding: "16px"
   notice-info:
@@ -157,10 +166,10 @@ components:
     rounded: "{rounded.md}"
     padding: "16px"
   navigation-bar:
-    backgroundColor: "{colors.sunk}"
+    backgroundColor: "{colors.bar}"
     textColor: "{colors.ink-muted}"
   navigation-bar-active:
-    backgroundColor: "{colors.trail-container}"
+    backgroundColor: "{colors.bar-indicator}"
     textColor: "{colors.ink}"
   top-app-bar:
     backgroundColor: "{colors.paper}"
@@ -204,15 +213,22 @@ Density is unhurried: a 20dp gutter, generous vertical rhythm, one primary actio
 - Pencil before ink: proposed content is graphite italic until the user confirms it.
 - One 1dp sand rule for every divider; no shadowed cards.
 - Literata for the user's words and headlines, Roboto for UI.
-- Light scheme only (dark scheme is an open decision, deferred until it can be designed cohesively).
+- Light and night schemes with the same roles; Appearance follows the system unless the user picks one.
 
 ## Colors
 
-A muted, low-chroma map palette: warm grey paper, charcoal ink, and a single slate blue that means "the trail".
+A muted, low-chroma map palette: warm grey paper, charcoal ink, and a single slate blue that means "the trail". A warm lantern amber marks the few moments that invite the user in, and each feeling and compass area has its own muted hue. At night the same roles become "trail at dusk" (see Night scheme).
 
 ### Primary
 - **Slate Trail** (trail): the trail line (2dp, at 45% opacity), painted blazes, the open blaze's dashed stroke, text buttons and inline links, cursor, checked controls, and switch tracks. It is the only chromatic accent in ordinary UI.
 - **Pale Slate Wash** (trail-container): selected chips and segments, the navigation-bar active indicator, info notices, text selection, and the compass-value callout inside a reflection. Text on it uses **Deep Slate** (on-trail-container).
+
+### Lantern (accent)
+- **Lantern** (lantern): the warm accent, used sparingly: tonight's open blaze, the lantern icons on the Write and "Talk this through" buttons, and the primary button at night. 3.5:1 on paper, so marks only; **Lantern Ink** (lantern-ink) when it is text.
+- **Lantern Wash** (lantern-container): demo notices, with **On Lantern Wash** text.
+
+### Feeling and compass hues
+One OKLCH family (same lightness and chroma, hues about 45° apart), defined per scheme in `tints` in `src/theme/tokens.ts`: a `mark` (blazes, bearing ticks; ≥3.9:1 on paper), a `container` and an `on` colour (selected chips; ≥8.9:1). A painted blaze takes its entry's first feeling; a selected feeling chip takes that feeling's wash; a compass area's bearing tick and "From your compass" card take the area's hue. Colour never carries meaning alone: the label always stays.
 
 ### Secondary
 - **Lichen** (lichen): reserved for the optional "next step" blaze (Tomorrow Bridge) on the trail. **Lichen Ink** (lichen-ink) is the text-safe companion for lichen-related UI.
@@ -223,7 +239,8 @@ A muted, low-chroma map palette: warm grey paper, charcoal ink, and a single sla
 ### Neutral
 - **Map Paper** (paper): the app background behind every screen, footer bars, and blaze interiors.
 - **Raised Paper** (raised): fields, the composer page, dialogs, selected-able choice rows, and the switch thumb.
-- **Sunk Paper** (sunk): the navigation bar, demo notices, skeleton loaders, and disabled filled buttons.
+- **Sunk Paper** (sunk): skeleton loaders and disabled filled buttons (with a sand edge).
+- **Trail Bar** (bar, bar-indicator): the navigation bar, tinted toward the trail, and its active pill.
 - **Charcoal Ink** (ink): primary text, the primary button fill, and the snackbar.
 - **Muted Ink** (ink-muted): secondary text, field labels, inactive navigation labels and icons, icon-button tint (7:1 on paper).
 - **Graphite Pencil** (pencil): tentative and AI-proposed text, placeholders, and the tentative blaze stroke (4.9:1 on paper).
@@ -231,7 +248,10 @@ A muted, low-chroma map palette: warm grey paper, charcoal ink, and a single sla
 - **Field Outline** (outline): borders of interactive controls: secondary buttons, chips, fields, segmented buttons, radios, unchecked checkboxes (3.3:1 on paper).
 
 ### Named Rules
-**The One Trail Rule.** Slate is the only accent in ordinary UI. Lichen appears only on the next-step blaze and its related text; Rust only for destruction and error.
+**The One Trail Rule.** Slate is the accent for ordinary interaction (links, selection, checked controls). Lantern is spent only on the invitations listed above; feeling and compass hues only on their own marks and chips. Lichen appears only on the next-step blaze and its related text; Rust only for destruction and error. The world is still paper and trail.
+
+### Night scheme
+"Trail at dusk": blue-graphite ground (paper #14181D, raised #1B2027, sunk #101318), warm off-white ink (#ECE8E1), a moonlit trail (#9DB4C4), and the lantern (#E5AB66) as the primary button with graphite text. Every role keeps its name; values live in `palettes.night` in `src/theme/tokens.ts` and every text pair meets AA. The user picks System, Light or Night in Settings → Appearance.
 
 **The Outline-For-Touch Rule.** Anything the user can press or type into is bounded by outline (#8A857B) for 3:1 non-text contrast. Sand is for decoration and division, never for a control's edge.
 
@@ -282,11 +302,11 @@ Softly rounded rectangles in four steps: 8dp for chips and the snackbar, 12dp fo
 ### Buttons
 Quiet, confident, and full-width where they are the screen's main act.
 - **Shape:** gently rounded (16dp).
-- **Primary:** Charcoal fill with On-Ink label (Roboto 500, 16sp), 56dp tall, 20dp horizontal padding; typically full-width with an optional trailing arrow pushed to the far edge.
+- **Primary:** Charcoal fill (lantern at night) with On-Primary label (Roboto 500, 16sp), 56dp tall, 20dp horizontal padding; typically full-width with an optional trailing arrow pushed to the far edge.
 - **Secondary:** transparent with a 1dp outline border and ink label, 48dp tall.
 - **Text:** slate label with 12dp touch padding and a -12dp leading offset so the label aligns with the 20dp gutter while keeping its 48dp target.
 - **Danger / Danger Text:** Rust fill with On-Ink label, or Rust label alone, for destructive confirmations only.
-- **States:** pressed drops to 92% opacity with a ripple; disabled filled buttons turn Sunk with Muted Ink labels; loading swaps the label for a spinner.
+- **States:** pressed drops to 92% opacity with a ripple; disabled filled buttons turn Sunk with a sand edge and Muted Ink labels; a leading icon stays beside its label (the Write and Talk buttons carry it in lantern); loading swaps the label for a spinner.
 - **Icon button:** 48dp square, 24dp Material Community icon in Muted Ink, borderless 24dp ripple.
 
 ### Chips
@@ -295,7 +315,7 @@ Quiet, confident, and full-width where they are the screen's main act.
 
 ### Cards / Containers
 There are no cards. Grouping is done with `Section` (24dp vertical padding, Literata title, sand top rule) and with notices.
-- **Notices:** 12dp radius, 16dp padding, 20dp leading icon. *Demo* (Sunk with sand border and a flask icon) marks anything simulated in this milestone; *Info* (Pale Slate Wash); *Warn* (Rust Wash with Rust text).
+- **Notices:** 12dp radius, 16dp padding, 20dp leading icon. Each is a soft fill in its role colour with the icon in that role's ink, and no border: *Demo* (Lantern Wash, flask icon) marks anything simulated; *Info* (Pale Slate Wash, slate icon); *Warn* (Rust Wash with Rust text).
 - **Choice rows:** Raised Paper, 12dp radius, sand border; selected turns to a slate border on Pale Slate Wash with a slate radio.
 
 ### Inputs / Fields
@@ -305,14 +325,14 @@ There are no cards. Grouping is done with `Section` (24dp vertical padding, Lite
 - **Composer page:** the free-writing surface is a Raised Paper page with a sand border (decorative, the page is a single large target), 12dp radius, 16dp padding, set in Entry type. While the user types, surrounding chrome recedes to 38% opacity over 360ms.
 
 ### Navigation
-- **Navigation bar:** native Material navigation bar on Sunk Paper with four always-labelled destinations (Today, Journal, Patterns, Compass). Inactive icons and labels in Muted Ink; the active destination gets a Pale Slate Wash indicator pill, a Deep Slate icon, and an ink label.
+- **Navigation bar:** native Material navigation bar on Trail Bar with four always-labelled destinations (Today, Journal, Patterns, Compass). Inactive icons and labels in Muted Ink; the active destination gets a Bar Indicator pill, a Deep Slate icon, and an ink label.
 - **Top app bar:** 64dp on Map Paper; back arrow in ink on the left; title in Roboto 500 16/24, or the Literata "Kindway" wordmark on Today; actions on the right.
 - **Feedback:** snackbars are Charcoal with On-Ink text and a Pale Slate Wash action, 8dp radius, inset 16dp, fading in and out over 150ms. Dialogs are Raised Paper, 28dp radius, 24dp padding, with text-button actions aligned right.
 
 ### Blazes and the Trail (signature)
 The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (mark) and 4x10 (small), so emphasis never inflates.
-- **Painted:** solid slate. When an entry is saved, the open blaze is painted: the fill grows from bottom to top over 240ms with an exponential ease-out, instant under reduced motion.
-- **Open:** tonight's unwritten stop, drawn in SVG inside the same footprint as a 2dp slate stroke dashed 3/2 on Map Paper.
+- **Painted:** solid, in the hue of the entry's first feeling (slate when it has none). When an entry is saved, the open blaze is painted: the fill grows from bottom to top over 240ms with an exponential ease-out, instant under reduced motion.
+- **Open:** tonight's unwritten stop, drawn in SVG inside the same footprint as a 2dp lantern stroke dashed 3/2 on Map Paper.
 - **Next:** the optional Tomorrow Bridge step, a solid 2dp lichen stroke.
 - **Tentative:** a 2dp Graphite Pencil stroke.
 - **Trail:** one 2dp slate line at 45% opacity threads every stop; onboarding progress is drawn as a short 4dp stretch of the same trail on a sand track.
@@ -335,4 +355,4 @@ The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (m
 - **Don't** add kicker or eyebrow labels above headings; Label Small is for metadata attached to a specific item, never for introducing a section.
 - **Don't** introduce a third blaze size or scale a blaze up for emphasis.
 - **Don't** use lichen or rust outside the next-step blaze and destructive/error states.
-- **Don't** design a dark scheme piecemeal; it is an open decision, deferred until it can be done cohesively.
+- **Don't** hard-code a colour in a component; read the active palette through `useTheme()` / `makeStyles()` so both schemes stay whole.

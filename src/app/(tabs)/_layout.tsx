@@ -7,8 +7,8 @@ export default function TabsLayout() {
   const { color } = useTheme();
   return (
     <NativeTabs
-      backgroundColor={color.sunk}
-      indicatorColor={color.trailContainer}
+      backgroundColor={color.bar}
+      indicatorColor={color.barIndicator}
       labelVisibilityMode="labeled"
       labelStyle={{ default: { color: color.inkMuted }, selected: { color: color.ink } }}
       iconColor={{ default: color.inkMuted, selected: color.onTrailContainer }}>
