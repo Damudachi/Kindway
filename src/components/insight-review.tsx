@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
@@ -70,7 +71,16 @@ function InsightSection({ title, none, insights, resolve }: { title: string; non
   return (
     <View style={styles.section}>
       <SectionTitle pencil>{title}</SectionTitle>
-      {shown.length === 0 ? <Text variant="bodyMuted">{none}</Text> : shown.map((i) => <InsightItem key={i.id} insight={i} resolve={resolve} />)}
+      {shown.length === 0 ? (
+        <Text variant="bodyMuted">{none}</Text>
+      ) : (
+        // A short fade-up on first render, one after another; feedback changes don't replay it.
+        shown.map((i, n) => (
+          <Animated.View key={i.id} entering={FadeInDown.duration(250).delay(n * 40)}>
+            <InsightItem insight={i} resolve={resolve} />
+          </Animated.View>
+        ))
+      )}
     </View>
   );
 }

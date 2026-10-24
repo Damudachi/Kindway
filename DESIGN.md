@@ -207,6 +207,17 @@ The system runs on Android with Material 3 structure: small top app bar, native 
 
 Density is unhurried: a 20dp gutter, generous vertical rhythm, one primary action per screen. Motion is short and functional; the one signature moment is the open blaze being painted when an entry is saved.
 
+### Motion grammar
+All Reanimated 4, all instant under reduced motion, ease-out `cubic-bezier(0.23, 1, 0.32, 1)` unless noted.
+- **Signature:** saving an entry paints its blaze (fill scales up from the bottom, 240ms, exponential ease-out) and the trail draws in again to reach it.
+- **Trail draw-in:** the Today trail draws itself in (stroke dash, 600ms) once a day, and again on each save. Revisiting a tab never replays it.
+- **Press:** buttons and chips scale to 0.97 in 120ms (a CSS transition), with the Android ripple kept.
+- **Lists:** Journal stops and Patterns observations fade up 250ms, 40ms apart, on first render only; later additions appear plainly.
+- **Reflection arrival:** its sections fade in one after another (300ms each, 140ms apart), like the writing appearing.
+- **Tomorrow step done:** its blaze fills in lichen (same paint motion). No haptic: expo-haptics isn't part of the build.
+- **Theme switch:** the old paper dissolves into the new over 200ms.
+- **Not animated:** tab switches (native navigation bar behaviour) and screen transitions (native stack defaults).
+
 **Key Characteristics:**
 - Stone-grey map paper, charcoal ink, one slate trail colour.
 - Blazes are the signature mark, in exactly two sizes.

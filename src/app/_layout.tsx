@@ -6,6 +6,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 
 import { SnackbarProvider } from '@/components/feedback';
+import { ThemeFade } from '@/components/theme-fade';
 import { AiConsentProvider } from '@/state/ai-consent';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
@@ -58,6 +59,7 @@ function App() {
                 <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
                 <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
               </Stack>
+              <ThemeFade />
             </SnackbarProvider>
           </Journal>
         </RealAiProvider>

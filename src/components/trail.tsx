@@ -1,6 +1,6 @@
 import { Children, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -34,16 +34,19 @@ export function Blaze({ state = 'painted', size = 'mark', paint, onPainted, tint
   useEffect(() => {
     if (!paint) return;
     if (reduce) {
-      fill.value = 1;
+      fill.set(1);
       onPainted?.();
       return;
     }
-    fill.value = withTiming(1, { duration: motion.medium, easing: Easing.out(Easing.exp) });
+    // From empty, even when this blaze was already showing (a step blaze turning from next to done).
+    fill.set(0);
+    fill.set(withTiming(1, { duration: motion.medium, easing: Easing.out(Easing.exp) }));
     const t = setTimeout(() => onPainted?.(), motion.medium + 60);
     return () => clearTimeout(t);
   }, [paint, reduce, fill, onPainted]);
 
-  const fillStyle = useAnimatedStyle(() => ({ height: fill.value * h }));
+  // Scaled from the bottom edge rather than grown in height, so it never re-runs layout.
+  const fillStyle = useAnimatedStyle(() => ({ transform: [{ scaleY: fill.get() }] }));
 
   if (state !== 'painted') {
     const stroke = state === 'next' ? color.lichen : state === 'tentative' ? color.pencil : color.lantern;
@@ -66,7 +69,7 @@ export function Blaze({ state = 'painted', size = 'mark', paint, onPainted, tint
   }
   return (
     <View style={[styles.blazeBox, { width: w, height: h }]}>
-      <Animated.View style={[styles.fill, { width: w }, tint && { backgroundColor: tint }, fillStyle]} />
+      <Animated.View style={[styles.fill, { width: w, height: h }, tint && { backgroundColor: tint }, fillStyle]} />
     </View>
   );
 }
@@ -131,33 +134,79 @@ export function trailPath(stops: number[], height: number) {
   return d;
 }
 
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+/** Draw-ins already played this session, so revisiting a tab doesn't replay them. */
+const drawn = new Set<string>();
+
+type TrailProps = {
+  children: ReactNode;
+  /**
+   * The path draws itself in (about 600ms) once per distinct key: e.g. once a day on Today,
+   * and again when an entry is saved, as the trail extends to the new blaze.
+   */
+  drawKey?: string;
+  /** Stops fade up one after another on the list's first render only. */
+  stagger?: boolean;
+};
+
 /**
  * The trail: one slate path threading its stops. Each stop is measured, so the path follows
  * the real layout at any font size; until then it's a straight line.
  */
-export function Trail({ children }: { children: ReactNode }) {
+export function Trail({ children, drawKey, stagger }: TrailProps) {
   const styles = useStyles();
   const { color } = useTheme();
+  const reduce = useReducedMotion();
   const items = Children.toArray(children);
   const [height, setHeight] = useState(0);
   const [tops, setTops] = useState<Record<number, number>>({});
+  const [entering, setEntering] = useState(!!stagger);
   const stops = items.map((_, i) => tops[i]).filter((y): y is number => y !== undefined);
   const measured = height > 0 && stops.length === items.length;
   const measure = (i: number, y: number) => setTops((t) => (t[i] === y ? t : { ...t, [i]: y }));
+
+  // A little longer than the path (its swings add a few percent), so the dash covers it all.
+  const length = height * 1.1 + 24;
+  const progress = useSharedValue(1);
+  const lineProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - progress.get()) }));
+
+  useEffect(() => {
+    if (!measured || !drawKey || drawn.has(drawKey)) return;
+    drawn.add(drawKey);
+    if (reduce) return;
+    progress.set(0);
+    progress.set(withTiming(1, { duration: 600, easing: EASE_OUT }));
+  }, [measured, drawKey, reduce, progress]);
+
+  // Later additions (a cleared filter, a new entry) appear without the entrance.
+  useEffect(() => {
+    const t = setTimeout(() => setEntering(false));
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <View style={styles.trail} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
       {measured ? (
         <Svg width={MARKER_W} height={height} style={styles.path} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Path d={trailPath(stops.map((y) => y + BLAZE_Y), height)} fill="none" stroke={color.trail} strokeOpacity={0.45} strokeWidth={2} strokeLinecap="round" />
+          <AnimatedPath
+            d={trailPath(stops.map((y) => y + BLAZE_Y), height)}
+            fill="none"
+            stroke={color.trail}
+            strokeOpacity={0.45}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeDasharray={[length, length]}
+            animatedProps={lineProps}
+          />
         </Svg>
       ) : (
         <View style={styles.line} />
       )}
       {items.map((child, i) => (
-        <View key={i} onLayout={(e) => measure(i, e.nativeEvent.layout.y)}>
+        <Animated.View key={i} entering={entering ? FadeInDown.duration(250).delay(i * 40) : undefined} onLayout={(e) => measure(i, e.nativeEvent.layout.y)}>
           {child}
-        </View>
+        </Animated.View>
       ))}
     </View>
   );
@@ -166,7 +215,7 @@ export function Trail({ children }: { children: ReactNode }) {
 const useStyles = makeStyles((color) => ({
   outline: { backgroundColor: color.paper },
   blazeBox: { justifyContent: 'flex-end', borderRadius: 1, overflow: 'hidden', backgroundColor: 'transparent' },
-  fill: { backgroundColor: color.trail },
+  fill: { backgroundColor: color.trail, transformOrigin: 'bottom' },
   trail: { position: 'relative' },
   path: { position: 'absolute', left: 0, top: 0 },
   line: { position: 'absolute', left: LINE_X, top: 0, bottom: 0, width: 2, backgroundColor: color.trail, opacity: 0.45 },

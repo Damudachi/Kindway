@@ -21,7 +21,7 @@ import { space } from '@/theme/tokens';
 
 export default function Today() {
   const styles = useStyles();
-  const { tint } = useTheme();
+  const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
@@ -31,6 +31,8 @@ export default function Today() {
   const [signInLater, setSignInLater] = useState(false);
   const [focused, setFocused] = useState(false);
   const [stepOpen, setStepOpen] = useState(false);
+  // The step blaze fills in lichen right after it's marked done.
+  const [stepPainting, setStepPainting] = useState(false);
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
@@ -112,7 +114,8 @@ export default function Today() {
         <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
           Your trail
         </SectionTitle>
-        <Trail>
+        {/* Draws in once a day, and again as it extends to a newly saved entry. */}
+        <Trail drawKey={state.justPainted ? `paint:${state.justPainted}` : `day:${today.toDateString()}`}>
           {todays.length === 0 ? (
             <TrailStop
               blaze="open"
@@ -139,6 +142,9 @@ export default function Today() {
           {step && view !== 'hidden' && (
             <TrailStop
               blaze={view === 'done' ? 'painted' : 'next'}
+              tint={color.lichen}
+              paint={view === 'done' && stepPainting}
+              onPainted={() => setStepPainting(false)}
               accessibilityLabel={`${view === 'done' ? 'Done today' : view === 'due' ? 'Today' : 'Tomorrow'}, optional step: ${step.text}`}>
               <Text variant="labelSmall">{view === 'done' ? 'Done today' : view === 'due' ? 'Your small step · optional' : 'Tomorrow · optional'}</Text>
               <Text variant="entryTitle">{step.text}</Text>
@@ -149,7 +155,15 @@ export default function Today() {
                       However it went is fine. There’s nothing to keep up.
                     </Text>
                     <ChipRow>
-                      <Chip kind="assist" icon="check" label="Done" onPress={() => setStep(markDone(step), 'Marked done. Small steps count.')} />
+                      <Chip
+                        kind="assist"
+                        icon="check"
+                        label="Done"
+                        onPress={() => {
+                          setStepPainting(true);
+                          setStep(markDone(step), 'Marked done. Small steps count.');
+                        }}
+                      />
                       <Chip kind="assist" icon="calendar-arrow-right" label="Move to tomorrow" onPress={() => setStep(postpone(step), 'Moved to tomorrow. Nothing is lost.')} />
                       <Chip kind="assist" icon="pencil-outline" label="Edit" onPress={() => router.push('/tomorrow')} />
                       <Chip kind="assist" label="Let it go" onPress={() => setStep({ ...step, status: 'dismissed' }, 'Let go. That’s a fine choice too.')} />

@@ -1,7 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import type { IconName } from '@/components/button';
+import { usePressScale } from '@/components/press-scale';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space, touch, type Tint } from '@/theme/tokens';
@@ -22,6 +24,7 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
   const styles = useStyles();
   const { color } = useTheme();
   const on = tint?.on ?? color.onTrailContainer;
+  const press = usePressScale();
   return (
     <Pressable
       accessibilityRole={kind === 'filter' ? 'checkbox' : 'button'}
@@ -29,9 +32,10 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
+      {...press.handlers}
       // 32dp visual chip inside a 48dp touch target.
       style={styles.target}>
-      <View style={[styles.chip, selected && styles.selected, selected && tint && { backgroundColor: tint.container, borderColor: tint.container }, disabled && styles.disabled]}>
+      <Animated.View style={[styles.chip, selected && styles.selected, selected && tint && { backgroundColor: tint.container, borderColor: tint.container }, disabled && styles.disabled, press.style]}>
         {selected && kind === 'filter' ? (
           <MaterialCommunityIcons name="check" size={18} color={on} />
         ) : icon ? (
@@ -40,7 +44,7 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
         <Text variant="label" style={[styles.label, { color: selected ? on : color.ink }]}>
           {label}
         </Text>
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }

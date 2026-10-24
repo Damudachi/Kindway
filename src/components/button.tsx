@@ -1,7 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 
+import { usePressScale } from '@/components/press-scale';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { alpha, radius, space, touch, type Palette } from '@/theme/tokens';
@@ -30,38 +32,43 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
   const v = variants(color)[variant];
   const fg = disabled ? color.inkMuted : v.fg;
   const iconColor = accent && variant === 'primary' && !disabled ? color.primaryAccent : fg;
+  const press = usePressScale();
+  const textOnly = variant === 'text' || variant === 'dangerText';
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: !!disabled, busy: !!loading }}
-      disabled={disabled || loading}
-      onPress={onPress}
-      android_ripple={{ color: v.ripple, foreground: true }}
-      style={({ pressed }) => [
-        styles.base,
-        variant === 'primary' && styles.tall,
-        disabled && v.bg !== 'transparent' ? { backgroundColor: color.sunk, borderColor: color.sand } : { backgroundColor: v.bg, borderColor: v.border },
-        (variant === 'text' || variant === 'dangerText') && styles.textOnly,
-        pressed && styles.pressed,
-        style,
-      ]}>
-      {loading ? (
-        <ActivityIndicator color={fg} />
-      ) : (
-        <View style={[styles.row, trailingIcon && styles.spread]}>
-          {/* The leading icon stays with its label; a trailing icon sits at the far edge. */}
-          <View style={[styles.row, styles.lead]}>
-            {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColor} />}
-            <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
-              {label}
-            </Text>
+    // Layout (the caller's style, the text button's gutter offset) sits on the scaling wrapper.
+    <Animated.View style={[press.style, textOnly && styles.textOuter, style]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: !!disabled, busy: !!loading }}
+        disabled={disabled || loading}
+        onPress={onPress}
+        {...press.handlers}
+        android_ripple={{ color: v.ripple, foreground: true }}
+        style={({ pressed }) => [
+          styles.base,
+          variant === 'primary' && styles.tall,
+          disabled && v.bg !== 'transparent' ? { backgroundColor: color.sunk, borderColor: color.sand } : { backgroundColor: v.bg, borderColor: v.border },
+          textOnly && styles.textOnly,
+          pressed && styles.pressed,
+        ]}>
+        {loading ? (
+          <ActivityIndicator color={fg} />
+        ) : (
+          <View style={[styles.row, trailingIcon && styles.spread]}>
+            {/* The leading icon stays with its label; a trailing icon sits at the far edge. */}
+            <View style={[styles.row, styles.lead]}>
+              {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColor} />}
+              <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
+                {label}
+              </Text>
+            </View>
+            {trailingIcon && <MaterialCommunityIcons name={trailingIcon} size={20} color={iconColor} />}
           </View>
-          {trailingIcon && <MaterialCommunityIcons name={trailingIcon} size={20} color={iconColor} />}
-        </View>
-      )}
-    </Pressable>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -105,7 +112,8 @@ const useStyles = makeStyles(() => ({
   },
   tall: { minHeight: 56 },
   // Text buttons keep their touch padding but align the label with the content column.
-  textOnly: { paddingHorizontal: space.sm, marginLeft: -space.sm, alignSelf: 'flex-start' },
+  textOnly: { paddingHorizontal: space.sm },
+  textOuter: { marginLeft: -space.sm, alignSelf: 'flex-start' },
   pressed: { opacity: 0.92 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs },
   // In a row a label doesn't shrink by default, so a long one ran past the edge and was clipped.

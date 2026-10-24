@@ -86,7 +86,7 @@ export default function Journal() {
             />
           ) : (
             <View style={styles.list} accessibilityLiveRegion="polite">
-              <Trail>
+              <Trail stagger>
                 {shown.map((e, i) => (
                   <TrailStop
                     key={e.id}

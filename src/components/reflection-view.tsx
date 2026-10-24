@@ -8,8 +8,8 @@ import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
-import { Notice } from '@/components/notice';
 import { SectionTitle } from '@/components/illustrations';
+import { Notice } from '@/components/notice';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
 import { STYLE_LABEL } from '@/data/sample';
@@ -59,6 +59,8 @@ export function ReflectionView({ entry, onRest }: Props) {
   const another = useAnotherPerspective();
   const snack = useSnackbar();
   const reduce = useReducedMotion();
+  // Sections arrive one after another, like the writing appearing.
+  const enter = (order: number) => (reduce ? undefined : FadeIn.duration(300).delay(120 + order * 140));
   const mode = useReflectionMode();
   const real = useRealAi();
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -182,29 +184,31 @@ export function ReflectionView({ entry, onRest }: Props) {
       )}
       {edited && <Button variant="secondary" label="Reflect on this version" icon="refresh" onPress={() => request(entry, r.style)} />}
 
-      <Text variant="entry">{r.acknowledge}</Text>
+      <Animated.View entering={enter(0)}>
+        <Text variant="entry">{r.acknowledge}</Text>
+      </Animated.View>
 
       {r.clarify && (
-        <View style={styles.part}>
+        <Animated.View entering={enter(1)} style={styles.part}>
           <SectionTitle icon="text-search" pencil>
             What happened, and what you concluded
           </SectionTitle>
           <Text variant={inked ? 'body' : 'pencil'}>{r.clarify}</Text>
-        </View>
+        </Animated.View>
       )}
 
       {r.perspective && (
-        <View style={styles.part}>
+        <Animated.View entering={enter(2)} style={styles.part}>
           <SectionTitle icon="eye-outline" pencil>
             One possible way to see it
           </SectionTitle>
           <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
           {perspectives > 1 && <Button variant="text" label={isAi ? 'Ask AI for another perspective' : 'Try another perspective'} icon="sync" onPress={() => another(entry)} />}
-        </View>
+        </Animated.View>
       )}
 
       {r.longGame && (
-        <View style={[styles.compass, { backgroundColor: tint.area(r.longGame.value).container }]}>
+        <Animated.View entering={enter(3)} style={[styles.compass, { backgroundColor: tint.area(r.longGame.value).container }]}>
           <Text variant="labelSmall" style={{ color: tint.area(r.longGame.value).on }}>
             From your compass: {r.longGame.value}
           </Text>
@@ -212,22 +216,22 @@ export function ReflectionView({ entry, onRest }: Props) {
             {r.longGame.text}
           </Text>
           <Button variant="text" label="Not relevant here" onPress={notRelevant} />
-        </View>
+        </Animated.View>
       )}
 
       {related.length > 0 && (
-        <View style={styles.part}>
+        <Animated.View entering={enter(4)} style={styles.part}>
           <Text variant="label">Other entries with a feeling tag in common</Text>
           <ChipRow>
             {related.map((e) => (
               <Chip key={e.id} kind="assist" icon="notebook-outline" label={shortDate(e.date)} onPress={() => router.push(`/entry/${e.id}`)} />
             ))}
           </ChipRow>
-        </View>
+        </Animated.View>
       )}
 
       {nextStep && (
-        <View style={styles.part}>
+        <Animated.View entering={enter(5)} style={styles.part}>
           <SectionTitle icon="stairs-up" pencil>
             If you want a next step
           </SectionTitle>
@@ -244,7 +248,7 @@ export function ReflectionView({ entry, onRest }: Props) {
               onPress={() => router.push(`/tomorrow?from=${entry.id}&use=1`)}
             />
           )}
-        </View>
+        </Animated.View>
       )}
 
       {r.question && (
@@ -253,7 +257,7 @@ export function ReflectionView({ entry, onRest }: Props) {
         </Text>
       )}
 
-      <View style={styles.part}>
+      <Animated.View entering={enter(6)} style={styles.part}>
         <Text variant="label">Does this fit?</Text>
         <ChipRow>
           {FEEDBACK.map((f) => (
@@ -270,7 +274,7 @@ export function ReflectionView({ entry, onRest }: Props) {
             Noted on this entry.
           </Text>
         )}
-      </View>
+      </Animated.View>
 
       <View style={styles.choices}>
         <Button label="Talk this through" icon="forum-outline" trailingIcon="arrow-right" accent onPress={() => router.push(`/entry/${entry.id}/talk`)} />
