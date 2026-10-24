@@ -6,7 +6,7 @@ Hardening comes before new native features, so widgets and notifications don't l
 
 | Phase | Scope | Done when |
 | --- | --- | --- |
-| **6: Stabilise and verify** (current) | Email-link landing page (`web/auth-link`); clearer reflection screen; backlog retest on a phone; move phone testing from Expo Go to an EAS development build (`eas build --profile development`, Android first) | Every backlog item below is marked pass, fixed or deferred; the phone runs the development build; a confirmation link opens the app directly |
+| **6: Stabilise and verify** (current) | Email-link landing page (`web/auth-link`); clearer reflection screen; backlog retest on a phone; UI upgrade (night scheme, colour, drawn elements, motion; done 2026-10-25); move phone testing from Expo Go to an installed EAS preview build (`eas build --profile preview`, Android APK with over-the-air updates) | Every backlog item below is marked pass, fixed or deferred; the phone runs the installed preview build; a confirmation link opens the app directly |
 | **7: Beta hardening** | Close the per-user AI-output provenance limitation; security and privacy review; live Groq evaluation (needs approval: it uses provider quota); offline recovery; accessibility (large text, TalkBack, reduced motion); check Groq retention, quota and consent wording | A review document with no open high-severity findings; evaluation tables in `docs/ai-evaluation.md` filled in; accessibility checklist passed |
 | **8: Native capabilities** | In order of risk: reminders (expo-notifications, opt-in, quiet hours), then voice transcription, then an Android home-screen widget. Voice and widget each start with a feasibility spike | Each feature works on the development build and has its own phone test, or is dropped after its spike with the reason written down |
 | **9: Closed beta, then release** | Preview and production EAS builds, internal testing track, privacy policy and store listing, support and incident process, retention and deletion policy | Testers use it for at least 2 weeks with no data-loss or privacy bugs; the release checklist is complete |
@@ -15,7 +15,7 @@ Hardening comes before new native features, so widgets and notifications don't l
 
 Status: open unless marked.
 
-- [ ] Email link opens the landing page, then the app (Expo Go and development build)
+- [ ] Email link opens the landing page, then the app (Expo Go and the installed preview build)
 - [ ] Reflection screen: grouped actions, folded "About this reflection", Entry options
 - [ ] Cross-device saved reflection retrieval and deletion reconciliation
 - [ ] Cross-device saved review retrieval, stale deletion, source navigation and failure states
@@ -26,6 +26,9 @@ Status: open unless marked.
 - [ ] Account switch and sign-out: no leaked state, and no late AI reply attaches to the wrong user
 - [ ] Delete AI outputs and account deletion on the hosted project
 - [ ] Large text, screen reader, reduced motion, small screen, keyboard open
+- [ ] Night mode on every screen (System, Light and Night in Settings → Appearance), including dialogs and the keyboard-open composer
+- [ ] Fast typing straight after opening the app keeps every character (one unconfirmed "F"-only entry was seen on a struggling emulator on 2026-10-24)
+- [ ] The AI council and real AI replies on the deployed functions (`council_notes` 3, `council_failed` 0 in the logs; two or more AI requests in one minute may pause under Groq's 8,000 tokens/min limit)
 - [ ] Follow-up payload never contains Compass text (needs approval: live provider call)
 - [ ] Live Groq evaluation of `reflection-p3` and the follow-up scenarios (needs approval; can move to Phase 7)
 - [ ] EAS development build installed on the test phone
