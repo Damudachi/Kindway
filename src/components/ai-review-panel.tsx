@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { InsightReviewView } from '@/components/insight-review';
 import { Notice } from '@/components/notice';
+import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { longDate, shortDate } from '@/data/dates';
 import type { Entry } from '@/data/types';
@@ -110,9 +111,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   );
 
   const header = (
-    <Text variant="title" accessibilityRole="header">
-      AI review
-    </Text>
+    <SectionTitle icon="creation-outline">AI review</SectionTitle>
   );
 
   if (!aiPeriod) {

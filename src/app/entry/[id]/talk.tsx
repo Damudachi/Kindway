@@ -9,6 +9,7 @@ import { Dialog, useSnackbar } from '@/components/feedback';
 import { FollowUpConsentDialog } from '@/components/follow-up-consent-dialog';
 import { Notice } from '@/components/notice';
 import { keyboardBehavior, TopBar, useBottomInset } from '@/components/screen';
+import { Illustration } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
 import { SUPPORT_STYLES } from '@/data/sample';
@@ -140,9 +141,10 @@ export default function Talk() {
               ))}
             </ChipRow>
             {messages.length === 0 && (
-              <Text variant="bodyMuted" style={styles.empty}>
-                Ask anything about this entry, or just keep writing. You can stop whenever you like.
-              </Text>
+              <View style={styles.empty}>
+                <Illustration name="talk" />
+                <Text variant="bodyMuted">Ask anything about this entry, or just keep writing. You can stop whenever you like.</Text>
+              </View>
             )}
           </View>
         }
@@ -220,7 +222,7 @@ const useStyles = makeStyles((color, type) => ({
   list: { paddingHorizontal: space.gutter, paddingBottom: space.lg, gap: space.sm },
   header: { gap: space.xs, marginBottom: space.sm },
   styleLabel: { marginTop: space.sm },
-  empty: { marginTop: space.md },
+  empty: { marginTop: space.md, gap: space.sm },
   bubble: { maxWidth: '88%', borderRadius: radius.lg, padding: space.md },
   me: { alignSelf: 'flex-end', backgroundColor: color.trailContainer, borderBottomRightRadius: 4 },
   them: { alignSelf: 'flex-start', backgroundColor: color.raised, borderWidth: 1, borderColor: color.sand, borderBottomLeftRadius: 4 },

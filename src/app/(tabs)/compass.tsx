@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Field, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
+import { CompassRose } from '@/components/illustrations';
 import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -46,9 +47,15 @@ export default function Compass() {
       <Text variant="bodyMuted" style={styles.lede}>
         Reminders you chose, not rules to obey every day. Change them whenever your priorities change.
       </Text>
+      {compass.length > 0 && (
+        <View style={styles.rose}>
+          <CompassRose areas={compass.map((c) => c.area)} />
+        </View>
+      )}
 
       {compass.length === 0 && !adding && (
         <StateView
+          art="compass"
           title="Your compass is empty"
           body="That's completely fine. Kindway works without it. Add something if you'd like reflections to keep it in view."
           action={<Button variant="secondary" label="Add a value" icon="plus" onPress={() => setAdding(true)} />}
@@ -149,6 +156,7 @@ export default function Compass() {
 
 const useStyles = makeStyles((color) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
+  rose: { alignItems: 'center', marginBottom: space.md },
   value: { paddingVertical: space.md, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   valueHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   // A bearing tick: the compass's own small mark, drawn in the area's hue.

@@ -44,6 +44,7 @@ export default function Journal() {
 
       {entries.length === 0 && !loading ? (
         <StateView
+          art="trailhead"
           title="Nothing here yet"
           body="Your entries will appear here, in your own words. There's no pace to keep."
           action={<Button label="Write your first entry" onPress={() => router.push('/write')} />}

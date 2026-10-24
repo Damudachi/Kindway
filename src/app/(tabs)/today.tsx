@@ -7,6 +7,7 @@ import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
+import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { Trail, TrailStop } from '@/components/trail';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
@@ -108,9 +109,9 @@ export default function Today() {
       </ChipRow>
 
       <View style={styles.section}>
-        <Text variant="title" accessibilityRole="header" style={styles.trailTitle}>
+        <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
           Your trail
-        </Text>
+        </SectionTitle>
         <Trail>
           {todays.length === 0 ? (
             <TrailStop

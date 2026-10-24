@@ -1,7 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
+import { Children, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 import { makeStyles, useTheme } from '@/theme/theme';
 import { alpha, motion, space } from '@/theme/tokens';
@@ -107,26 +107,68 @@ export function TrailStop({ blaze, tint, paint, onPainted, onPress, accessibilit
   );
 }
 
-/** The trail: a single slate line threading its stops. */
-export function Trail({ children }: { children: ReactNode }) {
-  const styles = useStyles();
-  return (
-    <View style={styles.trail}>
-      <View style={styles.line} />
-      {children}
-    </View>
-  );
-}
-
 // The line's centre and the blaze column's centre coincide at 11dp.
 const LINE_X = 10;
 const MARKER_W = 22;
+const CENTRE = LINE_X + 1;
+// Where a stop's blaze sits: the marker's top padding plus half a mark blaze.
+const BLAZE_Y = space.sm + 4 + SIZE.mark.h / 2;
+// How far the path swings off the blaze column between stops; it stays inside the marker column.
+const SWING = 6;
+
+/**
+ * A gently winding path through each stop's blaze: straight through every blaze, swinging
+ * alternately left and right between them, like a footpath between painted trees.
+ */
+export function trailPath(stops: number[], height: number) {
+  const ys = [0, ...stops, height];
+  let d = `M${CENTRE} 0`;
+  for (let i = 1; i < ys.length; i++) {
+    const [y0, y1] = [ys[i - 1], ys[i]];
+    const x = CENTRE + (i % 2 ? SWING : -SWING);
+    d += ` C${x} ${y0 + (y1 - y0) / 3} ${x} ${y0 + ((y1 - y0) * 2) / 3} ${CENTRE} ${y1}`;
+  }
+  return d;
+}
+
+/**
+ * The trail: one slate path threading its stops. Each stop is measured, so the path follows
+ * the real layout at any font size; until then it's a straight line.
+ */
+export function Trail({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const { color } = useTheme();
+  const items = Children.toArray(children);
+  const [height, setHeight] = useState(0);
+  const [tops, setTops] = useState<Record<number, number>>({});
+  const stops = items.map((_, i) => tops[i]).filter((y): y is number => y !== undefined);
+  const measured = height > 0 && stops.length === items.length;
+  const measure = (i: number, y: number) => setTops((t) => (t[i] === y ? t : { ...t, [i]: y }));
+
+  return (
+    <View style={styles.trail} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
+      {measured ? (
+        <Svg width={MARKER_W} height={height} style={styles.path} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Path d={trailPath(stops.map((y) => y + BLAZE_Y), height)} fill="none" stroke={color.trail} strokeOpacity={0.45} strokeWidth={2} strokeLinecap="round" />
+        </Svg>
+      ) : (
+        <View style={styles.line} />
+      )}
+      {items.map((child, i) => (
+        <View key={i} onLayout={(e) => measure(i, e.nativeEvent.layout.y)}>
+          {child}
+        </View>
+      ))}
+    </View>
+  );
+}
 
 const useStyles = makeStyles((color) => ({
   outline: { backgroundColor: color.paper },
   blazeBox: { justifyContent: 'flex-end', borderRadius: 1, overflow: 'hidden', backgroundColor: 'transparent' },
   fill: { backgroundColor: color.trail },
   trail: { position: 'relative' },
+  path: { position: 'absolute', left: 0, top: 0 },
   line: { position: 'absolute', left: LINE_X, top: 0, bottom: 0, width: 2, backgroundColor: color.trail, opacity: 0.45 },
   stop: { flexDirection: 'row', gap: space.sm, minHeight: 64 },
   marker: { width: MARKER_W, paddingTop: space.sm + 4, alignItems: 'center' },

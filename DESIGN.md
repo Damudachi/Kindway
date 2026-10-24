@@ -335,7 +335,13 @@ The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (m
 - **Open:** tonight's unwritten stop, drawn in SVG inside the same footprint as a 2dp lantern stroke dashed 3/2 on Map Paper.
 - **Next:** the optional Tomorrow Bridge step, a solid 2dp lichen stroke.
 - **Tentative:** a 2dp Graphite Pencil stroke.
-- **Trail:** one 2dp slate line at 45% opacity threads every stop; onboarding progress is drawn as a short 4dp stretch of the same trail on a sand track.
+- **Trail:** one 2dp slate path at 45% opacity threads every stop. It passes straight through each blaze and swings 6dp left and right between them, alternately, like a footpath between painted trees; stops are measured, so the path follows the real layout at any font size. Onboarding progress is drawn as a short 4dp stretch of the same trail on a sand track.
+
+### Drawn elements
+- **Section titles:** Literata title with an optional 20dp trail-coloured icon beside it (never a kicker above it). Sections that hold something Kindway proposes (reflection parts, tentative patterns) carry a short hand-drawn pencil underline in Graphite Pencil.
+- **Empty-state drawings:** 160x96 line drawings in the trail's hand (2dp strokes, slate lines, sand ground, one lantern mark): a trailhead post (empty journal), a folded map (not enough to look across), a compass rose (empty compass), two speech outlines (an empty Talk). Decorative and hidden from TalkBack; the copy says everything.
+- **Week ribbon (Patterns):** the week as a stretch of trail: one line through the seven days, with a blaze in the first feeling's hue on days you wrote. Empty days are just trail, never a gap to fill.
+- **Compass rose:** a seven-point rose, one point per area; chosen areas filled in their hue, the rest sand outlines, a lantern centre. Decorative; the list below names every area and repeats its hue on the bearing tick.
 
 ## Do's and Don'ts
 

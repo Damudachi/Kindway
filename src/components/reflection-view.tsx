@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
+import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
 import { STYLE_LABEL } from '@/data/sample';
@@ -185,14 +186,18 @@ export function ReflectionView({ entry, onRest }: Props) {
 
       {r.clarify && (
         <View style={styles.part}>
-          <Text variant="title" accessibilityRole="header">What happened, and what you concluded</Text>
+          <SectionTitle icon="text-search" pencil>
+            What happened, and what you concluded
+          </SectionTitle>
           <Text variant={inked ? 'body' : 'pencil'}>{r.clarify}</Text>
         </View>
       )}
 
       {r.perspective && (
         <View style={styles.part}>
-          <Text variant="title" accessibilityRole="header">One possible way to see it</Text>
+          <SectionTitle icon="eye-outline" pencil>
+            One possible way to see it
+          </SectionTitle>
           <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
           {perspectives > 1 && <Button variant="text" label={isAi ? 'Ask AI for another perspective' : 'Try another perspective'} icon="sync" onPress={() => another(entry)} />}
         </View>
@@ -223,7 +228,9 @@ export function ReflectionView({ entry, onRest }: Props) {
 
       {nextStep && (
         <View style={styles.part}>
-          <Text variant="title" accessibilityRole="header">If you want a next step</Text>
+          <SectionTitle icon="stairs-up" pencil>
+            If you want a next step
+          </SectionTitle>
           <Text variant="pencil">{nextStep}</Text>
           {stepSaved ? (
             <Text variant="small" accessibilityLiveRegion="polite">

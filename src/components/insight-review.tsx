@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
+import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
 import type { InsightFeedback } from '@/data/types';
@@ -68,9 +69,7 @@ function InsightSection({ title, none, insights, resolve }: { title: string; non
   const shown = insights.filter((i) => state.insightFeedback[i.id] !== 'hidden' && live(i.sources, resolve));
   return (
     <View style={styles.section}>
-      <Text variant="title" accessibilityRole="header">
-        {title}
-      </Text>
+      <SectionTitle pencil>{title}</SectionTitle>
       {shown.length === 0 ? <Text variant="bodyMuted">{none}</Text> : shown.map((i) => <InsightItem key={i.id} insight={i} resolve={resolve} />)}
     </View>
   );
@@ -126,9 +125,9 @@ function ActionSection({ actions, resolve, onSaveStep }: { actions: SuggestedAct
   const shown = actions.filter((a) => state.insightFeedback[a.id] !== 'hidden' && live(a.sources, resolve));
   return (
     <View style={styles.section}>
-      <Text variant="title" accessibilityRole="header">
+      <SectionTitle icon="stairs-up" pencil>
         If you want a next step
-      </Text>
+      </SectionTitle>
       {shown.length === 0 ? (
         <Text variant="bodyMuted">No suggestions this time. Nothing needs fixing.</Text>
       ) : (

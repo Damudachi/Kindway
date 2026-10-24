@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import type { IconName } from '@/components/button';
+import { Illustration, type ArtName } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space, type Palette } from '@/theme/tokens';
@@ -41,11 +42,12 @@ const tones = (color: Palette): Record<Tone, { bg: string; fg: string; mark: str
   warn: { bg: color.dangerContainer, fg: color.danger, mark: color.danger, icon: 'alert-circle-outline' },
 });
 
-/** Calm empty/error state: words first, one action. */
-export function StateView({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
+/** Calm empty/error state: words first, one action; empty states can carry a small line drawing. */
+export function StateView({ title, body, action, art }: { title: string; body: string; action?: ReactNode; art?: ArtName }) {
   const styles = useStyles();
   return (
     <View style={styles.state}>
+      {art && <Illustration name={art} />}
       <Text variant="headline" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 30 }}>
         {title}
       </Text>

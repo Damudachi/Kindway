@@ -95,6 +95,7 @@ export default function Patterns() {
   } else if (review.status === 'empty') {
     body = (
       <StateView
+        art="map"
         title="Nothing to look across yet"
         body={
           keptOut > 0
@@ -112,6 +113,7 @@ export default function Patterns() {
   } else if (review.status === 'insufficient') {
     body = (
       <StateView
+        art="map"
         title="Not enough to go on yet"
         body={`There ${review.entryCount === 1 ? 'is 1 entry' : `are ${review.entryCount} entries`} to look at ${PERIOD_NAME[period]}. A review starts at ${review.needed}, so it doesn’t read too much into a few days. That’s a starting rule, not a target.`}
         action={sample}
@@ -156,6 +158,7 @@ export default function Patterns() {
       {period === 'week' && (
         // Every week is drawn on the same seven-day frame, so no week looks smaller.
         <View style={styles.week} accessibilityLabel={`This week: entries on ${days.filter((d) => entries.some((e) => sameDay(d, e.date))).length} of 7 days. There's no target.`}>
+          <View style={styles.ribbon} />
           {days.map((d) => {
             const first = entries.find((e) => sameDay(d, e.date));
             return (
@@ -192,6 +195,8 @@ const useStyles = makeStyles((color) => ({
   week: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: space.sm, borderTopWidth: 1, borderBottomWidth: 1, borderColor: color.sand, marginTop: space.sm },
   day: { alignItems: 'center', gap: space.xxs, width: 36 },
   dayMark: { height: 20, justifyContent: 'center' },
+  // The week as a stretch of trail: one line through the days, a blaze in the feeling's hue where you wrote.
+  ribbon: { position: 'absolute', left: 18, right: 18, top: space.sm + 9, height: 2, backgroundColor: color.trail, opacity: 0.45 },
   count: { marginTop: space.xs },
   content: { marginTop: space.lg },
   block: { gap: space.md },
