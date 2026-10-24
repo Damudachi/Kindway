@@ -150,7 +150,7 @@ export function SectionTitle({ children, icon, pencil, style }: TitleProps) {
         </Text>
       </View>
       {pencil && (
-        <Svg width={64} height={6} viewBox="0 0 64 6" style={styles.underline}>
+        <Svg width={64} height={6} viewBox="0 0 64 6" style={[styles.underline, icon && styles.underIcon]}>
           <Path d="M1 4 C 9 1, 15 5, 23 3 S 37 1, 45 3.5 S 57 4.5, 63 2" fill="none" stroke={color.pencil} strokeWidth={1.5} strokeLinecap="round" />
         </Svg>
       )}
@@ -162,4 +162,6 @@ const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   title: { flexShrink: 1 },
   underline: { marginTop: 2 },
+  // Starts under the words, not under the icon (20dp icon + the row gap).
+  underIcon: { marginLeft: 20 + space.xs },
 }));

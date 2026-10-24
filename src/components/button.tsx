@@ -30,7 +30,9 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
   const styles = useStyles();
   const { color } = useTheme();
   const v = variants(color)[variant];
-  const fg = disabled ? color.inkMuted : v.fg;
+  // Disabled text buttons fade to 38% ink (Material's disabled content), so they never read as
+  // an enabled action beside one; disabled filled buttons keep Muted Ink on Sunk.
+  const fg = !disabled ? v.fg : v.bg === 'transparent' && v.border === 'transparent' ? alpha(color.ink, 0.38) : color.inkMuted;
   const iconColor = accent && variant === 'primary' && !disabled ? color.primaryAccent : fg;
   const press = usePressScale();
   const textOnly = variant === 'text' || variant === 'dangerText';
@@ -60,7 +62,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
             {/* The leading icon stays with its label; a trailing icon sits at the far edge. */}
             <View style={[styles.row, styles.lead]}>
               {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColor} />}
-              <Text variant="label" style={[styles.label, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
+              <Text variant="label" style={[styles.label, textOnly && styles.labelStart, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
                 {label}
               </Text>
             </View>
@@ -118,6 +120,8 @@ const useStyles = makeStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs },
   // In a row a label doesn't shrink by default, so a long one ran past the edge and was clipped.
   label: { flexShrink: 1, textAlign: 'center' },
+  // A text button is a link in the content column: when it wraps, its lines start at the gutter.
+  labelStart: { textAlign: 'left' },
   spread: { justifyContent: 'space-between' },
   lead: { flexShrink: 1 },
   icon: { width: touch, height: touch, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
