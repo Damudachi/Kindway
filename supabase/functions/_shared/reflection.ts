@@ -8,7 +8,12 @@ import type { CompassLink, EntryRow, ProfileRow, StoredReflection } from './ai-s
 import { needsSafetyRoute } from './safety.ts';
 
 export const REFLECTION_SCHEMA_VERSION = 'reflection-1';
-export const REFLECTION_PROMPT_VERSION = 'reflection-p4';
+export const REFLECTION_PROMPT_VERSION = 'reflection-p5';
+
+/** Limits on the entry title and on the other topics a many-topic entry is split into. */
+export const MAX_TITLE = 60;
+export const MAX_TOPICS = 3;
+export const MAX_TOPIC = 40;
 
 /** The longest part of a compass note sent with a reflection; the rest is left out. */
 export const MAX_COMPASS_NOTE = 400;
@@ -19,12 +24,16 @@ export type Style = (typeof STYLES)[number];
 /** What the app receives and what is stored. Every part except the acknowledgment is optional. */
 export type ReflectionOutput = {
   schema_version: typeof REFLECTION_SCHEMA_VERSION;
+  /** A short title for the entry; the app uses it unless the user renamed the entry. */
+  title: string | null;
   acknowledgment: string;
   events_and_interpretations: string | null;
   possible_perspective: string | null;
   compass_connection: { value: string; text: string } | null;
   suggested_step: string | null;
   reflection_question: string | null;
+  /** For an entry about several things: the topics the reflection didn't focus on. */
+  other_topics: string[];
   /** Reserved for reviewed safety copy. Model text is never used here; see the safety route. */
   safety_guidance: null;
 };
@@ -35,8 +44,9 @@ const nullableString = { type: ['string', 'null'] };
 export const REFLECTION_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['acknowledgment', 'events_and_interpretations', 'possible_perspective', 'compass_value', 'compass_connection', 'suggested_step', 'reflection_question', 'safety_concern'],
+  required: ['title', 'acknowledgment', 'events_and_interpretations', 'possible_perspective', 'compass_value', 'compass_connection', 'suggested_step', 'reflection_question', 'other_topics', 'safety_concern'],
   properties: {
+    title: { type: 'string' },
     acknowledgment: { type: 'string' },
     events_and_interpretations: nullableString,
     possible_perspective: nullableString,
@@ -44,6 +54,7 @@ export const REFLECTION_JSON_SCHEMA = {
     compass_connection: nullableString,
     suggested_step: nullableString,
     reflection_question: nullableString,
+    other_topics: { type: 'array', items: { type: 'string' } },
     safety_concern: { type: 'boolean' },
   },
 };
@@ -97,13 +108,17 @@ How to write:
 
 Support style: ${styleInstructions(style, profile)}
 
+When an entry is about several separate things (for example work, a friend and sleep), don't spread thin across all of them. Name each briefly in the acknowledgment so none is ignored, then give the rest of the reflection to the one that seems to weigh most on the user. List the others in other_topics so the user can talk them through separately. An entry about one thing, or several sides of one thing, has no other topics.
+
 Fields:
+- title (required): a short, plain title for the entry in two to six words, in sentence case, drawn from what the user wrote, like a heading they might give it themselves (for example "The meeting with Sam" or "A slow, tired Sunday"). No quotes, no judgement, no diagnosis and no full stop. For an entry about several things, name the main one.
 - acknowledgment (required): one to three sentences reflecting what the user shared and how it seems to feel.
 - events_and_interpretations: separates what happened from what the user concluded, tentatively. Or null.
 - possible_perspective: one tentative alternative way to see it. Or null.
 - compass_value and compass_connection: only if compass values are listed inside the entry block and one is genuinely relevant to what this entry is about. Leaving them null is normal; don't mention a value just because it is listed. compass_value must be exactly one of the listed names; compass_connection says briefly and tentatively how it might connect. A note after a value is the user's own words about it: don't treat it as a target they must meet, don't add goals or values they didn't write, and don't state anything about their values beyond those words. Never frame a hard feeling, rest or a setback as failing a value, and never use a value to pressure or shame. Otherwise both null.
 - suggested_step: one small optional practical step, or null.
 - reflection_question: at most one open question, or null.
+- other_topics: for an entry about several separate things, the ones the reflection didn't focus on, at most three, each a short label of one to four words in the user's terms (for example "your sister's visit"). Otherwise an empty array.
 - safety_concern: true if the entry suggests the user may be at risk of harming themselves or someone else, or is in danger; then Kindway shows reviewed support information instead of your reflection. Otherwise false.`;
 }
 
@@ -150,6 +165,9 @@ export function parseReflection(text: string, style: Style, compass: CompassLink
   try {
     const acknowledgment = field('acknowledgment');
     if (!acknowledgment) return null;
+    // A title or topic that breaks the limits is dropped, not a reason to distrust the reply.
+    const title = typeof raw.title === 'string' ? raw.title.trim().replace(/^["“']+|["”'.]+$/g, '').trim() : '';
+    const topics = Array.isArray(raw.other_topics) ? raw.other_topics : [];
     const listening = style === 'listen';
     const value = field('compass_value', 120);
     const connection = field('compass_connection');
@@ -158,12 +176,18 @@ export function parseReflection(text: string, style: Style, compass: CompassLink
       safety: raw.safety_concern,
       output: {
         schema_version: REFLECTION_SCHEMA_VERSION,
+        title: title && title.length <= MAX_TITLE ? title : null,
         acknowledgment,
         events_and_interpretations: listening ? null : field('events_and_interpretations'),
         possible_perspective: listening ? null : field('possible_perspective'),
         compass_connection: !listening && linked && connection ? { value: linked.area, text: connection } : null,
         suggested_step: listening ? null : field('suggested_step', 400),
         reflection_question: field('reflection_question', 300),
+        other_topics: topics
+          .filter((t): t is string => typeof t === 'string')
+          .map((t) => t.trim())
+          .filter((t) => t && t.length <= MAX_TOPIC)
+          .slice(0, MAX_TOPICS),
         safety_guidance: null,
       },
     };
@@ -259,7 +283,7 @@ export async function handleReflection(body: unknown, { store, provider, config 
       prompt_version: REFLECTION_PROMPT_VERSION,
       provider: provider.name,
       model: provider.model,
-      entry_updated_at: entry.updated_at,
+      entry_updated_at: entry.body_updated_at,
     });
     await store.finishRequest(requestId, 'succeeded');
     return ready(saved, requestId, { attempts, usage, councilNotes, councilFailed });

@@ -8,7 +8,7 @@ import { Field } from '@/components/controls';
 import { Notice, StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { Trail, TrailStop } from '@/components/trail';
+import { Feelings, Trail, TrailStop } from '@/components/trail';
 import { relativeDay } from '@/data/dates';
 import { useEntries, useStore } from '@/state/demo-store';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -95,14 +95,12 @@ export default function Journal() {
                     last={i === shown.length - 1}
                     onPress={() => router.push(`/entry/${e.id}`)}
                     accessibilityLabel={`${relativeDay(e.date)}: ${e.title}. ${e.feelings.join(', ')}. Open entry.`}>
-                    <Text variant="labelSmall">
-                      {relativeDay(e.date)}
-                      {e.feelings.length > 0 ? ` · ${e.feelings.join(', ')}` : ''}
-                    </Text>
+                    <Text variant="labelSmall">{relativeDay(e.date)}</Text>
                     <Text variant="entryTitle">{e.title}</Text>
                     <Text variant="small" numberOfLines={2}>
                       {e.body}
                     </Text>
+                    <Feelings names={e.feelings} />
                   </TrailStop>
                 ))}
               </Trail>

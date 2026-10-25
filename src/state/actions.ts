@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 
 import { nowIso } from '@/data/dates';
 import { looksHighRisk } from '@/data/safety';
+import { hasAutoTitle, titleFrom } from '@/data/titles';
 import type { ChatMessage, Entry, SupportStyle } from '@/data/types';
 import { getAiService, type FollowUpError, type FollowUpResult, type ReflectionResult } from '@/services/ai';
 import { requestAiFollowUp, requestAiReflection } from '@/services/ai/remote';
@@ -122,12 +123,6 @@ export function useSendFollowUp() {
   );
 }
 
-export function titleFrom(text: string) {
-  const first = text.trim().split(/[.!?\n]/)[0] ?? '';
-  const words = first.split(/\s+/).filter(Boolean).slice(0, 6).join(' ');
-  return words.length > 0 ? words : 'Untitled entry';
-}
-
 /**
  * Saves the current draft. Returns the entry id, or null when nothing was saved
  * (blank text) or the text routed to Extra support. The entry is always saved before any
@@ -142,7 +137,10 @@ export function useSaveDraft() {
       const { draft } = state;
       const body = draft.text.trim();
       if (!body) return null;
-      const fields = { body, title: titleFrom(body), feelings: draft.feelings, gratitude: draft.gratitude.trim() || undefined, compassIds: draft.compassIds };
+      const editing = draft.editingId ? state.entries.find((e) => e.id === draft.editingId) : undefined;
+      // A renamed or AI-written title survives an edit; one the device made follows the new text.
+      const title = editing && !hasAutoTitle(editing) ? editing.title : titleFrom(body);
+      const fields = { body, title, feelings: draft.feelings, gratitude: draft.gratitude.trim() || undefined, compassIds: draft.compassIds };
       if (draft.editingId) {
         dispatch({ type: 'updateEntry', id: draft.editingId, patch: fields });
         dispatch({ type: 'clearDraft' });

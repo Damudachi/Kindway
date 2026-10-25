@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
+import { EveningGlow, HeldLight } from '@/components/brand';
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { Blaze } from '@/components/trail';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -15,6 +15,7 @@ export default function Welcome() {
       top={false}
       scroll
       contentStyle={styles.content}
+      backdrop={<EveningGlow />}
       footer={
         <>
           <Button label="Let's begin" trailingIcon="arrow-right" onPress={() => router.push('/support-style')} />
@@ -22,10 +23,7 @@ export default function Welcome() {
         </>
       }>
       <View style={styles.mark}>
-        <View style={styles.line} />
-        <Blaze />
-        <View style={styles.line} />
-        <Blaze state="open" />
+        <HeldLight size={64} breathe />
       </View>
       <Text variant="title" style={styles.word}>
         Kindway
@@ -45,10 +43,9 @@ export default function Welcome() {
   );
 }
 
-const useStyles = makeStyles((color) => ({
+const useStyles = makeStyles(() => ({
   content: { paddingTop: space.xxl },
-  mark: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginBottom: space.lg },
-  line: { width: 28, height: 2, backgroundColor: color.trail, opacity: 0.45 },
+  mark: { marginBottom: space.md, marginLeft: -6 },
   word: { marginBottom: space.xxl },
   headline: { marginBottom: space.lg },
   lines: { gap: space.xxs, marginBottom: space.lg },

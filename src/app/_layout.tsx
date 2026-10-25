@@ -11,6 +11,8 @@ import { AiConsentProvider } from '@/state/ai-consent';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
 import { RealAiProvider, useRealAi } from '@/state/real-ai';
+import { ReminderScheduler } from '@/state/reminders';
+import { WidgetSync } from '@/state/widget-sync';
 import { SessionProvider, useSession } from '@/state/session';
 import { scopedStorage } from '@/storage/persistence';
 import { ThemeProvider, useTheme } from '@/theme/theme';
@@ -78,6 +80,8 @@ function Journal({ children }: { children: React.ReactNode }) {
   const synced = scope !== 'guest' && user && repo;
   return (
     <DemoStoreProvider key={scope} storage={scopedStorage(scope)}>
+      <ReminderScheduler />
+      <WidgetSync />
       {synced ? (
         <CloudSync userId={user.id} repo={repo} aiOutputs={outputs}>
           {children}

@@ -8,3 +8,21 @@ jest.mock('@expo/vector-icons/MaterialCommunityIcons', () => {
 
 // Device storage is native; use the library's in-memory mock in tests.
 jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+
+// Notifications are native; record scheduling calls instead.
+jest.mock('expo-notifications', () => ({
+  AndroidImportance: { LOW: 2 },
+  SchedulableTriggerInputTypes: { WEEKLY: 'weekly' },
+  DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(async () => null),
+  getPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: 'undetermined' })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true, status: 'granted' })),
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
+  scheduleNotificationAsync: jest.fn(async () => 'id'),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: () => {} })),
+}));
+
+// Haptics are native; nothing to feel in tests.
+jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(async () => {}), ImpactFeedbackStyle: { Light: 'light' } }));

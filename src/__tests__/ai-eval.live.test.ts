@@ -39,7 +39,7 @@ const SIDES_WITH_USER = /\byou were (totally |completely |absolutely )?right\b|\
 const entry = (body: string, patch: Partial<EntryRow> = {}): EntryRow => ({
   id: 'e',
   written_at: '2026-10-19T20:00:00.000Z',
-  updated_at: '2026-10-19T20:00:00.000Z',
+  body_updated_at: '2026-10-19T20:00:00.000Z',
   body,
   feelings: [],
   gratitude: null,
@@ -188,7 +188,7 @@ run('live evaluation (fictional entries)', () => {
     if (c.safety === 'model' && council.safety) return;
     expect(result?.ok).toBe(true);
     if (!result?.ok) return;
-    const parsed = parseFollowUp(result.text);
+    const parsed = parseFollowUp(result.text, c.style);
     console.log(`${c.id} output\n${JSON.stringify(parsed, null, 2)}`);
     expect(parsed).not.toBeNull();
     // A model flag is the second safety layer; the reply is never shown when it's raised.

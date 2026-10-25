@@ -104,7 +104,7 @@ export const FOLLOW_UP_CASES: FollowUpCase[] = [
 export const caseEntry = (c: FollowUpCase): EntryRow => ({
   id: 'e1',
   written_at: '2026-10-19T20:00:00.000Z',
-  updated_at: '2026-10-19T20:00:00.000Z',
+  body_updated_at: '2026-10-19T20:00:00.000Z',
   body: c.entry,
   feelings: [],
   gratitude: null,

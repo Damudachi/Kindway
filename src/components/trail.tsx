@@ -1,8 +1,10 @@
+import * as Haptics from 'expo-haptics';
 import { Children, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { Easing, FadeInDown, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { alpha, motion, space } from '@/theme/tokens';
 
@@ -33,6 +35,8 @@ export function Blaze({ state = 'painted', size = 'mark', paint, onPainted, tint
 
   useEffect(() => {
     if (!paint) return;
+    // A light tap as the paint goes on: saving, or finishing a step, should feel certain.
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (reduce) {
       fill.set(1);
       onPainted?.();
@@ -212,7 +216,32 @@ export function Trail({ children, drawKey, stagger }: TrailProps) {
   );
 }
 
+/**
+ * The feelings an entry was tagged with, each beside a dot in its own hue, so the trail carries
+ * the colours of what was felt. The words stay in muted ink; colour never carries them alone.
+ */
+export function Feelings({ names }: { names: string[] }) {
+  const styles = useStyles();
+  const { tint } = useTheme();
+  if (names.length === 0) return null;
+  const shown = names.slice(0, 3);
+  return (
+    <View style={styles.feelings}>
+      {shown.map((f) => (
+        <View key={f} style={styles.feeling}>
+          <View style={[styles.feelingDot, { backgroundColor: tint.feeling(f).mark }]} />
+          <Text variant="small">{f}</Text>
+        </View>
+      ))}
+      {names.length > shown.length && <Text variant="small">+{names.length - shown.length}</Text>}
+    </View>
+  );
+}
+
 const useStyles = makeStyles((color) => ({
+  feelings: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.sm, rowGap: 2, marginTop: 4 },
+  feeling: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  feelingDot: { width: 8, height: 8, borderRadius: 4 },
   outline: { backgroundColor: color.paper },
   blazeBox: { justifyContent: 'flex-end', borderRadius: 1, overflow: 'hidden', backgroundColor: 'transparent' },
   fill: { backgroundColor: color.trail, transformOrigin: 'bottom' },

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HeldLight } from '@/components/brand';
 import { IconButton } from '@/components/button';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -39,9 +40,12 @@ export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) 
       )}
       <View style={styles.titleWrap}>
         {wordmark ? (
-          <Text variant="title" accessibilityRole="header" style={styles.wordmark}>
-            Kindway
-          </Text>
+          <View style={styles.brand}>
+            <HeldLight size={26} breathe />
+            <Text variant="title" accessibilityRole="header" style={styles.wordmark}>
+              Kindway
+            </Text>
+          </View>
         ) : title ? (
           <Text variant="label" accessibilityRole="header" numberOfLines={1} style={styles.title}>
             {title}
@@ -91,9 +95,11 @@ type ScreenProps = {
   inTabs?: boolean;
   /** For screens that need to scroll themselves, e.g. back to the top when content is replaced. */
   scrollRef?: Ref<ScrollViewInstance>;
+  /** Drawn behind everything, from the very top of the screen (status bar included); stays put while content scrolls. */
+  backdrop?: ReactNode;
 };
 
-export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef }: ScreenProps) {
+export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef, backdrop }: ScreenProps) {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const bottom = useBottomInset(inTabs ? 0 : insets.bottom);
@@ -109,6 +115,7 @@ export function Screen({ children, top, footer, scroll = true, contentStyle, inT
   );
   return (
     <KeyboardAvoidingView behavior={keyboardBehavior} style={[styles.root, { paddingTop: insets.top }]}>
+      {backdrop}
       {top !== false && <TopBar {...top} />}
       {body}
       {footer && <View style={[styles.footer, { paddingBottom: space.sm + bottom }]}>{footer}</View>}
@@ -122,6 +129,7 @@ const useStyles = makeStyles((color) => ({
   bar: { height: 64, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xxs },
   titleWrap: { flex: 1, paddingHorizontal: space.sm },
   wordmark: { letterSpacing: -0.2 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   title: { fontSize: 16, lineHeight: 24 },
   actions: { flexDirection: 'row', alignItems: 'center' },
   content: { paddingHorizontal: space.gutter, paddingTop: space.xs },

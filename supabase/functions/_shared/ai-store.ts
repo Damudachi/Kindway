@@ -13,7 +13,7 @@ export type BeginResult =
 export type EntryRow = {
   id: string;
   written_at: string;
-  updated_at: string;
+  body_updated_at: string;
   body: string;
   feelings: string[];
   gratitude: string | null;
@@ -81,7 +81,7 @@ export class StoreError extends Error {
 // deno-lint-ignore no-explicit-any
 type Client = RpcClient & { from(table: string): any };
 
-const ENTRY_COLUMNS = 'id, written_at, updated_at, body, feelings, gratitude, revisit, exclude_from_analysis';
+const ENTRY_COLUMNS = 'id, written_at, body_updated_at, body, feelings, gratitude, revisit, exclude_from_analysis';
 const REFLECTION_COLUMNS = 'id, entry_id, created_at, style, output, provider, model';
 const FOLLOW_UP_COLUMNS = 'id, entry_id, created_at, style, message, output, provider, model';
 const INSIGHT_COLUMNS = 'id, created_at, period, range_start, range_end, entry_count, output, provider, model';

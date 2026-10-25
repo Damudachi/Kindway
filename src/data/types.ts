@@ -34,6 +34,10 @@ export type Reflection = {
   nextStep?: string;
   /** An optional reflection question. */
   question?: string;
+  /** AI only: a short title for the entry, used unless the user renamed it. */
+  title?: string;
+  /** AI only: for an entry about several things, the topics this reflection didn't focus on. */
+  otherTopics?: string[];
   /** Entry text the reflection was written for, to flag edits made afterwards. */
   basedOn: string;
   /** Which pre-written perspective was used; "Try another perspective" moves to the next. */
@@ -130,6 +134,8 @@ export type ChatMessage = {
   text: string;
   source?: 'simulated' | 'ai';
   ai?: { id: string; provider: string; model: string; createdAt: string };
+  /** AI replies only: a small step the reply offered, which the user can save to Tomorrow Bridge. */
+  step?: string;
 };
 
 export type Reminders = {
@@ -142,4 +148,6 @@ export type Reminders = {
   weekly: boolean;
   /** 0 = Monday … 6 = Sunday. */
   weeklyDay: number;
+  /** Reminders were offered once (onboarding or Today); they aren't offered again. */
+  offered?: boolean;
 };

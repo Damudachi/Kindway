@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
+import { EveningGlow } from '@/components/brand';
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
@@ -9,7 +10,7 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
-import { Trail, TrailStop } from '@/components/trail';
+import { Feelings, Trail, TrailStop } from '@/components/trail';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
 import { useSync } from '@/state/cloud-sync';
@@ -61,7 +62,8 @@ export default function Today() {
   };
 
   return (
-    <Screen inTabs top={{ wordmark: true, actions: <IconButton icon="cog-outline" label="Settings" onPress={() => router.push('/settings')} /> }}>
+    <Screen inTabs top={{ wordmark: true, actions: <IconButton icon="cog-outline" label="Settings" onPress={() => router.push('/settings')} /> }}
+      backdrop={<EveningGlow />}>
       {state.demo.ai === 'offline' && (
         <View style={styles.banner}>
           <Notice tone="info" icon="wifi-off" title="You're offline">
@@ -84,6 +86,25 @@ export default function Today() {
           <Notice tone="info" icon="cloud-off-outline" title="Not backed up yet">
             {sync.status === 'offline' ? 'You’re offline.' : 'Your account couldn’t be reached.'} Recent changes are safe on this device and will back up automatically.
           </Notice>
+        </View>
+      )}
+
+      {state.onboarded && entries.length > 0 && !state.reminders.offered && !state.reminders.enabled && state.reminders.permission === 'unasked' && (
+        <View style={styles.banner}>
+          <Notice icon="bell-outline" title="Would a gentle nudge help?">
+            One quiet evening reminder, with nothing from your entries. Skipping a day is always fine.
+          </Notice>
+          <View style={styles.bannerActions}>
+            <Button
+              variant="text"
+              label="Set a reminder"
+              onPress={() => {
+                dispatch({ type: 'reminders', patch: { offered: true } });
+                router.push('/settings/reminders');
+              }}
+            />
+            <Button variant="text" label="No thanks" onPress={() => dispatch({ type: 'reminders', patch: { offered: true } })} />
+          </View>
         </View>
       )}
 
@@ -136,6 +157,7 @@ export default function Today() {
                 accessibilityLabel={`Today: ${e.title}. Open entry.`}>
                 <Text variant="labelSmall">Today</Text>
                 <Text variant="entryTitle">{e.title}</Text>
+                <Feelings names={e.feelings} />
               </TrailStop>
             ))
           )}
@@ -201,6 +223,7 @@ export default function Today() {
               accessibilityLabel={`${relativeDay(e.date)}: ${e.title}. Open entry.`}>
               <Text variant="labelSmall">{relativeDay(e.date)}</Text>
               <Text variant="entryTitle">{e.title}</Text>
+              <Feelings names={e.feelings} />
             </TrailStop>
           ))}
         </Trail>

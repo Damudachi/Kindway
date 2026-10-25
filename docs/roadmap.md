@@ -8,7 +8,7 @@ Hardening comes before new native features, so widgets and notifications don't l
 | --- | --- | --- |
 | **6: Stabilise and verify** (current) | Email-link landing page (`web/auth-link`); clearer reflection screen; backlog retest on a phone; UI upgrade (night scheme, colour, drawn elements, motion; done 2026-10-25); move phone testing from Expo Go to an installed EAS preview build (`eas build --profile preview`, Android APK with over-the-air updates) | Every backlog item below is marked pass, fixed or deferred; the phone runs the installed preview build; a confirmation link opens the app directly |
 | **7: Beta hardening** | Close the per-user AI-output provenance limitation; security and privacy review; live Groq evaluation (needs approval: it uses provider quota); offline recovery; accessibility (large text, TalkBack, reduced motion); check Groq retention, quota and consent wording | A review document with no open high-severity findings; evaluation tables in `docs/ai-evaluation.md` filled in; accessibility checklist passed |
-| **8: Native capabilities** | In order of risk: reminders (expo-notifications, opt-in, quiet hours), then voice transcription, then an Android home-screen widget. Voice and widget each start with a feasibility spike | Each feature works on the development build and has its own phone test, or is dropped after its spike with the reason written down |
+| **8: Native capabilities** | Voice transcription (starts with a feasibility spike). Reminders and the home-screen widget moved up into Phase 6 on 2026-10-25, before the month-long test | Each feature works on the development build and has its own phone test, or is dropped after its spike with the reason written down |
 | **9: Closed beta, then release** | Preview and production EAS builds, internal testing track, privacy policy and store listing, support and incident process, retention and deletion policy | Testers use it for at least 2 weeks with no data-loss or privacy bugs; the release checklist is complete |
 
 ## Phase 6 backlog
@@ -32,3 +32,6 @@ Status: open unless marked.
 - [ ] Follow-up payload never contains Compass text (needs approval: live provider call)
 - [ ] Live Groq evaluation of `reflection-p3` and the follow-up scenarios (needs approval; can move to Phase 7)
 - [ ] EAS development build installed on the test phone
+- [ ] Pre-test fixes (2026-10-25): AI entry titles and rename; one focus plus "Also in this entry" topics for entries about several things; Tomorrow Bridge from a Talk through reply; real evening reminders with an onboarding step and a one-time offer on Today; the Android home-screen widget; the "Held light" mark; the warmer Today (evening glow, feelings on the trail, a haptic on paint)
+- [ ] On the new preview build (1.1.0): a reminder arrives at the chosen time and opens a new entry; the widget can be added, shows the prompt or the open step, and opens Kindway; turning off "Show my Tomorrow Bridge step" hides it
+- [ ] Welcome screen paper looks grey on the emulator in light mode (seen 2026-10-25, already on main before these changes); check on the phone

@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconButton } from '@/components/button';
+import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { FollowUpConsentDialog } from '@/components/follow-up-consent-dialog';
@@ -18,6 +18,7 @@ import type { FollowUpError } from '@/services/ai';
 import { FOLLOW_UP_CONTEXT_TURNS } from '@/services/ai/remote';
 import { useFollowUpMode, useSendFollowUp } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
+import { fitStep } from '@/state/tomorrow';
 import { useAiBlocker, useRealAi } from '@/state/real-ai';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space } from '@/theme/tokens';
@@ -45,12 +46,13 @@ const ERROR_COPY: Record<FollowUpError, string> = {
 export default function Talk() {
   const styles = useStyles();
   const { color } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `topic`: one of the other topics a reflection named, to start the conversation on.
+  const { id, topic } = useLocalSearchParams<{ id: string; topic?: string }>();
   const { state, dispatch } = useStore();
   const insets = useSafeAreaInsets();
   const entry = state.entries.find((e) => e.id === id);
   const messages = state.chats[id] ?? [];
-  const [text, setText] = useState('');
+  const [text, setText] = useState(topic ? `Can we talk about ${topic}?` : '');
   const [style, setStyle] = useState<SupportStyle>(entry?.reflection?.style ?? state.supportStyle);
   const [thinking, setThinking] = useState(false);
   const [failed, setFailed] = useState<FollowUpError | null>(null);
@@ -160,6 +162,7 @@ export default function Talk() {
                 {item.source === 'ai' ? 'Written by AI' : 'Simulated reply'}
               </Text>
             )}
+            {item.step && <StepOffer step={item.step} entryId={id} />}
           </View>
         )}
         ListFooterComponent={
@@ -217,6 +220,33 @@ export default function Talk() {
   );
 }
 
+/**
+ * A step an AI reply offered, which the user can take to Tomorrow Bridge. Only the reply's
+ * structured step qualifies; nothing is read out of the reply text, and nothing is saved here.
+ */
+function StepOffer({ step, entryId }: { step: string; entryId: string }) {
+  const styles = useStyles();
+  const { state } = useStore();
+  const t = state.tomorrow;
+  const saved = t?.status === 'open' && t.source?.kind === 'reflection' && t.source.entryId === entryId && t.text === fitStep(step).text;
+  return (
+    <View style={styles.step}>
+      <Text variant="labelSmall">If you want a next step</Text>
+      <Text variant="pencil">{step}</Text>
+      {saved ? (
+        <Text variant="small">Saved to Tomorrow Bridge.</Text>
+      ) : (
+        <Button
+          variant="text"
+          label="Save to Tomorrow Bridge"
+          accessibilityHint="Opens Tomorrow Bridge with this step filled in. You can edit it, and nothing is saved until you choose to."
+          onPress={() => router.push({ pathname: '/tomorrow', params: { suggestion: step, basis: 'talk', about: entryId, use: '1' } })}
+        />
+      )}
+    </View>
+  );
+}
+
 const useStyles = makeStyles((color, type) => ({
   root: { flex: 1, backgroundColor: color.paper },
   list: { paddingHorizontal: space.gutter, paddingBottom: space.lg, gap: space.sm },
@@ -228,6 +258,7 @@ const useStyles = makeStyles((color, type) => ({
   them: { alignSelf: 'flex-start', backgroundColor: color.raised, borderWidth: 1, borderColor: color.sand, borderBottomLeftRadius: 4 },
   themText: { fontSize: 17, lineHeight: 26 },
   source: { marginTop: space.xxs, color: color.inkMuted },
+  step: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   footer: { gap: space.xs, marginTop: space.sm },
   composer: {
     flexDirection: 'row',

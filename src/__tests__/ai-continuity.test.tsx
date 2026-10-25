@@ -32,7 +32,7 @@ const row = (id: string, entryId: string, createdAt: string, o: Record<string, u
   model: 'openai/gpt-oss-120b',
   created_at: createdAt,
   entry_updated_at: UPDATED,
-  entries: { body: BODY, updated_at: UPDATED },
+  entries: { body: BODY, body_updated_at: UPDATED },
   output: { acknowledgment: `Fictional acknowledgment ${id}.` },
   ...o,
 });
@@ -155,7 +155,7 @@ describe('reading stored AI reflections', () => {
       row('new', 'e1', '2026-10-20T13:00:00.000Z'),
       row('old', 'e1', '2026-10-20T12:00:00.000Z'),
       row('bad', 'e2', '2026-10-20T12:00:00.000Z', { output: {} }),
-      row('was-edited', 'e3', '2026-10-20T12:00:00.000Z', { entries: { body: 'Changed later.', updated_at: '2026-10-21T08:00:00.000Z' } }),
+      row('was-edited', 'e3', '2026-10-20T12:00:00.000Z', { entries: { body: 'Changed later.', body_updated_at: '2026-10-21T08:00:00.000Z' } }),
       row('no-entry', 'e4', '2026-10-20T12:00:00.000Z', { entries: null }),
     ]);
     expect(Object.keys(got).sort()).toEqual(['e1', 'e3', 'e4']);

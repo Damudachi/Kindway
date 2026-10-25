@@ -71,7 +71,7 @@ export default function Settings() {
         <NavRow icon="creation-outline" title="AI & memory" detail="Support style, challenge, context, saved memory" onPress={() => router.push('/settings/ai-memory')} />
         <NavRow icon="shield-lock-outline" title="Privacy & data" detail="Storage, AI processing, export, deletion" onPress={() => router.push('/settings/privacy')} />
         <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
-        <NavRow icon="widgets-outline" title="Home-screen widget" detail="Preview and privacy" onPress={() => router.push('/widget')} />
+        <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
         <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
       </Section>
 

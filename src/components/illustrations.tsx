@@ -25,11 +25,24 @@ function Art({ children }: { children: ReactNode }) {
 
 export type ArtName = 'trailhead' | 'map' | 'compass' | 'talk';
 
-/** A trailhead post with a painted blaze, and the trail winding off into the distance. */
+/** A soft pool of lamp light behind a lantern mark. */
+function Glow({ x, y, r = 13 }: { x: number; y: number; r?: number }) {
+  const { color } = useTheme();
+  return (
+    <>
+      <Circle cx={x} cy={y} r={r} fill={color.lantern} opacity={0.1} />
+      <Circle cx={x} cy={y} r={r * 0.6} fill={color.lantern} opacity={0.14} />
+    </>
+  );
+}
+
+/** A trailhead post with a painted blaze under an evening crescent, the trail winding off. */
 function Trailhead() {
   const { color } = useTheme();
   return (
     <Art>
+      <Path d="M136 6 A11 11 0 1 0 147 21 A8.5 8.5 0 1 1 136 6 Z" fill={color.sand} />
+      <Glow x={40} y={64} />
       <Line x1={8} y1={86} x2={152} y2={86} stroke={color.sand} strokeWidth={2} strokeLinecap="round" />
       <Path d="M30 86 C 64 74, 44 60, 86 52 S 122 38, 146 30" fill="none" stroke={color.trail} strokeOpacity={0.6} strokeWidth={2} strokeDasharray="4 5" strokeLinecap="round" />
       <Rect x={84} y={44} width={3} height={7} rx={0.5} fill={color.trail} />
@@ -50,6 +63,7 @@ function FoldedMap() {
       <Line x1={60} y1={14} x2={60} y2={78} stroke={color.sand} strokeWidth={2} />
       <Line x1={100} y1={22} x2={100} y2={86} stroke={color.sand} strokeWidth={2} />
       <Path d="M34 70 C 52 50, 70 68, 86 50 S 114 36, 124 34" fill="none" stroke={color.trail} strokeOpacity={0.7} strokeWidth={2} strokeDasharray="3 4" strokeLinecap="round" />
+      <Glow x={128} y={33} />
       <Rect x={125} y={25} width={6} height={16} rx={0.5} fill={color.lantern} />
     </Art>
   );
@@ -68,6 +82,7 @@ function Rose() {
         <Line x1={38} y1={48} x2={46} y2={48} />
         <Line x1={114} y1={48} x2={122} y2={48} />
       </G>
+      <Glow x={80} y={38} r={15} />
       <Path d="M80 24 L86 48 L80 44 L74 48 Z" fill={color.lantern} />
       <Path d="M80 72 L86 48 L80 52 L74 48 Z" fill="none" stroke={color.trail} strokeWidth={2} strokeLinejoin="round" />
     </Art>
@@ -81,6 +96,7 @@ function Talk() {
     <Art>
       <Path d="M26 18 H92 A8 8 0 0 1 100 26 V46 A8 8 0 0 1 92 54 H46 L34 64 V54 H26 A8 8 0 0 1 18 46 V26 A8 8 0 0 1 26 18 Z" fill={color.raised} stroke={color.trail} strokeWidth={2} strokeLinejoin="round" />
       <Path d="M68 44 H134 A8 8 0 0 1 142 52 V70 A8 8 0 0 1 134 78 H128 V88 L116 78 H68 A8 8 0 0 1 60 70 V52 A8 8 0 0 1 68 44 Z" fill={color.paper} stroke={color.pencil} strokeWidth={2} strokeDasharray="4 4" strokeLinejoin="round" />
+      <Glow x={100} y={61} r={17} />
       <Circle cx={88} cy={61} r={2.5} fill={color.lantern} />
       <Circle cx={100} cy={61} r={2.5} fill={color.lantern} />
       <Circle cx={112} cy={61} r={2.5} fill={color.lantern} />

@@ -24,7 +24,7 @@ export default function Consent() {
   const choose = (aiConsent: 'ai' | 'journal-only') => {
     dispatch({ type: 'patch', patch: toToday ? { aiConsent, onboarded: true } : { aiConsent } });
     if (toToday) router.replace('/today');
-    else router.push('/first-entry');
+    else router.push('/reminders-setup');
   };
 
   return (

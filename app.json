@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kindway",
     "slug": "kindway",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kindway",
@@ -39,6 +39,35 @@
             "backgroundColor": "#14181D",
             "image": "./assets/images/splash-icon-dark.png"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#4D6474"
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/literata/400Regular/Literata_400Regular.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "Kindway",
+              "label": "Kindway",
+              "description": "Today’s prompt or your next small step, and a way to write. Never your entries.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/images/widget-preview.png",
+              "updatePeriodMillis": 10800000
+            }
+          ]
         }
       ]
     ],

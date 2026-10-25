@@ -10,7 +10,7 @@ import type { EntryRow, ProfileRow, StoredFollowUp, StoredReflection } from './a
 import { needsSafetyRoute } from './safety.ts';
 
 export const FOLLOW_UP_SCHEMA_VERSION = 'follow-up-1';
-export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p2';
+export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p3';
 
 const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
 export type Style = (typeof STYLES)[number];
@@ -18,14 +18,17 @@ export type Style = (typeof STYLES)[number];
 /** Hard cap on context ids in a request, whatever the configured turn limit. */
 const MAX_CONTEXT_IDS = 6;
 const MAX_REPLY = 1200;
+/** A step is one short line; the app's Tomorrow Bridge field holds 120 characters. */
+const MAX_STEP = 120;
 
-export type FollowUpOutput = { schema_version: typeof FOLLOW_UP_SCHEMA_VERSION; reply: string };
+/** `suggested_step`: a small step the reply offered, which the user can save to Tomorrow Bridge. */
+export type FollowUpOutput = { schema_version: typeof FOLLOW_UP_SCHEMA_VERSION; reply: string; suggested_step?: string | null };
 
 export const FOLLOW_UP_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['reply', 'safety_concern'],
-  properties: { reply: { type: 'string' }, safety_concern: { type: 'boolean' } },
+  required: ['reply', 'suggested_step', 'safety_concern'],
+  properties: { reply: { type: 'string' }, suggested_step: { type: ['string', 'null'] }, safety_concern: { type: 'boolean' } },
 };
 
 const STYLE_RULES: Record<Exclude<Style, 'ask'>, string> = {
@@ -74,6 +77,7 @@ Support style: ${followUpStyleInstructions(style, profile)}
 
 Fields:
 - reply (required): your reply, plain text.
+- suggested_step: only when your reply offers one small, concrete step the user could take soon, restate that same step as one short line starting with a verb, under fifteen words (for example "Text Mia to ask how her week went"). Kindway lets the user save it as a step for tomorrow if they want to. Never a step your reply didn't offer, never a plan or several steps. Otherwise null, and always null in Just listen.
 - safety_concern: true if anything suggests the user may be at risk of harming themselves or someone else, or is in danger; then Kindway shows reviewed support information instead of your reply. Otherwise false.`;
 }
 
@@ -99,8 +103,11 @@ export function followUpUserPrompt(entry: EntryRow, reflection: StoredReflection
 
 const replyOf = (t: StoredFollowUp) => (isObject(t.output) && typeof t.output.reply === 'string' ? t.output.reply : null);
 
-/** Checks a model reply against the schema and Kindway's limits. Null if it can't be trusted. */
-export function parseFollowUp(text: string): { output: FollowUpOutput; safety: boolean } | null {
+/**
+ * Checks a model reply against the schema and Kindway's limits. Null if it can't be trusted.
+ * "Just listen" never carries a step, and a step that breaks the limits is dropped.
+ */
+export function parseFollowUp(text: string, style: Style): { output: FollowUpOutput; safety: boolean } | null {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -110,7 +117,9 @@ export function parseFollowUp(text: string): { output: FollowUpOutput; safety: b
   if (!isObject(raw) || typeof raw.safety_concern !== 'boolean' || typeof raw.reply !== 'string') return null;
   const reply = raw.reply.trim();
   if (!reply || reply.length > MAX_REPLY) return null;
-  return { safety: raw.safety_concern, output: { schema_version: FOLLOW_UP_SCHEMA_VERSION, reply } };
+  const step = typeof raw.suggested_step === 'string' ? raw.suggested_step.trim() : '';
+  const suggested_step = style !== 'listen' && step && step.length <= MAX_STEP ? step : null;
+  return { safety: raw.safety_concern, output: { schema_version: FOLLOW_UP_SCHEMA_VERSION, reply, suggested_step } };
 }
 
 /** What the app receives: the stored exchange without the user's own message echoed back. */
@@ -190,7 +199,7 @@ export async function handleFollowUp(body: unknown, { store, provider, config }:
       attempts++;
       result = await provider.complete(answer);
       if (!result.ok && result.error !== 'invalid') break;
-      parsed = result.ok ? parseFollowUp(result.text) : null;
+      parsed = result.ok ? parseFollowUp(result.text, s) : null;
       if (parsed) break;
     }
     const usage = addUsage(council.usage, result?.ok ? result.usage : undefined);

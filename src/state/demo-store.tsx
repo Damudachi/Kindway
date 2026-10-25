@@ -17,6 +17,7 @@ import type {
   SupportStyle,
   TomorrowStep,
 } from '@/data/types';
+import { hasAutoTitle } from '@/data/titles';
 import { applyCloud, mergeSnapshots, toCloud, type CloudSnapshot } from '@/services/cloud/records';
 import { deviceStorage, type StateStorage } from '@/storage/persistence';
 
@@ -44,6 +45,8 @@ export type DemoState = {
   /** Feedback on insights, by insight id. Sample-demo ids start with `sample:`. */
   insightFeedback: Record<string, InsightFeedback>;
   reminders: Reminders;
+  /** Whether the home-screen widget may show the open Tomorrow Bridge step. Device only. */
+  widgetShowsStep: boolean;
   /** Entry whose blaze should play the paint animation once. Not saved. */
   justPainted?: string;
   /** Reviewer switches for simulated conditions. Not saved. */
@@ -69,6 +72,7 @@ export const initialState: DemoState = {
   chats: {},
   insightFeedback: {},
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
+  widgetShowsStep: true,
   demo: { ai: 'ok', sessionExpired: false },
 };
 
@@ -124,7 +128,15 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return {
         ...state,
         entries: state.entries.map((e) =>
-          e.id === action.id ? { ...e, reflectionStatus: action.status, reflection: action.reflection ?? e.reflection } : e,
+          e.id === action.id
+            ? {
+                ...e,
+                reflectionStatus: action.status,
+                reflection: action.reflection ?? e.reflection,
+                // An AI title replaces only one the device made; a rename is never overwritten.
+                ...(action.reflection?.title && hasAutoTitle(e) && { title: action.reflection.title }),
+              }
+            : e,
         ),
       };
     case 'removeReflection':

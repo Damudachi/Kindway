@@ -257,6 +257,24 @@ export function ReflectionView({ entry, onRest }: Props) {
         </Text>
       )}
 
+      {!!r.otherTopics?.length && (
+        <Animated.View entering={enter(6)} style={styles.part}>
+          <Text variant="label">Also in this entry</Text>
+          <Text variant="small">This reflection stayed with one part. You can talk any of these through on its own.</Text>
+          <ChipRow>
+            {r.otherTopics.map((t) => (
+              <Chip
+                key={t}
+                kind="assist"
+                icon="forum-outline"
+                label={t}
+                onPress={() => router.push({ pathname: '/entry/[id]/talk', params: { id: entry.id, topic: t } })}
+              />
+            ))}
+          </ChipRow>
+        </Animated.View>
+      )}
+
       <Animated.View entering={enter(6)} style={styles.part}>
         <Text variant="label">Does this fit?</Text>
         <ChipRow>

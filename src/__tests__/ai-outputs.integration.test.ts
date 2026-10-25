@@ -43,7 +43,7 @@ async function saveReflection(client: SupabaseClient, entryId: string, acknowled
   const begin = await client.rpc('ai_begin_request', { p_kind: 'reflection', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 100 });
   const requestId = (begin.data as { request_id?: string } | null)?.request_id;
   if (!requestId) throw new Error(`could not start a request: ${JSON.stringify(begin.data)}`);
-  const { data: entry } = await client.from('entries').select('updated_at').eq('id', entryId).single();
+  const { data: entry } = await client.from('entries').select('body_updated_at').eq('id', entryId).single();
   const { data, error } = await client
     .from('ai_reflections')
     .insert({
@@ -55,7 +55,7 @@ async function saveReflection(client: SupabaseClient, entryId: string, acknowled
       prompt_version: 'test',
       provider: 'groq',
       model: 'openai/gpt-oss-120b',
-      entry_updated_at: entry!.updated_at,
+      entry_updated_at: entry!.body_updated_at,
     })
     .select('id')
     .single();

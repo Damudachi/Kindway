@@ -4,7 +4,7 @@ import { Text } from '@/components/text';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
-const TOTAL = 5;
+const TOTAL = 6;
 
 /** Linear progress for onboarding, drawn as a short stretch of trail. */
 export function OnboardingProgress({ step }: { step: number }) {

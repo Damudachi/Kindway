@@ -28,9 +28,11 @@ type Suggestion = { text: string; label: string; note: string; source: TomorrowS
 type Params = {
   /** An entry whose reflection may carry a suggested step. */
   from?: string;
-  /** A review's suggested action, with the kind of review it came from. */
+  /** A suggested step from a review (`ai` or `tags`) or from an AI reply in Talk through (`talk`). */
   suggestion?: string;
-  basis?: 'ai' | 'tags';
+  basis?: 'ai' | 'tags' | 'talk';
+  /** For `talk`: the entry the conversation is about. */
+  about?: string;
   /** Start with the suggestion already in the field (still not saved). */
   use?: string;
 };
@@ -45,6 +47,16 @@ function suggestionFrom(params: Params, entries: ReturnType<typeof useStore>['st
       label: ai ? `Suggested by AI in your reflection on “${entry.title}”` : `Simulated suggestion from your reflection preview on “${entry.title}”`,
       note: ai ? 'Written by AI, so it can be wrong. Change it, or leave it.' : 'Pre-written text, not generated from your words.',
       source: { kind: 'reflection', entryId: entry.id },
+    };
+  }
+  const fromTalk = params.basis === 'talk' ? params.suggestion?.trim() : undefined;
+  if (fromTalk) {
+    const about = entries.find((e) => e.id === params.about && !e.sample);
+    return {
+      text: fromTalk,
+      label: about ? `Suggested by AI while talking through “${about.title}”` : 'Suggested by AI in Talk through',
+      note: 'Written by AI, so it can be wrong. Change it, or leave it.',
+      source: about ? { kind: 'reflection', entryId: about.id } : undefined,
     };
   }
   const fromReview = params.suggestion?.trim();

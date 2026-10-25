@@ -77,6 +77,8 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
     ...(compass && { longGame: { value: String(compass.value), text: String(compass.text) } }),
     ...(str(o.suggested_step) && { nextStep: str(o.suggested_step) }),
     ...(str(o.reflection_question) && { question: str(o.reflection_question) }),
+    ...(str(o.title) && { title: str(o.title)!.trim() }),
+    ...(Array.isArray(o.other_topics) && o.other_topics.some(str) && { otherTopics: o.other_topics.filter(str).map((t: string) => t.trim()) }),
     basedOn,
   };
 }
@@ -123,6 +125,7 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
     if (res.body.status === 'safety') return { ok: false, error: 'safety' };
     const f = res.body.status === 'ready' && isObject(res.body.follow_up) ? res.body.follow_up : null;
     const reply = f && isObject(f.output) ? str(f.output.reply) : undefined;
+    const step = f && isObject(f.output) ? str(f.output.suggested_step)?.trim() : undefined;
     if (!f || !reply || typeof f.id !== 'string' || f.entry_id !== ask.entryId) return { ok: false, error: 'invalid' };
     const message: ChatMessage = {
       id: `ai:${f.id}`,
@@ -130,6 +133,7 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
       text: reply,
       source: 'ai',
       ai: { id: f.id, provider: String(f.provider), model: String(f.model), createdAt: String(f.created_at) },
+      ...(step && { step }),
     };
     return { ok: true, message };
   }
@@ -226,7 +230,7 @@ export function latestReflections(rows: unknown[]): Record<string, Reflection> {
   for (const row of rows) {
     if (!isObject(row) || typeof row.entry_id !== 'string' || out[row.entry_id]) continue;
     const entry = isObject(row.entries) ? row.entries : null;
-    const current = entry && typeof entry.body === 'string' && new Date(String(row.entry_updated_at)).getTime() === new Date(String(entry.updated_at)).getTime();
+    const current = entry && typeof entry.body === 'string' && new Date(String(row.entry_updated_at)).getTime() === new Date(String(entry.body_updated_at)).getTime();
     const reflection = toReflection(row, current ? String(entry.body) : '');
     if (reflection) out[row.entry_id] = reflection;
   }
@@ -268,7 +272,7 @@ export function supabaseAiOutputs(client: SupabaseClient): AiOutputsRepo {
       try {
         const { data, error } = await client
           .from('ai_reflections')
-          .select('id, entry_id, style, output, provider, model, created_at, entry_updated_at, entries(body, updated_at)')
+          .select('id, entry_id, style, output, provider, model, created_at, entry_updated_at, entries(body, body_updated_at)')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
         if (error) fail(error);

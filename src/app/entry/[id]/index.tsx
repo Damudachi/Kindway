@@ -1,18 +1,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
-import { Section, SwitchRow } from '@/components/controls';
+import { Field, Section, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { StateView } from '@/components/notice';
 import { ReflectionView } from '@/components/reflection-view';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { longDate } from '@/data/dates';
+import { TITLE_MAX, titleFrom } from '@/data/titles';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
-import { makeStyles } from '@/theme/theme';
+import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 export default function EntryDetail() {
@@ -21,7 +23,10 @@ export default function EntryDetail() {
   const { state, dispatch } = useStore();
   const { mode } = useSession();
   const snack = useSnackbar();
+  const { color } = useTheme();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // The title being edited, or null when the rename dialog is closed.
+  const [rename, setRename] = useState<string | null>(null);
   const entry = state.entries.find((e) => e.id === id);
 
   if (!entry) {
@@ -54,9 +59,16 @@ export default function EntryDetail() {
         ),
       }}>
       <Text variant="small">{longDate(entry.date)}</Text>
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
-        {entry.title}
-      </Text>
+      <Pressable
+        onPress={() => setRename(entry.title)}
+        accessibilityRole="button"
+        accessibilityLabel={`${entry.title}. Rename entry`}
+        style={({ pressed }) => [styles.titleRow, pressed && styles.pressed]}>
+        <Text variant="headline" accessibilityRole="header" style={styles.title}>
+          {entry.title}
+        </Text>
+        <MaterialCommunityIcons name="pencil-outline" size={18} color={color.inkMuted} style={styles.titleIcon} />
+      </Pressable>
       <Text variant="labelSmall">
         {[...entry.feelings, ...(entry.compassIds ?? []).map((c) => state.compass.find((v) => v.id === c)?.area).filter(Boolean), `${minutes} min read`].join(' · ')}
       </Text>
@@ -96,6 +108,19 @@ export default function EntryDetail() {
       </Section>
 
       <Dialog
+        visible={rename !== null}
+        title="Rename entry"
+        body="Leave it empty to use the start of your entry."
+        confirmLabel="Save"
+        onCancel={() => setRename(null)}
+        onConfirm={() => {
+          dispatch({ type: 'updateEntry', id: entry.id, patch: { title: rename?.trim() || titleFrom(entry.body) } });
+          setRename(null);
+        }}>
+        <Field label="Title" value={rename ?? ''} onChangeText={setRename} maxLength={TITLE_MAX} autoFocus selectTextOnFocus returnKeyType="done" />
+      </Dialog>
+
+      <Dialog
         visible={confirmDelete}
         title="Delete this entry?"
         body="The entry, its reflection and any follow-up conversation will be removed. This can't be undone."
@@ -114,7 +139,10 @@ export default function EntryDetail() {
 }
 
 const useStyles = makeStyles((color) => ({
-  title: { marginTop: space.xxs, marginBottom: space.xxs },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs, marginTop: space.xxs, marginBottom: space.xxs },
+  title: { flexShrink: 1 },
+  titleIcon: { marginTop: 8 },
+  pressed: { opacity: 0.6 },
   words: { marginTop: space.lg, paddingBottom: space.lg, gap: space.xs },
   gratitude: { marginTop: space.xs, color: color.inkMuted },
   reflection: { borderTopWidth: 1, borderTopColor: color.sand, paddingTop: space.lg },

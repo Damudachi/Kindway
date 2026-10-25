@@ -11,7 +11,7 @@ import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase
 import type { AiStore, BeginResult, CompassLink, EntryRow, ProfileRow, StoredFollowUp, StoredInsight, StoredReflection } from '../../supabase/functions/_shared/ai-store';
 import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { handleInsights, parseInsights } from '../../supabase/functions/_shared/insights';
-import { handleReflection, MAX_COMPASS_NOTE, parseReflection, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
+import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
 import { ADVISORS, CHAIR_RULES, parseNotes, withCouncil } from '../../supabase/functions/_shared/council';
 import { caseEntry, caseTurns, FOLLOW_UP_CASES } from '@/test-utils/follow-up-cases';
@@ -28,7 +28,7 @@ const config = (overrides: Record<string, string> = {}) => {
 const entry = (id: string, body: string, patch: Partial<EntryRow> = {}): EntryRow => ({
   id,
   written_at: '2026-10-19T20:00:00.000Z',
-  updated_at: '2026-10-19T20:00:00.000Z',
+  body_updated_at: '2026-10-19T20:00:00.000Z',
   body,
   feelings: [],
   gratitude: null,
@@ -46,6 +46,8 @@ const reply = (o: Record<string, unknown>) =>
     compass_connection: null,
     suggested_step: null,
     reflection_question: null,
+    title: 'A long day',
+    other_topics: [],
     safety_concern: false,
     ...o,
   });
@@ -317,7 +319,7 @@ describe('generate-reflection', () => {
     const result = await handleReflection(reflect(), ctx(store, provider));
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ status: 'ready', reflection: { id: 'ref-1', entry_id: 'e1', style: 'understand', provider: 'groq', model: 'openai/gpt-oss-120b' } });
-    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p4', entry_updated_at: '2026-10-19T20:00:00.000Z' });
+    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p5', entry_updated_at: '2026-10-19T20:00:00.000Z' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
     expect(store.entries).toHaveBeenCalledWith(['e1']);
     const sent = provider.calls[0].user;
@@ -406,6 +408,19 @@ describe('generate-reflection', () => {
     await handleReflection(reflect(), ctx(store, provider));
     expect(store.compassLinks).not.toHaveBeenCalled();
     expect(provider.calls[0].user).toContain('Compass values: none');
+  });
+
+  it('keeps a short title and at most three short other topics, dropping ones over the limits', () => {
+    const parsed = parseReflection(reply({ title: '“A long day at work.”', other_topics: ['your sister', ' sleep ', 'x'.repeat(41), 4, 'money', 'the gym'] }), 'understand', []);
+    expect(parsed?.output).toMatchObject({ title: 'A long day at work', other_topics: ['your sister', 'sleep', 'money'] });
+    expect(parseReflection(reply({ title: 'x'.repeat(61) }), 'understand', [])?.output).toMatchObject({ title: null, other_topics: [] });
+  });
+
+  it('asks for a title, and for one focus with other topics listed when an entry covers several things', () => {
+    const prompt = reflectionSystemPrompt('understand', null);
+    expect(prompt).toContain('title (required)');
+    expect(prompt).toContain('other_topics');
+    expect(REFLECTION_JSON_SCHEMA.required).toEqual(expect.arrayContaining(['title', 'other_topics']));
   });
 
   it('rejects replies that are missing parts, mistyped or oversized', () => {
@@ -696,7 +711,7 @@ describe('generate-follow-up', () => {
     const res = await run(ask());
     expect(res.body).toMatchObject({ status: 'ready', follow_up: { id: 'fu-6', entry_id: 'e1', provider: 'groq', model: 'openai/gpt-oss-120b', output: { reply: expect.stringContaining('Fictional reply') } } });
     expect(JSON.stringify(res.body)).not.toContain('was I wrong to stay late');
-    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p2' });
+    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p3' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
   });
 
@@ -796,10 +811,18 @@ describe('generate-follow-up', () => {
   });
 
   it('parses only a bounded, plain reply', () => {
-    expect(parseFollowUp(answer())).toMatchObject({ safety: false, output: { schema_version: 'follow-up-1' } });
-    expect(parseFollowUp(answer({ reply: '   ' }))).toBeNull();
-    expect(parseFollowUp('{"reply":"x"}')).toBeNull();
-    expect(parseFollowUp('[1]')).toBeNull();
+    expect(parseFollowUp(answer(), 'understand')).toMatchObject({ safety: false, output: { schema_version: 'follow-up-1' } });
+    expect(parseFollowUp(answer({ reply: '   ' }), 'understand')).toBeNull();
+    expect(parseFollowUp('{"reply":"x"}', 'understand')).toBeNull();
+    expect(parseFollowUp('[1]', 'understand')).toBeNull();
+  });
+
+  it('keeps a short suggested step, except in “Just listen” or when it is too long', () => {
+    const step = 'Fictional step: text Mia to ask about her week';
+    expect(parseFollowUp(answer({ suggested_step: step }), 'forward')?.output.suggested_step).toBe(step);
+    expect(parseFollowUp(answer({ suggested_step: step }), 'listen')?.output.suggested_step).toBeNull();
+    expect(parseFollowUp(answer({ suggested_step: 'x'.repeat(121) }), 'forward')?.output).toMatchObject({ suggested_step: null });
+    expect(parseFollowUp(answer({ suggested_step: null }), 'forward')?.output.suggested_step).toBeNull();
   });
 
   it('through the full pipeline: sign-in is required and nothing from the conversation reaches the log', async () => {
@@ -914,7 +937,7 @@ describe('Long Game Compass context (Phase 5D1)', () => {
     const entries = ['a1', 'a2', 'a3'].map((id, i) => entry(id, `Fictional review entry ${i}.`, { written_at: new Date(NOW - (i + 1) * 86_400_000).toISOString() }));
     const store = fakeStore({ entries, compass: [{ entry_id: 'a1', area: 'Family', note: 'Fictional private note' }], consent: { cross_entry_analysis: true } });
     const provider = fakeProvider(JSON.stringify({ summary: 's', enough_evidence: false, observations: [], next_steps: [], safety_concern: false }));
-    await handleInsights({ period: 'week', entry_ids: ['a1', 'a2', 'a3'], idempotency_key: KEY }, { store, provider, config: config() });
+    await handleInsights({ period: 'week', entry_ids: ['a1', 'a2', 'a3'], idempotency_key: KEY }, { store, provider, config: config() }, NOW);
     expect(provider.calls[0].user).toContain('Compass values linked: Family');
     expect(provider.calls[0].user).not.toContain('Fictional private note');
   });
