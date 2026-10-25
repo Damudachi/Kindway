@@ -18,7 +18,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": true,
-      "package": "app.kindway"
+      "package": "app.kindway",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "output": "single",
@@ -42,6 +45,20 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a8cf8b35-8208-44a8-840a-2556e667608f"
+      }
+    },
+    "owner": "damudachi",
+    "updates": {
+      "url": "https://u.expo.dev/a8cf8b35-8208-44a8-840a-2556e667608f"
     }
   }
 }
