@@ -89,7 +89,7 @@ export default function SampleInsights() {
             }}
           />
         )}
-        <Button variant="text" label="Back to my patterns" onPress={() => router.back()} />
+        <Button variant="tonal" label="Back to my patterns" trailingIcon="arrow-right" onPress={() => router.back()} />
       </View>
     </Screen>
   );

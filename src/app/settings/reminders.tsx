@@ -51,7 +51,7 @@ export default function Reminders() {
         {r.permission === 'denied' && (
           <Notice tone="warn" title="Notifications are blocked">
             Android isn’t allowing Kindway to send notifications. You can change that in system settings, or skip reminders entirely.
-            <Button variant="text" label="Open system settings" onPress={() => void Linking.openSettings()} />
+            <Button variant="tonal" label="Open system settings" trailingIcon="arrow-right" onPress={() => void Linking.openSettings()} />
           </Notice>
         )}
       </Section>

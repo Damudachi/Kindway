@@ -24,7 +24,7 @@ export default function Consent() {
   const choose = (aiConsent: 'ai' | 'journal-only') => {
     dispatch({ type: 'patch', patch: toToday ? { aiConsent, onboarded: true } : { aiConsent } });
     if (toToday) router.replace('/today');
-    else router.push('/reminders-setup');
+    else router.push('/ai-intro');
   };
 
   return (
@@ -37,7 +37,7 @@ export default function Consent() {
         </>
       }>
       {!toToday && <OnboardingProgress step={4} />}
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
+      <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
         Your thoughts deserve care.
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>
@@ -66,7 +66,7 @@ export default function Consent() {
       </View>
 
       <CheckRow label="I understand these reflections are simulated, and real AI is a separate choice." checked={understood} onChange={setUnderstood} />
-      <Button variant="text" label="Read full privacy details" onPress={() => router.push('/settings/privacy')} />
+      <Button variant="tonal" label="Read full privacy details" trailingIcon="arrow-right" onPress={() => router.push('/settings/privacy')} />
       <View style={styles.gap}>
         <Notice tone="demo">This only turns the simulated previews on or off. It isn’t consent to send your writing to any AI service; real AI needs an account with cloud backup and is a separate choice in AI & memory → AI processing consent. You can change this later in AI & memory.</Notice>
       </View>

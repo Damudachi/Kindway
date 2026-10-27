@@ -183,7 +183,11 @@ export function NavRow({ title, detail, onPress, icon }: NavRowProps) {
       onPress={onPress}
       android_ripple={{ color: alpha(color.ink, 0.06) }}
       style={styles.navRow}>
-      {icon && <MaterialCommunityIcons name={icon} size={24} color={color.inkMuted} />}
+      {icon && (
+        <View style={styles.navIcon}>
+          <MaterialCommunityIcons name={icon} size={20} color={color.onTrailContainer} />
+        </View>
+      )}
       <View style={styles.flex}>
         <Text variant="body">{title}</Text>
         {detail && <Text variant="small">{detail}</Text>}
@@ -249,4 +253,5 @@ const useStyles = makeStyles((color, type) => ({
   sectionRule: { borderTopWidth: 1, borderTopColor: color.sand },
   sectionTitle: { marginBottom: space.sm },
   navRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.sm },
+  navIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: color.trailContainer },
 }));

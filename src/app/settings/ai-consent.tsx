@@ -102,7 +102,7 @@ export default function AiConsent() {
             {line}
           </Text>
         ))}
-        <Button variant="text" label="Read privacy details" onPress={() => router.push('/settings/privacy')} />
+        <Button variant="tonal" label="Read privacy details" trailingIcon="arrow-right" onPress={() => router.push('/settings/privacy')} />
       </Section>
     </Screen>
   );

@@ -16,6 +16,8 @@ type TopBarProps = {
   actions?: ReactNode;
   /** Brand wordmark in place of a title (Today). */
   wordmark?: boolean;
+  /** A compact UI title for working surfaces (the composer, Talk), where a page title would crowd out the writing. */
+  small?: boolean;
 };
 
 /**
@@ -27,32 +29,48 @@ export function goBack() {
   else router.replace('/');
 }
 
-/** Material small top app bar: 64dp, back on the left, actions on the right. */
-export function TopBar({ title, back, onBack, actions, wordmark }: TopBarProps) {
+/**
+ * Material top app bar: a 64dp row with back on the left and actions on the right. The page title
+ * is Kindway's own voice (Fraunces): in the row on a tab's root, on its own line below the row
+ * when there's a back arrow (Material's medium bar), so long titles never squeeze the actions.
+ */
+export function TopBar({ title, back, onBack, actions, wordmark, small }: TopBarProps) {
   const styles = useStyles();
   const { color } = useTheme();
+  const below = !!title && !wordmark && !small && !!back;
   return (
-    <View style={styles.bar}>
-      {back ? (
-        <IconButton icon="arrow-left" label="Back" onPress={onBack ?? goBack} tint={color.ink} />
-      ) : (
-        <View style={{ width: space.xs }} />
-      )}
-      <View style={styles.titleWrap}>
-        {wordmark ? (
-          <View style={styles.brand}>
-            <HeldLight size={26} breathe />
-            <Text variant="title" accessibilityRole="header" style={styles.wordmark}>
-              Kindway
+    <View>
+      <View style={styles.bar}>
+        {back ? (
+          <IconButton icon="arrow-left" label="Back" onPress={onBack ?? goBack} tint={color.ink} />
+        ) : (
+          <View style={{ width: space.xs }} />
+        )}
+        <View style={styles.titleWrap}>
+          {wordmark ? (
+            <View style={styles.brand}>
+              <HeldLight size={26} breathe />
+              <Text variant="title" accessibilityRole="header" style={styles.wordmark}>
+                Kindway
+              </Text>
+            </View>
+          ) : title && small ? (
+            <Text variant="label" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+              {title}
             </Text>
-          </View>
-        ) : title ? (
-          <Text variant="label" accessibilityRole="header" numberOfLines={1} style={styles.title}>
-            {title}
-          </Text>
-        ) : null}
+          ) : title && !below ? (
+            <Text variant="pageTitle" accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.inlineTitle}>
+              {title}
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.actions}>{actions}</View>
       </View>
-      <View style={styles.actions}>{actions}</View>
+      {below && (
+        <Text variant="pageTitle" accessibilityRole="header" style={styles.belowTitle}>
+          {title}
+        </Text>
+      )}
     </View>
   );
 }
@@ -131,6 +149,9 @@ const useStyles = makeStyles((color) => ({
   wordmark: { letterSpacing: -0.2 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   title: { fontSize: 16, lineHeight: 24 },
+  // Aligned to the 20dp gutter: 4dp bar padding + 8dp spacer + 12dp title padding, less 4.
+  inlineTitle: { marginLeft: -space.xxs },
+  belowTitle: { paddingHorizontal: space.gutter, paddingBottom: space.xs },
   actions: { flexDirection: 'row', alignItems: 'center' },
   content: { paddingHorizontal: space.gutter, paddingTop: space.xs },
   footer: {

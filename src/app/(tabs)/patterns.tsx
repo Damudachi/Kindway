@@ -60,17 +60,17 @@ export default function Patterns() {
       <Screen inTabs top={{ title: 'Patterns' }}>
         <StateView
           title="Patterns are off"
-          body="Kindway won't look across your entries. Your journal works the same without it."
+          body="Kindway won't look across your entries, and the optional AI review is off too. Your journal works the same without them."
           action={<Button variant="secondary" label="Change in AI & memory" onPress={() => router.push('/settings/ai-memory')} />}
         />
-        <Button variant="text" label="Preview sample insights" onPress={() => router.push('/sample')} />
+        <Button variant="tonal" label="Preview sample insights" trailingIcon="arrow-right" onPress={() => router.push('/sample')} />
       </Screen>
     );
   }
 
   const usableIds = new Set(usable.map((e) => e.id));
   const resolve = (ref: SourceRef) => (ref.kind === 'entry' && usableIds.has(ref.id) ? { onPress: () => router.push(`/entry/${ref.id}`) } : null);
-  const sample = <Button variant="text" label="Preview sample insights" trailingIcon="arrow-right" onPress={() => router.push('/sample')} />;
+  const sample = <Button variant="tonal" label="Preview sample insights" trailingIcon="arrow-right" onPress={() => router.push('/sample')} />;
   const write = <Button variant="secondary" label="Write a thought" onPress={() => router.push('/write')} />;
 
   let body;
@@ -185,7 +185,7 @@ export default function Patterns() {
         onSaveStep={(a) => router.push({ pathname: '/tomorrow', params: { suggestion: a.text, basis: 'ai', use: '1' } })}
       />
 
-      <Button variant="text" label="Choose which entries are used" onPress={() => router.push('/settings/ai-memory')} />
+      <Button variant="tonal" label="Choose which entries are used" trailingIcon="arrow-right" onPress={() => router.push('/settings/ai-memory')} />
     </Screen>
   );
 }

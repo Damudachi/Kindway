@@ -2,13 +2,14 @@
   "expo": {
     "name": "Kindway",
     "slug": "kindway",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kindway",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "app.kindway"
     },
     "android": {
       "adaptiveIcon": {
@@ -71,7 +72,15 @@
         }
       ],
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class * extends androidx.work.InputMerger { public <init>(); }"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

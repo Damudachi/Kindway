@@ -95,7 +95,7 @@ export function ReflectionView({ entry, onRest }: Props) {
           {copy.retry && <Button variant="secondary" label="Try again" icon="refresh" onPress={() => request(entry, r?.style)} />}
           {status === 'safety' && <Button variant="secondary" label="See support options" onPress={() => router.push('/support')} />}
           {status === 'consent' && <Button variant="secondary" label="AI processing settings" onPress={() => router.push('/settings/ai-consent')} />}
-          {offerPreview && <Button variant="text" label="Use a simulated preview instead" onPress={() => request(entry, r?.style, 0, { simulated: true })} />}
+          {offerPreview && <Button variant="tonal" label="Use a simulated preview instead" onPress={() => request(entry, r?.style, 0, { simulated: true })} />}
           <Button variant="text" label="Leave it for now" onPress={onRest} />
         </View>
       </View>
@@ -242,7 +242,7 @@ export function ReflectionView({ entry, onRest }: Props) {
             </Text>
           ) : (
             <Button
-              variant="text"
+              variant="tonal"
               label="Save to Tomorrow Bridge"
               accessibilityHint="Opens Tomorrow Bridge with this step filled in. You can edit it, and nothing is saved until you choose to."
               onPress={() => router.push(`/tomorrow?from=${entry.id}&use=1`)}
@@ -317,7 +317,7 @@ export function ReflectionView({ entry, onRest }: Props) {
           <View style={styles.part}>
             <Text variant="small">Kindway is a reflection aid, not a therapist, and it can be wrong.</Text>
             <View style={styles.row}>
-              <Button variant="text" label="Adjust how Kindway reflects" onPress={() => router.push('/settings/ai-memory')} />
+              <Button variant="tonal" label="Adjust how Kindway reflects" trailingIcon="arrow-right" onPress={() => router.push('/settings/ai-memory')} />
               <Button variant="text" label="Remove this reflection" onPress={remove} />
             </View>
           </View>

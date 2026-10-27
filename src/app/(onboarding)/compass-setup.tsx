@@ -56,7 +56,7 @@ export default function CompassSetup() {
         </>
       }>
       <OnboardingProgress step={2} />
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
+      <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
         What matters to you in the long run?
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>

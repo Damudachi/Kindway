@@ -98,7 +98,7 @@ export default function Voice() {
             You can turn it on in Android settings, or write instead. Nothing you’ve written is affected.
           </Notice>
           <Button variant="secondary" label="Open Android settings (demo)" onPress={() => setStep('permission')} />
-          <Button variant="text" label="Write instead" onPress={() => router.replace('/write')} />
+          <Button variant="tonal" label="Write instead" onPress={() => router.replace('/write')} />
         </View>
       )}
 
@@ -128,7 +128,7 @@ export default function Voice() {
             The recording wasn’t kept. Try again, or write instead.
           </Notice>
           <Button variant="secondary" label="Try again" icon="refresh" onPress={() => { setSeconds(0); setStep('recording'); }} />
-          <Button variant="text" label="Write instead" onPress={() => router.replace('/write')} />
+          <Button variant="tonal" label="Write instead" onPress={() => router.replace('/write')} />
         </View>
       )}
 

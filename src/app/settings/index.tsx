@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { NavRow, RadioRow, Section, Segmented, SwitchRow } from '@/components/controls';
 import { Dialog } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import type { DemoAi } from '@/data/types';
+import { consentSummary, useAiConsent } from '@/state/ai-consent';
 import { useSync, type SyncStatus } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
@@ -42,6 +44,7 @@ export default function Settings() {
   const { state, dispatch } = useStore();
   const session = useSession();
   const sync = useSync();
+  const consent = useAiConsent();
   const { appearance, setAppearance } = useTheme();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -67,12 +70,20 @@ export default function Settings() {
 
   return (
     <Screen top={{ back: true, title: 'Settings' }}>
-      <Section first>
-        <NavRow icon="creation-outline" title="AI & memory" detail="Support style, challenge, context, saved memory" onPress={() => router.push('/settings/ai-memory')} />
-        <NavRow icon="shield-lock-outline" title="Privacy & data" detail="Storage, AI processing, export, deletion" onPress={() => router.push('/settings/privacy')} />
-        <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
-        <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
-        <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
+      <Section first title="AI">
+        <Card flush>
+          <NavRow icon="shield-check-outline" title="AI processing" detail={consentSummary(consent)} onPress={() => router.push('/settings/ai-consent')} />
+          <NavRow icon="creation-outline" title="AI & memory" detail="Support style, challenge, what AI can see, saved memory" onPress={() => router.push('/settings/ai-memory')} />
+        </Card>
+      </Section>
+
+      <Section title="Your journal">
+        <Card flush>
+          <NavRow icon="shield-lock-outline" title="Privacy & data" detail="Storage, export, deletion" onPress={() => router.push('/settings/privacy')} />
+          <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
+          <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
+          <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
+        </Card>
       </Section>
 
       <Section title="Appearance">
@@ -103,8 +114,8 @@ export default function Settings() {
                   Cloud sync is on. {sync ? SYNC_TEXT[sync.status] : ''}
                   {sync?.errorCode && sync.status !== 'synced' ? ` (Reference: ${sync.errorCode})` : ''}
                 </Text>
-                {sync && (sync.status === 'error' || sync.status === 'offline') && <Button variant="text" label="Try again now" onPress={sync.retry} />}
-                {sync?.status === 'signed-out' && <Button variant="text" label="Sign in again" onPress={() => router.push('/account?mode=signin')} />}
+                {sync && (sync.status === 'error' || sync.status === 'offline') && <Button variant="tonal" label="Try again now" onPress={sync.retry} />}
+                {sync?.status === 'signed-out' && <Button variant="tonal" label="Sign in again" onPress={() => router.push('/account?mode=signin')} />}
               </>
             )}
             <Button variant="secondary" label="Sign out" onPress={() => setConfirmSignOut(true)} style={styles.gap} />
@@ -132,18 +143,21 @@ export default function Settings() {
         <Button variant="danger" label="Reset everything on this device" onPress={() => setConfirmReset(true)} style={styles.gap} />
       </Section>
 
-      <Section title="Preview states">
-        <Notice tone="demo">For reviewers: simulate conditions the real backend would produce. These switches only exist in this demo.</Notice>
-        <Text variant="label" style={styles.gap}>
-          AI reflections
-        </Text>
-        {AI_STATES.map((s) => (
-          <RadioRow key={s.id} title={s.title} detail={s.detail} selected={state.demo.ai === s.id} onPress={() => dispatch({ type: 'demo', patch: { ai: s.id } })} />
-        ))}
-        <SwitchRow title="Session expired" detail="Today asks you to sign in again" value={state.demo.sessionExpired} onChange={(sessionExpired) => dispatch({ type: 'demo', patch: { sessionExpired } })} />
-        <Button variant="text" label="Open the extra support path" onPress={() => router.push('/support')} />
-        <Button variant="text" label="Preview sample insights" onPress={() => router.push('/sample')} />
-      </Section>
+      {/* Simulated backend conditions, for development only. */}
+      {__DEV__ && (
+        <Section title="Preview states">
+          <Notice tone="demo">For reviewers: simulate conditions the real backend would produce. These switches only exist in this demo.</Notice>
+          <Text variant="label" style={styles.gap}>
+            AI reflections
+          </Text>
+          {AI_STATES.map((s) => (
+            <RadioRow key={s.id} title={s.title} detail={s.detail} selected={state.demo.ai === s.id} onPress={() => dispatch({ type: 'demo', patch: { ai: s.id } })} />
+          ))}
+          <SwitchRow title="Session expired" detail="Today asks you to sign in again" value={state.demo.sessionExpired} onChange={(sessionExpired) => dispatch({ type: 'demo', patch: { sessionExpired } })} />
+          <Button variant="text" label="Open the extra support path" onPress={() => router.push('/support')} />
+          <Button variant="text" label="Preview sample insights" onPress={() => router.push('/sample')} />
+        </Section>
+      )}
 
       <Dialog
         visible={confirmSignOut}

@@ -68,7 +68,7 @@ export default function Widget() {
         value={state.widgetShowsStep}
         onChange={(widgetShowsStep) => dispatch({ type: 'patch', patch: { widgetShowsStep } })}
       />
-      <Button variant="text" label="Set up gentle reminders" trailingIcon="arrow-right" onPress={() => router.push('/settings/reminders')} />
+      <Button variant="tonal" label="Set up gentle reminders" trailingIcon="arrow-right" onPress={() => router.push('/settings/reminders')} />
     </Screen>
   );
 }

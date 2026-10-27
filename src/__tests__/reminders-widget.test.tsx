@@ -1,16 +1,20 @@
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
-import { Text } from 'react-native';
+import { Linking, Platform, Text } from 'react-native';
 
+import FirstEntry from '@/app/(onboarding)/first-entry';
 import RemindersSetup from '@/app/(onboarding)/reminders-setup';
+import Today from '@/app/(tabs)/today';
 import RemindersScreen from '@/app/settings/reminders';
 import { SnackbarProvider } from '@/components/feedback';
 import type { Reminders } from '@/data/types';
 import { applySchedule, isPaused, parseTime, pauseUntil, plan, toWeekday } from '@/services/reminders';
 import { DemoStoreProvider, initialState, useStore, type DemoState } from '@/state/demo-store';
+import { ReminderScheduler } from '@/state/reminders';
 import { newStep } from '@/state/tomorrow';
 import { widgetSnapshot } from '@/state/widget-sync';
+import { entry } from '@/test-utils/entries';
 
 jest.setTimeout(30000);
 const wait = { timeout: 8000 };
@@ -19,6 +23,7 @@ const N = Notifications as jest.Mocked<typeof Notifications>;
 const base: Reminders = { ...initialState.reminders, permission: 'granted', enabled: true };
 
 beforeEach(() => jest.clearAllMocks());
+afterEach(() => jest.restoreAllMocks());
 
 describe('reminder schedule', () => {
   it('reads times and maps Monday-first days to expo’s Sunday-first weekdays', () => {
@@ -57,51 +62,122 @@ describe('reminder schedule', () => {
     await applySchedule({ ...base, enabled: false });
     expect(N.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
   });
+
+  it('uses a channel that shows in the status bar without sound, replacing the old silent one', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    await applySchedule(base);
+    expect(N.setNotificationChannelAsync).toHaveBeenCalledWith('reminders-v2', expect.objectContaining({ importance: N.AndroidImportance.DEFAULT, sound: null, enableVibrate: false }));
+    expect(N.deleteNotificationChannelAsync).toHaveBeenCalledWith('reminders');
+    expect(N.scheduleNotificationAsync.mock.calls[0][0]).toMatchObject({ trigger: { channelId: 'reminders-v2' } });
+  });
 });
 
 function Probe() {
   const { state } = useStore();
   const r = state.reminders;
-  return <Text>{`reminders:${r.permission}|${r.enabled}|${!!r.offered}`}</Text>;
+  return <Text>{`reminders:${r.permission}|${r.enabled}|${!!r.offered}|${!!r.blockedOffered}`}</Text>;
 }
 
-async function open(initialUrl: string, state: Partial<DemoState> = {}) {
+async function open(initialUrl: string, state: Partial<DemoState> = {}, { scheduler = false } = {}) {
   function Layout() {
     return (
       <DemoStoreProvider initial={{ ...initialState, ...state }}>
         <SnackbarProvider>
           <Stack />
           <Probe />
+          {scheduler && <ReminderScheduler />}
         </SnackbarProvider>
       </DemoStoreProvider>
     );
   }
-  await renderRouter({ _layout: Layout, 'reminders-setup': RemindersSetup, 'settings/reminders': RemindersScreen, 'first-entry': () => <Text>First entry</Text> }, { initialUrl });
+  await renderRouter(
+    {
+      _layout: Layout,
+      'reminders-setup': RemindersSetup,
+      'settings/reminders': RemindersScreen,
+      'first-entry': FirstEntry,
+      today: Today,
+    },
+    { initialUrl },
+  );
 }
 
 describe('reminders in onboarding', () => {
-  it('“Remind me” asks Android, switches the reminder on and moves to the first entry', async () => {
-    await open('/reminders-setup');
+  // Offered last, once the first entry is written, so the question comes after something useful.
+  it('saving the first entry without a reflection leads to the reminder step', async () => {
+    await open('/first-entry');
+    await fireEvent.changeText(await screen.findByLabelText('Journal entry', {}, wait), 'A first thought');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save entry' }));
+    expect(await screen.findByRole('button', { name: 'Remind me' }, wait)).toBeOnTheScreen();
+  });
+
+  it('“Remind me” asks Android, switches the reminder on and finishes on Today', async () => {
+    await open('/reminders-setup', { onboarded: true });
     await fireEvent.press(await screen.findByRole('button', { name: 'Remind me' }, wait));
-    expect(await screen.findByText('First entry', {}, wait)).toBeOnTheScreen();
+    expect(await screen.findByText(/How are you arriving/, {}, wait)).toBeOnTheScreen();
     expect(N.requestPermissionsAsync).toHaveBeenCalled();
-    expect(screen.getByText('reminders:granted|true|true')).toBeOnTheScreen();
+    expect(screen.getByText('reminders:granted|true|true|false')).toBeOnTheScreen();
   });
 
   it('a refusal leaves reminders off and still moves on', async () => {
     N.requestPermissionsAsync.mockResolvedValueOnce({ granted: false, canAskAgain: false, status: 'denied' } as never);
-    await open('/reminders-setup');
+    await open('/reminders-setup', { onboarded: true });
     await fireEvent.press(await screen.findByRole('button', { name: 'Remind me' }, wait));
-    expect(await screen.findByText('First entry', {}, wait)).toBeOnTheScreen();
-    expect(screen.getByText('reminders:denied|false|true')).toBeOnTheScreen();
+    expect(await screen.findByText(/How are you arriving/, {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText('reminders:denied|false|true|false')).toBeOnTheScreen();
   });
 
   it('“No reminders” asks nothing', async () => {
-    await open('/reminders-setup');
+    await open('/reminders-setup', { onboarded: true });
     await fireEvent.press(await screen.findByRole('button', { name: 'No reminders' }, wait));
-    expect(await screen.findByText('First entry', {}, wait)).toBeOnTheScreen();
+    expect(await screen.findByText(/How are you arriving/, {}, wait)).toBeOnTheScreen();
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
-    expect(screen.getByText('reminders:unasked|false|true')).toBeOnTheScreen();
+    expect(screen.getByText('reminders:unasked|false|true|false')).toBeOnTheScreen();
+  });
+});
+
+describe('reminders offered on Today', () => {
+  const written = { onboarded: true, entries: [entry('a', 1)] };
+
+  it('asks Android right there, once, and confirms', async () => {
+    await open('/today', written);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Turn on reminders' }, wait));
+    await waitFor(() => expect(screen.getByText('reminders:granted|true|true|false')).toBeOnTheScreen(), wait);
+    expect(N.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Evening reminder set for 9:00 PM/, {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Turn on reminders' })).toBeNull();
+  });
+
+  it('a refusal there isn’t followed by another ask', async () => {
+    N.requestPermissionsAsync.mockResolvedValueOnce({ granted: false, canAskAgain: false, status: 'denied' } as never);
+    await open('/today', written);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Turn on reminders' }, wait));
+    await waitFor(() => expect(screen.getByText('reminders:denied|false|true|true')).toBeOnTheScreen(), wait);
+    expect(screen.queryByText('Reminders can’t reach you')).toBeNull();
+  });
+
+  it('when Android blocks them, says so once and opens system settings', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    await open('/today', { ...written, reminders: { ...initialState.reminders, permission: 'denied', offered: true } });
+    expect(await screen.findByText('Reminders can’t reach you', {}, wait)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open Android settings' }));
+    expect(openSettings).toHaveBeenCalled();
+    expect(screen.getByText('reminders:denied|true|true|true')).toBeOnTheScreen();
+    expect(screen.queryByText('Reminders can’t reach you')).toBeNull();
+  });
+
+  it('“Leave them off” hides it for good', async () => {
+    await open('/today', { ...written, reminders: { ...initialState.reminders, permission: 'denied', offered: true } });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Leave them off' }, wait));
+    expect(screen.getByText('reminders:denied|false|true|true')).toBeOnTheScreen();
+    expect(screen.queryByText('Reminders can’t reach you')).toBeNull();
+  });
+
+  it('notices when notifications were allowed in Android settings', async () => {
+    N.getPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true, status: 'granted' } as never);
+    await open('/today', { ...written, reminders: { ...initialState.reminders, permission: 'denied', enabled: true, offered: true, blockedOffered: true } }, { scheduler: true });
+    await waitFor(() => expect(screen.getByText('reminders:granted|true|true|true')).toBeOnTheScreen(), wait);
+    N.getPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: true, status: 'undetermined' } as never);
   });
 });
 

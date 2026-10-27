@@ -33,6 +33,9 @@ const light = {
   onPrimary: '#F8F7F3',
   primaryAccent: '#E5AB66', // a lantern icon on the primary button
   barIndicator: '#BCD3E2', // the active destination's pill
+  card: '#FBFAF7', // a card: lifted off the paper by a soft shadow
+  cardEdge: 'rgba(37,39,43,0.04)',
+  cardShadow: '0px 1px 2px rgba(37,39,43,0.06), 0px 4px 14px rgba(37,39,43,0.06)',
 };
 
 export type Palette = typeof light;
@@ -66,6 +69,9 @@ const night: Palette = {
   onPrimary: '#14181D',
   primaryAccent: '#14181D',
   barIndicator: '#294355',
+  card: '#1C2229', // a tone lighter than the paper; shadows don't read on a dark ground
+  cardEdge: 'rgba(236,232,225,0.06)',
+  cardShadow: '0px 1px 2px rgba(0,0,0,0.24)',
 };
 
 export type Scheme = 'light' | 'night';
@@ -146,7 +152,8 @@ export const space = {
 export const radius = {
   sm: 8, // chips, small controls
   md: 12, // fields
-  lg: 16, // buttons, sheets
+  lg: 16, // sheets
+  card: 20, // cards
   xl: 28, // dialogs
   full: 999,
 } as const;
@@ -155,6 +162,10 @@ export const radius = {
 export const touch = 48;
 
 export const font = {
+  // Kindway's own voice (page titles, section headings, the wordmark): Fraunces SemiBold, fully
+  // soft, cut at two optical sizes (assets/fonts/README.md).
+  title: 'Fraunces_SoftTitle',
+  heading: 'Fraunces_SoftHeading',
   serif: 'Literata_400Regular',
   serifMedium: 'Literata_500Medium',
   serifItalic: 'Literata_400Regular_Italic',
@@ -165,9 +176,10 @@ export const font = {
 /** Type roles in a palette. Sizes are sp: React Native scales them with the system font size. */
 function typeRoles(color: Palette) {
   return {
-    display: { fontFamily: font.serif, fontSize: 32, lineHeight: 40, letterSpacing: -0.4, color: color.ink },
-    headline: { fontFamily: font.serif, fontSize: 26, lineHeight: 34, letterSpacing: -0.2, color: color.ink },
-    title: { fontFamily: font.serifMedium, fontSize: 20, lineHeight: 28, color: color.ink },
+    display: { fontFamily: font.title, fontSize: 32, lineHeight: 40, letterSpacing: -0.6, color: color.ink },
+    pageTitle: { fontFamily: font.title, fontSize: 30, lineHeight: 38, letterSpacing: -0.6, color: color.ink },
+    headline: { fontFamily: font.serif, fontSize: 24, lineHeight: 32, letterSpacing: -0.2, color: color.ink },
+    title: { fontFamily: font.heading, fontSize: 20, lineHeight: 28, letterSpacing: -0.1, color: color.ink },
     entry: { fontFamily: font.serif, fontSize: 18, lineHeight: 28, color: color.ink },
     entryTitle: { fontFamily: font.serif, fontSize: 17, lineHeight: 24, color: color.ink },
     body: { fontFamily: font.sans, fontSize: 16, lineHeight: 24, color: color.ink },

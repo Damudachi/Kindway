@@ -10,6 +10,7 @@ import type { Entry } from '@/data/types';
 import { requestAiReflection, requestAiReview, toReview, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, type DemoState } from '@/state/demo-store';
+import { AiConsentProvider, type AiConsentInfo } from '@/state/ai-consent';
 import { RealAiProvider, type RealAi } from '@/state/real-ai';
 import { entry } from '@/test-utils/entries';
 
@@ -114,7 +115,7 @@ function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflect
   return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteConversation: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
 }
 
-async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true) {
+async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true, consent?: AiConsentInfo) {
   const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => synced) };
   const value: RealAi = { reflections: false, insights: false, followUps: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
   let setReal: (v: RealAi) => void = () => {};
@@ -122,15 +123,17 @@ async function render(path: string, Screen: () => React.ReactElement, state: Dem
     const [current, set] = useState(value);
     setReal = set;
     return (
-      <RealAiProvider value={current}>
-        <DemoStoreProvider initial={state}>
-          <SyncContext value={sync}>
-            <SnackbarProvider>
-              <Screen />
-            </SnackbarProvider>
-          </SyncContext>
-        </DemoStoreProvider>
-      </RealAiProvider>
+      <AiConsentProvider value={consent}>
+        <RealAiProvider value={current}>
+          <DemoStoreProvider initial={state}>
+            <SyncContext value={sync}>
+              <SnackbarProvider>
+                <Screen />
+              </SnackbarProvider>
+            </SyncContext>
+          </DemoStoreProvider>
+        </RealAiProvider>
+      </AiConsentProvider>
     );
   }
   const Stub = () => <Text>Support screen</Text>;
@@ -221,6 +224,22 @@ describe('the AI review in Patterns', () => {
     await render('patterns', Patterns, { ...initialState, onboarded: true, entries: week(3) }, { insights: false, invoke });
     expect(await screen.findByText(/It needs its own permission, separate from reflections/)).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /Send \d+ entries/ })).toBeNull();
+  });
+
+  it('without permission, it asks right there, and records consent before anything is sent', async () => {
+    const invoke = respond(200, {});
+    const grant = jest.fn(async () => true);
+    const consent: AiConsentInfo = { load: 'ready', records: [], status: () => 'none', grant, revoke: jest.fn(async () => true), reload: jest.fn() };
+    await render('patterns', Patterns, { ...initialState, onboarded: true, entries: week(3) }, { insights: false, invoke }, true, consent);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Turn on AI reviews' }));
+    expect(await screen.findByText('Allow AI reviews?', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText('What would be sent with each review')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow AI reviews' }));
+    expect(grant).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText(/I’ve read what would be sent/));
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow AI reviews' }));
+    await waitFor(() => expect(grant).toHaveBeenCalledWith('cross_entry_analysis'));
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('lists what would be sent, sends exactly those ids, and labels the review as AI', async () => {
@@ -316,7 +335,7 @@ describe('the AI review in Patterns', () => {
 
     await t.switchTo({ account: null, insights: false, needs: 'account', invoke: null, outputs: null });
     expect(screen.queryByText('A tiring week with a calmer end.')).toBeNull();
-    expect(screen.getByText(/It needs an account with cloud backup/)).toBeOnTheScreen();
+    expect(screen.getByText(/needs an account with cloud backup/)).toBeOnTheScreen();
 
     await t.switchTo({ account: 'user-a', outputs: a });
     expect(await screen.findByText('A tiring week with a calmer end.', {}, wait)).toBeOnTheScreen();
@@ -326,7 +345,7 @@ describe('the AI review in Patterns', () => {
     const outputs = fakeOutputs();
     outputs.latestReview.mockResolvedValue(stored());
     const t = await open(outputs, { insights: false, needs: 'account', account: null });
-    expect(await screen.findByText(/It needs an account with cloud backup/)).toBeOnTheScreen();
+    expect(await screen.findByText(/needs an account with cloud backup/)).toBeOnTheScreen();
     await t.switchTo({ insights: false, needs: 'cloud-sync', account: 'user-a', outputs });
     expect(await screen.findByText(/so it needs cloud backup on this device/)).toBeOnTheScreen();
     expect(outputs.latestReview).not.toHaveBeenCalled();

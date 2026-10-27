@@ -32,9 +32,9 @@ Free writing first, with an AI that validates feelings without automatically end
 ## Capabilities and Constraints
 
 - 21-screen inventory and routine states defined in `reflection_companion_product_blueprint.md`; flow reference in `reflection_companion_wireframe.html`.
-- Current milestone: UX/presentation foundation only. No AI provider, no Supabase, no secrets. Unbuilt capabilities (export, deletion, voice transcription, AI inference, widget delivery, sync) must be labelled demo / not connected.
-- Native home-screen widget is a platform-specific spike; a React Native component is only a preview.
-- AI provider is undecided; privacy disclosures must not name or characterize one until chosen.
+- Supabase (Auth, Postgres with RLS, Edge Functions) holds accounts, optional cloud backup and AI consent. Unbuilt capabilities (export, voice transcription) must be labelled demo / not connected.
+- The Android home-screen widget and evening reminders (local notifications) are real; they need a development or preview build, not Expo Go.
+- Real AI runs on GroqCloud (`openai/gpt-oss-120b`) through the Edge Functions, only with an account, cloud backup and the matching consent; disclosures name the provider (`src/data/ai-disclosure.ts`). Without them, reflections are simulated on the device and say so.
 - Extra support screen is a placeholder until resources are verified; no invented emergency numbers.
 - Not in scope ever: public social feed, competitive or guilt-based streaks, AI diagnosis/personality typing, manipulative dependency patterns, broad productivity suite.
 

@@ -14,8 +14,9 @@ import { makeStyles } from '@/theme/theme';
 import { radius, space } from '@/theme/tokens';
 
 /**
- * Optional evening reminder during onboarding. Android's permission prompt comes only after
- * "Remind me", and skipping asks nothing. Either way the next step is the first entry.
+ * Optional evening reminder, the last onboarding step: offered after the first entry, once
+ * there's something to come back to. Android's permission prompt comes only after "Remind me",
+ * and skipping asks nothing. Either way Today comes next.
  */
 export default function RemindersSetup() {
   const styles = useStyles();
@@ -30,24 +31,24 @@ export default function RemindersSetup() {
     dispatch({ type: 'reminders', patch: { offered: true } });
     await allow({ enabled: true });
     setBusy(false);
-    router.push('/first-entry');
+    router.replace('/today');
   };
 
   return (
     <Screen
-      top={{ back: true }}
+      top={{}}
       footer={
         <>
           <Button label="Remind me" icon="bell-outline" loading={busy} onPress={() => void remind()} />
           <Button variant="text" label="No reminders" style={styles.center} onPress={() => {
               dispatch({ type: 'reminders', patch: { offered: true } });
-              router.push('/first-entry');
+              router.replace('/today');
             }}
           />
         </>
       }>
-      <OnboardingProgress step={5} />
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
+      <OnboardingProgress step={6} />
+      <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
         Would a gentle nudge help?
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>

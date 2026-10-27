@@ -2,8 +2,11 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
+import { AiConsentDialog } from '@/components/ai-consent-dialog';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { Chip, ChipRow } from '@/components/chip';
+import { useSnackbar } from '@/components/feedback';
 import { InsightReviewView } from '@/components/insight-review';
 import { Notice } from '@/components/notice';
 import { SectionTitle } from '@/components/illustrations';
@@ -13,7 +16,7 @@ import type { Entry } from '@/data/types';
 import { requestAiReview, type AiReviewError } from '@/services/ai/remote';
 import type { InsightPeriod, InsightReview, SourceRef, SuggestedAction } from '@/services/insights';
 import { useSync } from '@/state/cloud-sync';
-import { useRealAi } from '@/state/real-ai';
+import { useAiBlocker, useRealAi } from '@/state/real-ai';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -64,6 +67,10 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   const styles = useStyles();
   const real = useRealAi();
   const sync = useSync();
+  const snack = useSnackbar();
+  const blocker = useAiBlocker('cross_entry_analysis');
+  // Whether the consent dialog is open; it asks right here rather than sending people to Settings.
+  const [asking, setAsking] = useState(false);
   const [run, setRun] = useState<Run>({ status: 'idle' });
   const aiPeriod = period === 'all' ? null : period;
   // A different period, permission or account starts over, so one account's review is never
@@ -113,35 +120,59 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   const header = (
     <SectionTitle icon="creation-outline">AI review</SectionTitle>
   );
+  const consentDialog = (
+    <AiConsentDialog
+      scope="cross_entry_analysis"
+      blocker={asking && blocker && blocker !== 'consent-loading' ? blocker : null}
+      onCancel={() => setAsking(false)}
+      onAllowed={() => {
+        setAsking(false);
+        snack({ message: 'AI reviews allowed. Nothing is sent until you ask for one.' });
+      }}
+      onGrantFailed={() => {
+        setAsking(false);
+        snack({ message: 'That couldn’t be saved, so AI reviews are still off. Nothing was sent.' });
+      }}
+    />
+  );
+  const intro = 'An AI review reads this period’s entries and suggests themes, patterns and strengths, each linked to the entries it came from.';
 
   if (!aiPeriod) {
     return (
-      <View style={styles.panel}>
+      <Card style={styles.panel}>
         {header}
         <Text variant="bodyMuted">AI reviews cover “This week” or “Last 30 days”, so they never send your whole journal.</Text>
-      </View>
+      </Card>
     );
   }
   if (real.needs) {
     return (
-      <View style={styles.panel}>
+      <Card style={styles.panel}>
         {header}
         <Text variant="bodyMuted">
+          {intro}{' '}
           {real.needs === 'account'
-            ? 'An optional AI review reads your entries’ text. It needs an account with cloud backup and your separate permission.'
-            : 'An optional AI review reads the copies of your entries in your account, so it needs cloud backup on this device.'}
+            ? 'It’s optional, and it needs an account with cloud backup and your separate permission.'
+            : 'It’s optional, and it reads the copies of your entries in your account, so it needs cloud backup on this device.'}
         </Text>
-        {real.needs === 'cloud-sync' && <Button variant="text" label="About cloud backup" onPress={() => router.push('/sync')} />}
-      </View>
+        {real.needs === 'account' ? (
+          <Button variant="secondary" label="Sign in" icon="account-outline" onPress={() => router.push('/account?mode=signin')} style={styles.gap} />
+        ) : (
+          <Button variant="secondary" label="Turn on cloud backup" icon="cloud-outline" onPress={() => router.push('/sync')} style={styles.gap} />
+        )}
+      </Card>
     );
   }
   if (!real.insights || !real.invoke) {
     return (
-      <View style={styles.panel}>
+      <Card style={styles.panel}>
         {header}
-        <Text variant="bodyMuted">An optional AI review sends the text of the entries listed here to GroqCloud. It needs its own permission, separate from reflections.</Text>
-        <Button variant="text" label="AI processing settings" onPress={() => router.push('/settings/ai-consent')} />
-      </View>
+        <Text variant="bodyMuted">
+          {intro} It sends their text to GroqCloud only when you ask. It needs its own permission, separate from reflections.
+        </Text>
+        <Button variant="secondary" label="Turn on AI reviews" icon="creation-outline" onPress={() => setAsking(true)} style={styles.gap} />
+        {consentDialog}
+      </Card>
     );
   }
 
@@ -163,7 +194,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   };
 
   return (
-    <View style={styles.panel}>
+    <Card style={styles.panel}>
       {header}
       <Text variant="bodyMuted">
         Optional. Sends the text, feeling tags, good things and “come back to this” marks of the entries below to GroqCloud, plus compass links if you allow them. Nothing is sent until you ask.
@@ -239,7 +270,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
         </View>
       )}
       {run.status === 'ready' && <AiReview review={run.review} stored={run.stored} resolve={resolve} onSaveStep={onSaveStep} />}
-    </View>
+    </Card>
   );
 }
 
@@ -263,7 +294,7 @@ function AiReview({ review, stored, resolve, onSaveStep }: { review: InsightRevi
 }
 
 const useStyles = makeStyles((color) => ({
-  panel: { gap: space.xs, marginTop: space.xl, paddingTop: space.lg, borderTopWidth: 1, borderTopColor: color.sand },
+  panel: { gap: space.xs, marginTop: space.xl, paddingVertical: space.md },
   block: { gap: space.md, marginTop: space.sm },
   gap: { marginTop: space.xs },
   thin: { color: color.inkMuted },

@@ -1,6 +1,6 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { consentStatus, supabaseConsentRepo, type AiScope, type ConsentRecord, type ConsentRepo, type ConsentStatus } from '@/services/ai/consent';
+import { AI_SCOPES, consentStatus, supabaseConsentRepo, type AiScope, type ConsentRecord, type ConsentRepo, type ConsentStatus } from '@/services/ai/consent';
 import { supabase } from '@/services/supabase/client';
 import { useSession } from '@/state/session';
 
@@ -89,4 +89,13 @@ export function AiConsentProvider({ children, repo = defaultRepo, value: fixed }
 
 export function useAiConsent() {
   return use(AiConsentContext);
+}
+
+/** One line on where AI processing stands, for the rows that lead to its settings. */
+export function consentSummary(consent: AiConsentInfo) {
+  if (consent.load === 'unavailable') return 'Needs an account. Nothing is sent to AI.';
+  if (consent.load === 'loading') return 'Checking your account…';
+  if (consent.load === 'error') return 'Couldn’t check. Nothing is sent to AI.';
+  const allowed = AI_SCOPES.filter((s) => consent.status(s) === 'active').length;
+  return allowed === 0 ? 'Nothing allowed. Nothing is sent to AI.' : `${allowed} of ${AI_SCOPES.length} allowed.`;
 }

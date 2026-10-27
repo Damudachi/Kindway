@@ -30,22 +30,29 @@ colors:
   primary-accent: "#E5AB66"
 typography:
   display:
-    fontFamily: "Literata, Georgia, serif"
+    fontFamily: "Fraunces Soft (opsz 72), Georgia, serif"
     fontSize: "32px"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: "40px"
-    letterSpacing: "-0.4px"
+    letterSpacing: "-0.6px"
+  page-title:
+    fontFamily: "Fraunces Soft (opsz 72), Georgia, serif"
+    fontSize: "30px"
+    fontWeight: 600
+    lineHeight: "38px"
+    letterSpacing: "-0.6px"
   headline:
     fontFamily: "Literata, Georgia, serif"
-    fontSize: "26px"
+    fontSize: "24px"
     fontWeight: 400
-    lineHeight: "34px"
+    lineHeight: "32px"
     letterSpacing: "-0.2px"
   title:
-    fontFamily: "Literata, Georgia, serif"
+    fontFamily: "Fraunces Soft (opsz 24), Georgia, serif"
     fontSize: "20px"
-    fontWeight: 500
+    fontWeight: 600
     lineHeight: "28px"
+    letterSpacing: "-0.1px"
   entry:
     fontFamily: "Literata, Georgia, serif"
     fontSize: "18px"
@@ -86,6 +93,7 @@ rounded:
   sm: "8px"
   md: "12px"
   lg: "16px"
+  card: "20px"
   xl: "28px"
   full: "999px"
 spacing:
@@ -102,26 +110,33 @@ components:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.full}"
     padding: "0 20px"
     height: "56px"
+  button-tonal:
+    backgroundColor: "{colors.trail-container}"
+    textColor: "{colors.on-trail-container}"
+    typography: "{typography.label}"
+    rounded: "{rounded.full}"
+    padding: "0 18px"
+    height: "48px"
   button-secondary:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.full}"
     padding: "0 20px"
     height: "48px"
   button-text:
     textColor: "{colors.trail}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.full}"
     padding: "0 12px"
     height: "48px"
   button-danger:
     backgroundColor: "{colors.danger}"
     textColor: "{colors.on-ink}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.full}"
     padding: "0 20px"
     height: "48px"
   button-disabled:
@@ -131,7 +146,7 @@ components:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.sm}"
+    rounded: "{rounded.full}"
     padding: "6px 12px"
     height: "36px"
   chip-selected:
@@ -150,6 +165,10 @@ components:
     typography: "{typography.entry}"
     rounded: "{rounded.md}"
     padding: "16px"
+  card:
+    backgroundColor: "#FBFAF7"
+    rounded: "{rounded.card}"
+    padding: "12px 16px"
   notice-demo:
     backgroundColor: "{colors.lantern-container}"
     textColor: "{colors.on-lantern-container}"
@@ -201,9 +220,11 @@ components:
 
 **Creative North Star: "Trail Blazes"**
 
-Kindway is a trail map on stone-grey paper. Each entry the user writes is a painted blaze on a single slate line, and the app marks the way, never the pace. Surfaces are flat paper separated by one sand hairline; nothing floats, nothing is shadowed, and the only saturated gesture is the slate trail itself. The category default for journals (a card list with a floating action button and mood charts) is refused.
+Kindway is a trail map on stone-grey paper. Each entry the user writes is a painted blaze on a single slate line, and the app marks the way, never the pace. Most of the page is paper separated by one sand hairline; a few groups that belong together (Today's trail, the AI review, settings lists) sit on one softly raised card. The category default for journals (a card list with a floating action button and mood charts) is still refused: entries are never cards.
 
-The system runs on Android with Material 3 structure: small top app bar, native navigation bar, system Back, snackbars, basic dialogs, 48dp touch targets, and sp type that scales with the system font size. All dimensions below are dp and all type sizes sp; the frontmatter writes them as px for tool portability (1px = 1dp/sp). Two type voices carry meaning: Literata for the user's own words and for headlines, Roboto for the interface around them. A third state, pencil, marks anything Kindway proposes rather than the user has said.
+Amended 2026-10-26 ("bolder, same identity"): after the first phone test the owner found the flat, text-link interface bland. Fraunces Soft became Kindway's own title voice, buttons became pills with a tonal variant, and one level of raised card was allowed for groups.
+
+The system runs on Android with Material 3 structure: small top app bar, native navigation bar, system Back, snackbars, basic dialogs, 48dp touch targets, and sp type that scales with the system font size. All dimensions below are dp and all type sizes sp; the frontmatter writes them as px for tool portability (1px = 1dp/sp). Three type voices carry meaning: Fraunces Soft for Kindway's own titles, Literata for the user's own words and the questions put to them, Roboto for the interface around them. A third state, pencil, marks anything Kindway proposes rather than the user has said.
 
 Density is unhurried: a 20dp gutter, generous vertical rhythm, one primary action per screen. Motion is short and functional; the one signature moment is the open blaze being painted when an entry is saved.
 
@@ -224,8 +245,9 @@ All Reanimated 4, all instant under reduced motion, ease-out `cubic-bezier(0.23,
 - Stone-grey map paper, charcoal ink, one slate trail colour.
 - Blazes are the signature mark, in exactly two sizes.
 - Pencil before ink: proposed content is graphite italic until the user confirms it.
-- One 1dp sand rule for every divider; no shadowed cards.
-- Literata for the user's words and headlines, Roboto for UI.
+- One 1dp sand rule for dividers; one soft raised card only for a group that belongs together.
+- Fraunces Soft for titles, Literata for the user's words and questions, Roboto for UI.
+- Pill buttons: a way onward is a tonal pill or a card link, never bare slate text.
 - Light and night schemes with the same roles; Appearance follows the system unless the user picks one.
 
 ## Colors
@@ -270,15 +292,17 @@ One OKLCH family (same lightness and chroma, hues about 45° apart), defined per
 
 ## Typography
 
-**Display Font:** Literata (with Georgia, serif)
+**Title Font:** Fraunces SemiBold, fully soft (SOFT 100), as two static cuts made from the variable font: `Fraunces_SoftTitle` (opsz 72) and `Fraunces_SoftHeading` (opsz 24). See `assets/fonts/README.md`.
+**Reading Font:** Literata (with Georgia, serif)
 **Body Font:** Roboto, the Android system face (UI text leaves fontFamily unset)
 
-**Character:** Literata is a reading serif that makes the user's words feel set down in a book; Roboto keeps the surrounding interface quiet, native, and out of the way.
+**Character:** Fraunces Soft is warm and a little hand-made, round like lamplight: it is Kindway speaking. Literata is a reading serif that makes the user's words feel set down in a book; Roboto keeps the surrounding interface quiet, native, and out of the way.
 
 ### Hierarchy
-- **Display** (Literata 400, 32/40, -0.4 tracking): the one invitation question on Today. Font scaling capped at 1.5x so the action stays on screen.
-- **Headline** (Literata 400, 26/34, -0.2 tracking): screen questions such as the composer prompt; 22/30 in empty states and 22/28 in dialog titles. Scaling capped at 1.6x.
-- **Title** (Literata 500, 20/28): section headings ("Your trail", "Reflection") and the wordmark in the top app bar.
+- **Display** (Fraunces Soft Title 600, 32/40, -0.6 tracking): the invitation question on Today and Welcome. Font scaling capped at 1.5x so the action stays on screen.
+- **Page Title** (Fraunces Soft Title 600, 30/38, -0.6 tracking): every page's title, in the top app bar on a tab's root and on its own line under the bar where there is a Back arrow; onboarding steps open with it. Scaling capped at 1.5x.
+- **Headline** (Literata 400, 24/32, -0.2 tracking): the question under a page title, the composer prompt, an entry's title. Scaling capped at 1.6x.
+- **Title** (Fraunces Soft Heading 600, 20/28): section headings ("Your trail", "AI review"), the wordmark in the top app bar, and dialog and empty-state titles at 22.
 - **Entry** (Literata 400, 18/28): the user's own entry text, in the composer page and on the entry screen; also the reflection's acknowledging sentence.
 - **Entry Title** (Literata 400, 17/24): entry titles on trail stops and journal rows.
 - **Body** (Roboto 400, 16/24): interface prose; Muted Ink for ledes and secondary copy.
@@ -288,7 +312,7 @@ One OKLCH family (same lightness and chroma, hues about 45° apart), defined per
 - **Pencil** (Literata Italic 400, 16/24, Graphite Pencil): AI-proposed interpretations, tentative pattern threads, and the reflection's closing question (18/28).
 
 ### Named Rules
-**The Two Voices Rule.** Literata is reserved for the user's words and for headlines; every control, label, and system message is Roboto.
+**The Three Voices Rule.** Fraunces Soft is Kindway naming things (titles and headings only, never running text); Literata is the user's words and the questions put to them; every control, label, and system message is Roboto.
 
 **The Pencil Before Ink Rule.** Anything Kindway proposes (interpretations, patterns, threads) is set in Literata Italic graphite until the user confirms it fits; on confirmation it becomes ordinary ink body text.
 
@@ -302,32 +326,34 @@ The trail is a fixed geometry: a 22dp marker column whose centre (11dp) coincide
 
 ## Elevation & Depth
 
-Kindway is flat. There are no shadows anywhere in the system: depth is conveyed by paper tone (Sunk below, Map Paper at rest, Raised for fields, sheets, and dialogs) and by the single sand hairline. The only overlay effect is the dialog scrim (Charcoal at 42%). Press feedback uses Android ripples tinted from ink, slate, or rust at 6-18% alpha, never lift.
+Kindway is mostly flat: depth is conveyed by paper tone (Sunk below, Map Paper at rest, Raised for fields, sheets, and dialogs) and by the single sand hairline. One level of lift exists, the **card**: a slightly lighter sheet (#FBFAF7) with a 20dp radius, a 4% ink edge and a soft two-step shadow by day (`cardShadow` in tokens). At night shadows don't read, so it is a tone lighter than the paper (#1C2229) with a faint light edge. The dialog scrim (Charcoal at 42%) is the only overlay. Press feedback uses Android ripples tinted from ink, slate, or rust at 6-18% alpha, never lift.
 
-**The Flat Paper Rule.** No shadowed cards, no elevation on buttons, no floating action button. If a surface needs separation, change its paper tone or draw the 1dp sand rule.
+**The One Lift Rule.** A card holds one group that belongs together: Today's trail with its ways onward, the AI review, a settings list. Cards never nest, entries are never cards, buttons never get elevation, and there is still no floating action button.
 
 ## Shapes
 
-Softly rounded rectangles in four steps: 8dp for chips and the snackbar, 12dp for fields, notices, the composer page, and choice rows, 16dp for buttons and sheets, 28dp for dialogs. Segmented buttons and the switch are fully round. Borders are always 1dp (2dp for a field in error and for radios). Blazes are the exception: near-square rectangles with a 1dp corner (0.5 in SVG), because they are paint marks on a tree, not controls.
+Softly rounded rectangles: 8dp for the snackbar, 12dp for fields, notices, the composer page, and choice rows, 16dp for sheets, 20dp for cards, 28dp for dialogs. Buttons, chips, segmented buttons and the switch are fully round pills. Borders are always 1dp (2dp for a field in error and for radios). Blazes are the exception: near-square rectangles with a 1dp corner (0.5 in SVG), because they are paint marks on a tree, not controls.
 
 ## Components
 
 ### Buttons
-Quiet, confident, and full-width where they are the screen's main act.
-- **Shape:** gently rounded (16dp).
-- **Primary:** Charcoal fill (lantern at night) with On-Primary label (Roboto 500, 16sp), 56dp tall, 20dp horizontal padding; typically full-width with an optional trailing arrow pushed to the far edge.
+Confident pills, full-width where they are the screen's main act.
+- **Shape:** fully round.
+- **Primary:** Charcoal fill (lantern at night) with On-Primary label (Roboto 500, 16sp), 56dp tall, 20dp horizontal padding; typically full-width with an optional trailing arrow pushed to the far edge. `compact` makes it 48dp with a 14sp label, for dialog confirmations.
+- **Tonal:** Pale Slate Wash fill with a Deep Slate label, 48dp, hugging its label; for a supporting action or a way onward (then with a trailing arrow). It replaced most bare slate text links.
 - **Secondary:** transparent with a 1dp outline border and ink label, 48dp tall.
-- **Text:** slate label with 12dp touch padding and a -12dp leading offset so the label aligns with the 20dp gutter while keeping its 48dp target.
+- **Text:** slate label with 12dp touch padding and a -12dp leading offset so the label aligns with the 20dp gutter while keeping its 48dp target. Only for a quiet choice beside a stronger one: dismiss, cancel, skip.
+- **Card link:** a full-width row at the foot of a card, under a sand rule, with a slate label and an arrow at the far edge (Today's "See your whole journal").
 - **Danger / Danger Text:** Rust fill with On-Ink label, or Rust label alone, for destructive confirmations only.
 - **States:** pressed drops to 92% opacity with a ripple; disabled filled buttons turn Sunk with a sand edge and Muted Ink labels; a leading icon stays beside its label (the Write and Talk buttons carry it in lantern); loading swaps the label for a spinner.
 - **Icon button:** 48dp square, 24dp Material Community icon in Muted Ink, borderless 24dp ripple.
 
 ### Chips
-- **Style:** 36dp visible, 8dp radius, 1dp outline border, ink label (Roboto 500, 14sp), optional 18dp leading icon, inside a 48dp target. Rows wrap with 8dp column gaps.
+- **Style:** 36dp visible, fully round, 1dp outline border, ink label (Roboto 500, 14sp), optional 18dp leading icon, inside a 48dp target. Rows wrap with 8dp column gaps.
 - **State:** filter chips toggle and gain a check icon on Pale Slate Wash with Deep Slate text (border matches the fill); assist chips act immediately and never show selection. Disabled at 45% opacity.
 
 ### Cards / Containers
-There are no cards. Grouping is done with `Section` (24dp vertical padding, Literata title, sand top rule) and with notices.
+Grouping is done with `Section` (24dp vertical padding, Fraunces title, sand top rule), with notices, and, for a group that belongs together, with one `Card` (see Elevation). Settings lists sit in a card; their rows carry a 40dp Pale Slate Wash circle behind the icon.
 - **Notices:** 12dp radius, 16dp padding, 20dp leading icon. Each is a soft fill in its role colour with the icon in that role's ink, and no border: *Demo* (Lantern Wash, flask icon) marks anything simulated; *Info* (Pale Slate Wash, slate icon); *Warn* (Rust Wash with Rust text).
 - **Choice rows:** Raised Paper, 12dp radius, sand border; selected turns to a slate border on Pale Slate Wash with a slate radio.
 
@@ -339,8 +365,8 @@ There are no cards. Grouping is done with `Section` (24dp vertical padding, Lite
 
 ### Navigation
 - **Navigation bar:** native Material navigation bar on Trail Bar with four always-labelled destinations (Today, Journal, Patterns, Compass). Inactive icons and labels in Muted Ink; the active destination gets a Bar Indicator pill, a Deep Slate icon, and an ink label.
-- **Top app bar:** 64dp on Map Paper; back arrow in ink on the left; title in Roboto 500 16/24, or the Literata "Kindway" wordmark on Today; actions on the right.
-- **Feedback:** snackbars are Charcoal with On-Ink text and a Pale Slate Wash action, 8dp radius, inset 16dp, fading in and out over 150ms. Dialogs are Raised Paper, 28dp radius, 24dp padding, with text-button actions aligned right.
+- **Top app bar:** 64dp on Map Paper; back arrow in ink on the left; actions on the right. The page title is Fraunces (Page Title): in the bar on a tab's root, and on its own line under the bar where there is a Back arrow (Material's medium bar). Working surfaces (the composer, Talk) keep a compact Roboto 500 16/24 title. Today shows the Fraunces "Kindway" wordmark.
+- **Feedback:** snackbars are Charcoal with On-Ink text and a Pale Slate Wash action, 8dp radius, inset 16dp, fading in and out over 150ms. Dialogs are Raised Paper, 28dp radius, 24dp padding, with a Fraunces title; Cancel is a text button and the confirmation a compact filled pill (rust when destructive).
 
 ### Blazes and the Trail (signature)
 The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (mark) and 4x10 (small), so emphasis never inflates.
@@ -367,15 +393,16 @@ The Kindway mark is "Held light": an evening crescent cradling a small lantern-w
 ### Do:
 - **Do** use exactly the two blaze sizes (6x16 and 4x10) and draw non-painted blazes inside the same footprint.
 - **Do** set AI-proposed or tentative content in Literata Italic Graphite Pencil until the user confirms it.
-- **Do** divide content with the single 1dp sand rule and change paper tone for separation.
+- **Do** divide content with the single 1dp sand rule; lift a group that belongs together onto one card.
 - **Do** border every interactive control in outline (#8A857B) to keep 3:1 non-text contrast.
 - **Do** keep every touch target at 48dp or larger, and offset text buttons by -12dp so their labels align to the 20dp gutter.
-- **Do** use Literata for the user's words and headlines and Roboto for all UI.
+- **Do** use Fraunces Soft for titles, Literata for the user's words and questions, and Roboto for all UI.
 - **Do** label anything simulated in this milestone with the demo notice.
 - **Do** make every animation instant under reduced motion.
 
 ### Don't:
-- **Don't** use shadows, elevated cards, or a floating action button.
+- **Don't** nest cards, make an entry a card, lift a button, or add a floating action button.
+- **Don't** leave a way onward as bare slate text; give it a tonal pill or a card link.
 - **Don't** use sand as the only boundary of a pressable or editable control.
 - **Don't** add kicker or eyebrow labels above headings; Label Small is for metadata attached to a specific item, never for introducing a section.
 - **Don't** introduce a third blaze size or scale a blaze up for emphasis.

@@ -163,7 +163,7 @@ Point it only at the local stack or a disposable project. It creates and deletes
 
 Consent is recorded on the account and checked by the AI Edge Functions (section 6b) on every request. The "reflection previews" switch is separate and only controls the simulated on-device previews.
 
-**Scopes.** Two independent choices, granted and withdrawn separately in Settings → AI & memory → **AI processing consent** (`src/app/settings/ai-consent.tsx`):
+**Scopes.** Three independent choices, granted and withdrawn separately in Settings → AI → **AI processing** (`src/app/settings/ai-consent.tsx`). Each can also be allowed where it's used: in onboarding's "What Kindway's AI can do" step, on Patterns for reviews, and in Talk for follow-ups (`src/components/ai-consent-dialog.tsx`):
 
 - `entry_reflection`: a reflection on one entry the user asks about.
 - `cross_entry_analysis`: an on-demand review across entries in a period the user picks.

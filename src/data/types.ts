@@ -150,4 +150,6 @@ export type Reminders = {
   weeklyDay: number;
   /** Reminders were offered once (onboarding or Today); they aren't offered again. */
   offered?: boolean;
+  /** Today said once that Android blocks notifications; it isn't said again. */
+  blockedOffered?: boolean;
 };

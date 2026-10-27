@@ -12,6 +12,9 @@ type Props = WidgetSnapshot & { prompt: string; scheme: Scheme };
  * Drawn by Android from this description (RemoteViews), not as a React Native view.
  */
 export function KindwayWidget({ prompt, step, stepDue, scheme }: Props) {
+  // The widget library calls this as a plain function, where hooks throw; the React Compiler's
+  // memo cache is a hook, so this component opts out of it.
+  'use no memo';
   // The palette's colours are all hex; the widget library wants that spelled out in the type.
   const c = palettes[scheme] as Record<keyof (typeof palettes)['light'], `#${string}`>;
   return (

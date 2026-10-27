@@ -13,7 +13,7 @@ export default function FirstEntry() {
           router.replace(`/first-reflection?id=${id}`);
         } else {
           dispatch({ type: 'patch', patch: { onboarded: true } });
-          router.replace('/today');
+          router.replace('/reminders-setup');
         }
       }}
       onSkip={() => {

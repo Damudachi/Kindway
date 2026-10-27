@@ -10,7 +10,13 @@ import { alpha, radius, space, touch, type Palette } from '@/theme/tokens';
 
 export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-type Variant = 'primary' | 'secondary' | 'text' | 'danger' | 'dangerText';
+/**
+ * - primary: the screen's main act, full width.
+ * - tonal: a slate-wash pill for a supporting action or a way onward; hugs its label.
+ * - secondary: outlined, for an equal alternative to the primary.
+ * - text: dismiss, cancel and other quiet choices beside a stronger action.
+ */
+type Variant = 'primary' | 'tonal' | 'secondary' | 'text' | 'danger' | 'dangerText';
 
 type Props = {
   label: string;
@@ -22,11 +28,13 @@ type Props = {
   loading?: boolean;
   /** Primary only: the icons take the lantern accent (Write, Talk). */
   accent?: boolean;
+  /** Primary and danger at the 48dp height with a 14sp label, for dialogs and inline actions. */
+  compact?: boolean;
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, onPress, variant = 'primary', icon, trailingIcon, disabled, loading, accent, accessibilityHint, style }: Props) {
+export function Button({ label, onPress, variant = 'primary', icon, trailingIcon, disabled, loading, accent, compact, accessibilityHint, style }: Props) {
   const styles = useStyles();
   const { color } = useTheme();
   const v = variants(color)[variant];
@@ -38,7 +46,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
   const textOnly = variant === 'text' || variant === 'dangerText';
   return (
     // Layout (the caller's style, the text button's gutter offset) sits on the scaling wrapper.
-    <Animated.View style={[press.style, textOnly && styles.textOuter, style]}>
+    <Animated.View style={[press.style, textOnly && styles.textOuter, variant === 'tonal' && styles.hug, style]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -50,9 +58,10 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
         android_ripple={{ color: v.ripple, foreground: true }}
         style={({ pressed }) => [
           styles.base,
-          variant === 'primary' && styles.tall,
+          variant === 'primary' && !compact && styles.tall,
           disabled && v.bg !== 'transparent' ? { backgroundColor: color.sunk, borderColor: color.sand } : { backgroundColor: v.bg, borderColor: v.border },
           textOnly && styles.textOnly,
+          variant === 'tonal' && styles.tonal,
           pressed && styles.pressed,
         ]}>
         {loading ? (
@@ -62,7 +71,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
             {/* The leading icon stays with its label; a trailing icon sits at the far edge. */}
             <View style={[styles.row, styles.lead]}>
               {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColor} />}
-              <Text variant="label" style={[styles.label, textOnly && styles.labelStart, { color: fg, fontSize: variant === 'primary' ? 16 : 14 }]}>
+              <Text variant="label" style={[styles.label, textOnly && styles.labelStart, { color: fg, fontSize: variant === 'primary' && !compact ? 16 : 14 }]}>
                 {label}
               </Text>
             </View>
@@ -76,6 +85,7 @@ export function Button({ label, onPress, variant = 'primary', icon, trailingIcon
 
 const variants = (color: Palette): Record<Variant, { bg: string; fg: string; border: string; ripple: string }> => ({
   primary: { bg: color.primary, fg: color.onPrimary, border: color.primary, ripple: alpha(color.onPrimary, 0.18) },
+  tonal: { bg: color.trailContainer, fg: color.onTrailContainer, border: color.trailContainer, ripple: alpha(color.onTrailContainer, 0.12) },
   secondary: { bg: 'transparent', fg: color.ink, border: color.outline, ripple: alpha(color.ink, 0.08) },
   text: { bg: 'transparent', fg: color.trail, border: 'transparent', ripple: alpha(color.trail, 0.12) },
   danger: { bg: color.danger, fg: color.onInk, border: color.danger, ripple: alpha(color.onInk, 0.18) },
@@ -104,7 +114,7 @@ export function IconButton({ icon, label, onPress, tint }: IconButtonProps) {
 const useStyles = makeStyles(() => ({
   base: {
     minHeight: touch,
-    borderRadius: radius.lg,
+    borderRadius: radius.full,
     borderWidth: 1,
     paddingHorizontal: space.gutter,
     // A long label wraps onto more lines and the button grows; short ones keep the touch height.
@@ -116,6 +126,8 @@ const useStyles = makeStyles(() => ({
   // Text buttons keep their touch padding but align the label with the content column.
   textOnly: { paddingHorizontal: space.sm },
   textOuter: { marginLeft: -space.sm, alignSelf: 'flex-start' },
+  tonal: { paddingHorizontal: space.md + 2 },
+  hug: { alignSelf: 'flex-start', marginVertical: space.xxs },
   pressed: { opacity: 0.92 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs },
   // In a row a label doesn't shrink by default, so a long one ran past the edge and was clipped.

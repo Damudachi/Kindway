@@ -57,6 +57,4 @@ The phase plan, with what counts as done for each phase, is in `docs/roadmap.md`
 - Follow-up conversations on other devices: they're stored on the account but only shown on the device that had them.
 - Verified AI provenance: a user can write their own rows into their AI output tables, so the stored provider/model labels aren't proof that an output came from the model (see `docs/supabase-setup.md`, section 6b).
 - Reviewed safety flow with verified regional resources (the Extra support screen is a placeholder; the keyword check in `src/data/safety.ts` is not a classifier).
-- Native Android widget spike, notifications (expo-notifications), voice capture and transcription, export.
-- Dark scheme, designed as its own scheme rather than an inversion.
-- App icon and splash artwork (still the Expo template images).
+- Voice capture and transcription, export.

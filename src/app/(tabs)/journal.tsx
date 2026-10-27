@@ -112,7 +112,7 @@ export default function Journal() {
               These entries are fictional examples. They exist only in this demo session.
             </Notice>
           )}
-          <Button variant="text" label="Explore recurring patterns" trailingIcon="arrow-right" onPress={() => router.navigate('/patterns')} />
+          <Button variant="tonal" label="Explore recurring patterns" trailingIcon="arrow-right" onPress={() => router.navigate('/patterns')} />
         </>
       )}
       {state.demo.ai === 'offline' && <Text variant="small">Offline: showing entries saved on this device.</Text>}

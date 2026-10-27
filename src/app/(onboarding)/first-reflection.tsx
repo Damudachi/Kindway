@@ -17,11 +17,11 @@ export default function FirstReflection() {
 
   const finish = () => {
     dispatch({ type: 'patch', patch: { onboarded: true } });
-    router.replace('/today');
+    router.replace('/reminders-setup');
   };
 
   return (
-    <Screen top={{ title: 'A moment to reflect' }} footer={<Button variant="secondary" label="Go to Today" onPress={finish} />}>
+    <Screen top={{ title: 'A moment to reflect' }} footer={<Button variant="secondary" label="Continue" trailingIcon="arrow-right" onPress={finish} />}>
       <Text variant="headline" accessibilityRole="header">
         A reflection, not a verdict.
       </Text>

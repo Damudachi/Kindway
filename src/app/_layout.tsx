@@ -20,7 +20,13 @@ import { ThemeProvider, useTheme } from '@/theme/theme';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({ Literata_400Regular, Literata_500Medium, Literata_400Regular_Italic });
+  const [loaded, error] = useFonts({
+    Literata_400Regular,
+    Literata_500Medium,
+    Literata_400Regular_Italic,
+    Fraunces_SoftTitle: require('../../assets/fonts/Fraunces_SoftTitle.ttf'),
+    Fraunces_SoftHeading: require('../../assets/fonts/Fraunces_SoftHeading.ttf'),
+  });
 
   // If the font fails to load, render anyway with the system fallback rather than blocking the journal.
   if (!loaded && !error) return null;

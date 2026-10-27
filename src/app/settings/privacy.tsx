@@ -48,11 +48,11 @@ export default function Privacy() {
         <Text variant="small" style={styles.gapSm}>
           Without that, nothing goes to AI: reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns counts only the tags and marks you added. Follow-up conversations need their own choice; allowing reflections doesn’t allow them. AI processing shows exactly what is sent, what Groq may keep, and lets you delete AI outputs.
         </Text>
-        <Button variant="text" label="AI processing consent" onPress={() => router.push('/settings/ai-consent')} />
+        <Button variant="tonal" label="AI processing consent" trailingIcon="arrow-right" onPress={() => router.push('/settings/ai-consent')} />
         <Text variant="small" style={styles.gapSm}>
           Reflection previews are currently {state.aiConsent === 'ai' ? 'on' : 'off'}.
         </Text>
-        <Button variant="text" label="Change AI & memory settings" onPress={() => router.push('/settings/ai-memory')} />
+        <Button variant="tonal" label="Change AI & memory settings" trailingIcon="arrow-right" onPress={() => router.push('/settings/ai-memory')} />
       </Section>
 
       <Section title="Export">
@@ -62,13 +62,13 @@ export default function Privacy() {
       <Section title="Delete">
         <Text variant="body">Delete a single entry from its page, or saved memory in AI & memory.</Text>
         <View style={styles.row}>
-          <Button variant="text" label="Go to my journal" onPress={() => router.navigate('/journal')} />
-          <Button variant="text" label="Review saved memory" onPress={() => router.push('/settings/ai-memory')} />
+          <Button variant="tonal" label="Go to my journal" trailingIcon="arrow-right" onPress={() => router.navigate('/journal')} />
+          <Button variant="tonal" label="Review saved memory" trailingIcon="arrow-right" onPress={() => router.push('/settings/ai-memory')} />
         </View>
         <Text variant="body" style={styles.gap}>
           To erase this journal, use Reset in Settings. If you have an account, you can delete it and all its cloud data from Settings too; that leaves your local-only journal on this device alone.
         </Text>
-        <Button variant="text" label="Go to Settings" onPress={() => router.push('/settings')} />
+        <Button variant="tonal" label="Go to Settings" trailingIcon="arrow-right" onPress={() => router.push('/settings')} />
       </Section>
 
     </Screen>

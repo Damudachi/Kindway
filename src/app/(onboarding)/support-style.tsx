@@ -32,7 +32,7 @@ export default function SupportStyle() {
         </>
       }>
       <OnboardingProgress step={1} />
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
+      <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
         What kind of support helps you?
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>

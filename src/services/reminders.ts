@@ -8,7 +8,9 @@ import type { Reminders } from '@/data/types';
  * settings each time, so what's scheduled always matches what the Reminders screen shows.
  */
 
-const CHANNEL = 'reminders';
+const CHANNEL = 'reminders-v2';
+/** The first channel was low importance, which One UI files under "Silent" with no status-bar icon. Android can't raise a channel's importance, so it's replaced. */
+const OLD_CHANNEL = 'reminders';
 
 type Lib = typeof import('expo-notifications');
 let lib: Lib | null | undefined;
@@ -74,9 +76,12 @@ async function ensureChannel(Notifications: Lib) {
   await Notifications.setNotificationChannelAsync(CHANNEL, {
     name: 'Gentle reminders',
     description: 'The evening reminder and weekly look-back you chose in Kindway.',
-    // Low importance: shown in the notification shade, with no sound or pop-up.
-    importance: Notifications.AndroidImportance.LOW,
+    // Default importance shows an icon in the status bar; no sound, vibration or pop-up.
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: null,
+    enableVibrate: false,
   });
+  await Notifications.deleteNotificationChannelAsync(OLD_CHANNEL).catch(() => {});
 }
 
 /** Asks the system for permission. On Android 13+ the prompt needs a channel first. */

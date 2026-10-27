@@ -17,8 +17,8 @@ const OPENS = new Set(['/write', '/patterns']);
 /**
  * Keeps this device's scheduled reminders matching the current journal's settings, and opens
  * the composer (or Patterns) when one is tapped. Rescheduled when the settings change and when
- * the app comes back, so a finished pause resumes and a permission withdrawn in Android
- * settings shows up as blocked. Renders nothing.
+ * the app comes back, so a finished pause resumes and a permission changed in Android
+ * settings shows up as blocked or allowed. Renders nothing.
  */
 export function ReminderScheduler() {
   const { state, dispatch } = useStore();
@@ -29,9 +29,13 @@ export function ReminderScheduler() {
     // Without the native module (Expo Go) there is nothing to schedule or check.
     if (!notifications()) return;
     const sync = async () => {
-      if (r.permission === 'granted' && !(await permissionGranted())) {
-        dispatch({ type: 'reminders', patch: { permission: 'denied' } });
-        return;
+      // Permission can change in Android settings either way while Kindway is in the background.
+      if (r.permission !== 'unasked') {
+        const granted = await permissionGranted();
+        if ((r.permission === 'granted') !== granted) {
+          dispatch({ type: 'reminders', patch: { permission: granted ? 'granted' : 'denied' } });
+          return;
+        }
       }
       await applySchedule(r);
     };

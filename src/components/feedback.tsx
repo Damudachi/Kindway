@@ -86,14 +86,14 @@ export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Canc
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent navigationBarTranslucent>
       <View style={styles.scrim}>
         <View style={styles.dialog} accessibilityViewIsModal>
-          <Text variant="headline" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 28 }}>
+          <Text variant="title" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 28 }}>
             {title}
           </Text>
           <Text variant="bodyMuted">{body}</Text>
           {children}
           <View style={styles.dialogActions}>
             <Button variant="text" label={cancelLabel} onPress={onCancel} />
-            <Button variant={destructive ? 'dangerText' : 'text'} label={confirmLabel} disabled={confirmDisabled} loading={confirmLoading} onPress={onConfirm} />
+            <Button compact variant={destructive ? 'danger' : 'primary'} label={confirmLabel} disabled={confirmDisabled} loading={confirmLoading} onPress={onConfirm} />
           </View>
         </View>
       </View>
@@ -119,5 +119,5 @@ const useStyles = makeStyles((color) => ({
   snackAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: space.md },
   scrim: { flex: 1, backgroundColor: color.scrim, justifyContent: 'center', padding: space.lg },
   dialog: { backgroundColor: color.raised, borderRadius: radius.xl, padding: space.lg, gap: space.md },
-  dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space.xs },
+  dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: space.xs },
 }));

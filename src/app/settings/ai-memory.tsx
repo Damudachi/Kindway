@@ -11,7 +11,7 @@ import { Text } from '@/components/text';
 import { relativeDay } from '@/data/dates';
 import { STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import type { ChallengeLevel, Memory } from '@/data/types';
-import { useAiConsent } from '@/state/ai-consent';
+import { consentSummary, useAiConsent } from '@/state/ai-consent';
 import { useEntries, useStore, type DemoState } from '@/state/demo-store';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
@@ -34,9 +34,7 @@ export default function AiMemory() {
   const patch = (p: Partial<DemoState>) => dispatch({ type: 'patch', patch: p });
   const aiOn = state.aiConsent === 'ai';
   const consent = useAiConsent();
-  const allowed = (['entry_reflection', 'cross_entry_analysis'] as const).filter((s) => consent.status(s) === 'active').length;
-  const consentDetail =
-    consent.load === 'unavailable' ? 'Needs an account. Nothing is sent to AI.' : consent.load !== 'ready' ? 'Checking your account…' : `${allowed} of 2 allowed.`;
+  const consentDetail = consentSummary(consent);
 
   return (
     <Screen top={{ back: true, title: 'AI & memory' }}>
@@ -46,8 +44,12 @@ export default function AiMemory() {
 
       <Section first>
         <SwitchRow
-          title="Reflection previews"
-          detail={aiOn ? 'On. Simulated on this device in this prototype; nothing is sent anywhere.' : 'Off. Your journal works fully without them.'}
+          title="Simulated reflections"
+          detail={
+            aiOn
+              ? 'On. Used when real AI isn’t allowed: pre-written on this device, and nothing is sent anywhere.'
+              : 'Off. Your journal works fully without them. Real AI follows AI processing below.'
+          }
           value={aiOn}
           onChange={(v) => patch({ aiConsent: v ? 'ai' : 'journal-only' })}
         />
@@ -173,7 +175,7 @@ export default function AiMemory() {
         {state.memories.length > 0 && <Button variant="secondary" label="Clear all saved memory" onPress={() => setConfirmClear(true)} style={styles.gap} />}
       </Section>
 
-      <Button variant="text" label="Manage data and deletion" trailingIcon="arrow-right" onPress={() => router.push('/settings/privacy')} />
+      <Button variant="tonal" label="Manage data and deletion" trailingIcon="arrow-right" onPress={() => router.push('/settings/privacy')} />
 
       <Dialog
         visible={confirmClear}

@@ -93,6 +93,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
     <Screen
       top={{
         back: true,
+        small: true,
         title: editing ? 'Edit entry' : first ? 'Your first entry' : "Tonight's entry",
         actions:
           !empty || editing ? (

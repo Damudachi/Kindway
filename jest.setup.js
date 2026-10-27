@@ -11,11 +11,12 @@ jest.mock('@react-native-async-storage/async-storage', () => require('@react-nat
 
 // Notifications are native; record scheduling calls instead.
 jest.mock('expo-notifications', () => ({
-  AndroidImportance: { LOW: 2 },
+  AndroidImportance: { LOW: 2, DEFAULT: 3 },
   SchedulableTriggerInputTypes: { WEEKLY: 'weekly' },
   DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(async () => null),
+  deleteNotificationChannelAsync: jest.fn(async () => {}),
   getPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: 'undetermined' })),
   requestPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true, status: 'granted' })),
   cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),

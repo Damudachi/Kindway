@@ -136,7 +136,7 @@ export default function Compass() {
       <Text variant="small" style={styles.foot}>
         Not making progress on something doesn’t mean failing at it. A compass points; it doesn’t keep score.
       </Text>
-      <Button variant="text" label="See what you've been noticing" trailingIcon="arrow-right" onPress={() => router.navigate('/patterns')} />
+      <Button variant="tonal" label="See what you've been noticing" trailingIcon="arrow-right" onPress={() => router.navigate('/patterns')} />
 
       <Dialog
         visible={!!removing}

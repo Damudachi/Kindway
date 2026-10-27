@@ -4,9 +4,11 @@ import { View } from 'react-native';
 
 import { EveningGlow } from '@/components/brand';
 import { Button, IconButton } from '@/components/button';
+import { Card, CardLink } from '@/components/card';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
+import { ReminderOffer } from '@/components/reminder-offer';
 import { Screen } from '@/components/screen';
 import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
@@ -48,6 +50,9 @@ export default function Today() {
   const earlier = entries.filter((e) => daysAgo(e.date) > 0).slice(0, 2);
   const step = state.tomorrow;
   const view = stepView(step, today);
+  // The last stop on the trail draws no rule under it; the card's links follow.
+  const stepShown = !!step && view !== 'hidden';
+  const todayLast = !stepShown && earlier.length === 0;
   const setStep = (next: typeof step, message: string, undo = true) => {
     const before = step;
     dispatch({ type: 'tomorrow', step: next });
@@ -76,7 +81,7 @@ export default function Today() {
         <View style={styles.banner}>
           <Notice title="Not backed up">Your journal is only on this device. You can keep it that way, or back it up to your account.</Notice>
           <View style={styles.bannerActions}>
-            <Button variant="text" label="Back up" onPress={() => router.push('/sync')} />
+            <Button variant="tonal" label="Back up" onPress={() => router.push('/sync')} />
             <Button variant="text" label="Not now" onPress={() => setBackupLater(true)} />
           </View>
         </View>
@@ -89,24 +94,7 @@ export default function Today() {
         </View>
       )}
 
-      {state.onboarded && entries.length > 0 && !state.reminders.offered && !state.reminders.enabled && state.reminders.permission === 'unasked' && (
-        <View style={styles.banner}>
-          <Notice icon="bell-outline" title="Would a gentle nudge help?">
-            One quiet evening reminder, with nothing from your entries. Skipping a day is always fine.
-          </Notice>
-          <View style={styles.bannerActions}>
-            <Button
-              variant="text"
-              label="Set a reminder"
-              onPress={() => {
-                dispatch({ type: 'reminders', patch: { offered: true } });
-                router.push('/settings/reminders');
-              }}
-            />
-            <Button variant="text" label="No thanks" onPress={() => dispatch({ type: 'reminders', patch: { offered: true } })} />
-          </View>
-        </View>
-      )}
+      <ReminderOffer />
 
       <Text variant="display" accessibilityRole="header">
         How are you arriving {when}?
@@ -131,7 +119,7 @@ export default function Today() {
         <Chip kind="assist" icon="lightbulb-on-outline" label={`“${prompt}”`} onPress={usePrompt} />
       </ChipRow>
 
-      <View style={styles.section}>
+      <Card style={styles.section}>
         <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
           Your trail
         </SectionTitle>
@@ -140,15 +128,17 @@ export default function Today() {
           {todays.length === 0 ? (
             <TrailStop
               blaze="open"
+              last={todayLast}
               onPress={() => router.push('/write')}
               accessibilityLabel={`Tonight, not written yet. Write a thought.`}>
               <Text variant="labelSmall">Tonight</Text>
               <Text variant="entryTitle">Not written yet. Whenever you’re ready.</Text>
             </TrailStop>
           ) : (
-            todays.map((e) => (
+            todays.map((e, i) => (
               <TrailStop
                 key={e.id}
+                last={todayLast && i === todays.length - 1}
                 blaze="painted"
                 tint={tint.feeling(e.feelings[0]).mark}
                 paint={focused && state.justPainted === e.id}
@@ -161,9 +151,10 @@ export default function Today() {
               </TrailStop>
             ))
           )}
-          {step && view !== 'hidden' && (
+          {step && stepShown && (
             <TrailStop
               blaze={view === 'done' ? 'painted' : 'next'}
+              last={earlier.length === 0}
               tint={color.lichen}
               paint={view === 'done' && stepPainting}
               onPainted={() => setStepPainting(false)}
@@ -192,7 +183,7 @@ export default function Today() {
                     </ChipRow>
                   </>
                 ) : (
-                  <Button variant="text" label="Update this step" onPress={() => setStepOpen(true)} />
+                  <Button variant="tonal" label="Update this step" onPress={() => setStepOpen(true)} />
                 ))}
               {view === 'done' &&
                 (step.outcome ? (
@@ -233,11 +224,11 @@ export default function Today() {
           </Text>
         )}
         <View style={styles.links}>
-          <Button variant="text" label="See your whole journal" onPress={() => router.navigate('/journal')} />
-          <Button variant="text" label="Look back across your entries" onPress={() => router.navigate('/patterns')} />
-          {view === 'hidden' && <Button variant="text" label="Plan a small step for tomorrow" onPress={() => router.push('/tomorrow')} />}
+          {view === 'hidden' && <CardLink label="Plan a small step for tomorrow" onPress={() => router.push('/tomorrow')} />}
+          <CardLink label="See your whole journal" onPress={() => router.navigate('/journal')} />
+          <CardLink label="Look back across your entries" onPress={() => router.navigate('/patterns')} />
         </View>
-      </View>
+      </Card>
 
       <Dialog
         visible={state.demo.sessionExpired || (sync?.status === 'signed-out' && !signInLater)}
@@ -261,13 +252,14 @@ export default function Today() {
 
 const useStyles = makeStyles(() => ({
   banner: { marginBottom: space.md },
-  bannerActions: { flexDirection: 'row', gap: space.xs },
+  bannerActions: { flexDirection: 'row', alignItems: 'center', gap: space.xs, marginTop: space.xxs },
   lede: { marginTop: space.xs },
   date: { marginTop: space.xxs },
   write: { marginTop: space.lg, marginBottom: space.xxs },
-  section: { marginTop: space.lg },
+  // The links at its foot reach the card's rounded edge, so their ripples are clipped to it.
+  section: { marginTop: space.lg, paddingTop: space.md, paddingBottom: 0, overflow: 'hidden' },
   stepAsk: { marginTop: space.xxs },
   trailTitle: { marginBottom: space.xs },
-  emptyNote: { marginTop: space.xs },
+  emptyNote: { marginTop: space.xs, marginBottom: space.sm },
   links: { marginTop: space.xs },
 }));

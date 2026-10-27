@@ -109,6 +109,7 @@ export default function Talk() {
     <KeyboardAvoidingView behavior={keyboardBehavior} style={[styles.root, { paddingTop: insets.top }]}>
       <TopBar
         back
+        small
         title={entry ? `Talking through · ${shortDate(entry.date)}` : 'Talking through'}
         actions={<IconButton icon="broom" label="Clear this conversation" onPress={() => setConfirmClear(true)} />}
       />
@@ -237,7 +238,7 @@ function StepOffer({ step, entryId }: { step: string; entryId: string }) {
         <Text variant="small">Saved to Tomorrow Bridge.</Text>
       ) : (
         <Button
-          variant="text"
+          variant="tonal"
           label="Save to Tomorrow Bridge"
           accessibilityHint="Opens Tomorrow Bridge with this step filled in. You can edit it, and nothing is saved until you choose to."
           onPress={() => router.push({ pathname: '/tomorrow', params: { suggestion: step, basis: 'talk', about: entryId, use: '1' } })}

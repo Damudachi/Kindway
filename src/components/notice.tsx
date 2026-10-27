@@ -48,7 +48,7 @@ export function StateView({ title, body, action, art }: { title: string; body: s
   return (
     <View style={styles.state}>
       {art && <Illustration name={art} />}
-      <Text variant="headline" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 30 }}>
+      <Text variant="title" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 30 }}>
         {title}
       </Text>
       <Text variant="bodyMuted">{body}</Text>

@@ -105,7 +105,7 @@ export default function Account() {
             {sent === 'confirm' && !state.onboarded && <Button variant="text" style={styles.center} label="Use without an account instead" onPress={continueOnboarding} />}
           </>
         }>
-        <Text variant="headline" accessibilityRole="header" style={styles.title}>
+        <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
           Check your email.
         </Text>
         <Text variant="bodyMuted" style={styles.lede}>
@@ -150,7 +150,7 @@ export default function Account() {
         </>
       }>
       {signup && !state.onboarded && <OnboardingProgress step={3} />}
-      <Text variant="headline" accessibilityRole="header" style={styles.title}>
+      <Text variant="pageTitle" accessibilityRole="header" style={styles.title}>
         {forgot ? 'Choose a new password.' : signup ? 'Keep your journal yours.' : 'Welcome back.'}
       </Text>
       <Text variant="bodyMuted" style={styles.lede}>

@@ -176,7 +176,7 @@ async function openApp(url: string, { user = null, syncing = false, state = init
       account: Account,
       consent: Consent,
       sync: Sync,
-      'reminders-setup': Stub('Reminders setup screen'),
+      'ai-intro': Stub('AI intro screen'),
       'first-entry': Stub('First entry screen'),
       today: Stub('Today screen'),
     },
@@ -208,7 +208,7 @@ describe('onboarding with an account', () => {
     expect(await screen.findByText('Your thoughts deserve care.', {}, wait)).toBeOnTheScreen();
     expect(screen.queryByText('Keep your journal yours.')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Use my journal without them' }));
-    expect(await screen.findByText('Reminders setup screen', {}, wait)).toBeOnTheScreen();
+    expect(await screen.findByText('AI intro screen', {}, wait)).toBeOnTheScreen();
   });
 
   it('signed out, compass setup still offers an account', async () => {
