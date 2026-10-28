@@ -11,7 +11,7 @@ What's different on the web:
 ## Build
 
 ```bash
-npm run build:web   # expo export -p web, then Workbox writes dist/sw.js
+npm run build:web   # expo export -p web, scripts/web-postexport.js, then Workbox writes dist/sw.js
 npx expo serve      # serve dist/ locally to try it
 ```
 
@@ -20,6 +20,7 @@ The build reads `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE
 The pieces:
 - `public/index.html`: the page, with the Home Screen tags and the service worker registration.
 - `public/manifest.json`, `public/icons/`: the install name, colours and icons.
+- `scripts/web-postexport.js`: moves package fonts and images from `dist/assets/node_modules` to `dist/assets/vendor`. Cloudflare Pages never uploads folders named `node_modules`; without this, the live site had no icons and no Literata.
 - `workbox-config.js`: what works offline. It precaches the app's own files only, never Supabase or function responses.
 - `src/app/(tabs)/_layout.web.tsx`: the bottom tab bar. The native tabs' web fallback is a strip that covers each screen's header.
 - Web-only checks go through `onWeb()` in `src/services/platform.ts`.

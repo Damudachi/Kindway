@@ -47,6 +47,45 @@ describe('service worker settings', () => {
   });
 });
 
+// Cloudflare Pages never uploads folders named node_modules, and Expo exports package fonts
+// under dist/assets/node_modules, so on the live site they came back as the app page.
+describe('package assets on Cloudflare Pages', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const nodeFs = require('fs') as {
+    mkdtempSync(prefix: string): string;
+    mkdirSync(dir: string, options: { recursive: true }): void;
+    writeFileSync(file: string, data: string): void;
+    readFileSync(file: string, encoding: 'utf8'): string;
+    existsSync(file: string): boolean;
+  };
+  const os = require('os') as { tmpdir(): string };
+  const { moveVendorAssets } = require('../../scripts/web-postexport.js') as { moveVendorAssets(dist: string): number };
+  /* eslint-enable @typescript-eslint/no-require-imports */
+
+  it('moves them out of node_modules and points the bundle at the new place', () => {
+    const dist = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'kindway-dist-'));
+    nodeFs.mkdirSync(path.join(dist, 'assets/node_modules/pkg/fonts'), { recursive: true });
+    nodeFs.writeFileSync(path.join(dist, 'assets/node_modules/pkg/fonts/Face.abc.ttf'), 'font');
+    nodeFs.mkdirSync(path.join(dist, '_expo/static/js/web'), { recursive: true });
+    const bundle = path.join(dist, '_expo/static/js/web/app.js');
+    nodeFs.writeFileSync(bundle, 's.exports="/assets/node_modules/pkg/fonts/Face.abc.ttf";t="/assets/node_modules/pkg/x.png"');
+
+    expect(moveVendorAssets(dist)).toBe(1);
+    expect(nodeFs.existsSync(path.join(dist, 'assets/node_modules'))).toBe(false);
+    expect(nodeFs.readFileSync(path.join(dist, 'assets/vendor/pkg/fonts/Face.abc.ttf'), 'utf8')).toBe('font');
+    expect(nodeFs.readFileSync(bundle, 'utf8')).toBe('s.exports="/assets/vendor/pkg/fonts/Face.abc.ttf";t="/assets/vendor/pkg/x.png"');
+
+    // Running it again changes nothing.
+    expect(moveVendorAssets(dist)).toBe(0);
+    expect(nodeFs.readFileSync(path.join(dist, 'assets/vendor/pkg/fonts/Face.abc.ttf'), 'utf8')).toBe('font');
+  });
+
+  it('runs between the export and the service worker', () => {
+    const pkg = require('../../package.json') as { scripts: Record<string, string> };
+    expect(pkg.scripts['build:web']).toBe('expo export -p web && node scripts/web-postexport.js && workbox generateSW workbox-config.js');
+  });
+});
+
 describe('manifest', () => {
   const manifest = JSON.parse(read('public/manifest.json'));
 
