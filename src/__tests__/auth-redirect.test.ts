@@ -72,3 +72,42 @@ describe('with the email-link landing page configured', () => {
     expect(inEnv(env, (auth) => auth.appTarget('reset-password'))).toBe(env.expected.replace('auth/confirm', 'reset-password'));
   });
 });
+
+describe('in the web app', () => {
+  const SITE = 'https://kindway.pages.dev';
+  const location = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'location', { value: { origin: SITE }, configurable: true });
+    // The landing page is for opening the Android app; the web app never uses it.
+    process.env.EXPO_PUBLIC_AUTH_LINK_URL = 'https://example.github.io/kindway-links/';
+  });
+  afterEach(() => {
+    if (location) Object.defineProperty(globalThis, 'location', location);
+    else delete (globalThis as { location?: unknown }).location;
+    delete process.env.EXPO_PUBLIC_AUTH_LINK_URL;
+  });
+
+  const onTheWeb = <T,>(run: (auth: typeof import('@/services/auth')) => T): T => {
+    let out!: T;
+    jest.isolateModules(() => {
+      jest.doMock('@/services/platform', () => ({ onWeb: () => true }));
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      out = run(require('@/services/auth'));
+    });
+    return out;
+  };
+
+  it('sends email links back to the site itself', () => {
+    expect(onTheWeb((auth) => auth.redirectTo('auth/confirm'))).toBe(`${SITE}/auth/confirm`);
+    expect(onTheWeb((auth) => auth.redirectTo('reset-password'))).toBe(`${SITE}/reset-password`);
+  });
+});
+
+describe('a link opened where it was not requested', () => {
+  it('is reported with a reference the screens can recognise', async () => {
+    const exchangeCodeForSession = jest.fn(async () => ({ error: { name: 'AuthPKCECodeVerifierMissingError', message: 'missing' } }));
+    const { supabaseAuth } = jest.requireActual<typeof import('@/services/auth')>('@/services/auth');
+    const result = await supabaseAuth({ auth: { exchangeCodeForSession } } as never).exchangeCode('abcdefgh-1234');
+    expect(result).toEqual({ ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' });
+  });
+});

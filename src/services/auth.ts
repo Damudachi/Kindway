@@ -3,6 +3,8 @@ import { isRunningInExpoGo } from 'expo';
 import { getBundleOrigin } from 'expo/internal/bundle-origin';
 import * as Linking from 'expo-linking';
 
+import { onWeb } from '@/services/platform';
+
 /**
  * Email/password auth on Supabase. Every call resolves to a result with a message written for
  * the person using the app; raw server errors, tokens and passwords are never logged or shown.
@@ -31,15 +33,18 @@ export interface AuthService {
  *   would add the dev server's address in a development build, which changes and isn't a route.
  * With EXPO_PUBLIC_AUTH_LINK_URL set, links go to that HTTPS landing page (web/auth-link) with the
  * app address as `?to=`, so a browser that can't open the app shows a page instead of nothing.
+ * - The web app: back to the site itself, `https://<site>/<path>`; the landing page isn't used.
  */
 export function redirectTo(path: 'auth/confirm' | 'reset-password') {
   const target = appTarget(path);
+  if (onWeb()) return target;
   const page = process.env.EXPO_PUBLIC_AUTH_LINK_URL?.trim();
   return page ? `${page}?to=${encodeURIComponent(target)}` : target;
 }
 
 /** Where the app itself receives an email link in this environment. */
 export function appTarget(path: 'auth/confirm' | 'reset-password') {
+  if (onWeb()) return `${globalThis.location.origin}/${path}`;
   // Expo Go on SDK 58 reports executionEnvironment "bare", like a build, and Linking.createURL
   // decides by that, so it can't be relied on for an exp:// address. Built from the dev server.
   if (isRunningInExpoGo()) {
@@ -162,8 +167,9 @@ export function supabaseAuth(client: SupabaseClient): AuthService {
     async exchangeCode(code) {
       const { error } = await client.auth.exchangeCodeForSession(code);
       if (!error) return { ok: true };
+      // On iPhone this is also a link asked for in the Home Screen app and opened in Safari.
       if (error.name === 'AuthPKCECodeVerifierMissingError')
-        return { ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.' };
+        return { ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' };
       return { ok: false, message: authMessage(error) };
     },
     async updatePassword(password) {

@@ -241,7 +241,8 @@ export function fromSnapshot(raw: unknown): DemoState {
   };
 }
 
-const StoreContext = createContext<{ state: DemoState; dispatch: Dispatch<Action> } | null>(null);
+/** `saveFailed`: this device refused the last save (for example a full browser storage), so recent changes are only in memory. */
+const StoreContext = createContext<{ state: DemoState; dispatch: Dispatch<Action>; saveFailed: boolean } | null>(null);
 
 type ProviderProps = {
   children: ReactNode;
@@ -253,6 +254,7 @@ type ProviderProps = {
 export function DemoStoreProvider({ children, initial, storage = deviceStorage }: ProviderProps) {
   const [state, dispatch] = useReducer(reducer, initial ?? initialState);
   const [hydrated, setHydrated] = useState(!!initial);
+  const [saveFailed, setSaveFailed] = useState(false);
   const latest = useRef(state);
   useEffect(() => {
     latest.current = state;
@@ -279,7 +281,14 @@ export function DemoStoreProvider({ children, initial, storage = deviceStorage }
   // Save shortly after changes, and right away when the app goes to the background.
   useEffect(() => {
     if (!hydrated) return;
-    const t = setTimeout(() => void storage.save(toSnapshot(state)).catch(() => {}), 250);
+    const t = setTimeout(
+      () =>
+        void storage.save(toSnapshot(state)).then(
+          () => setSaveFailed(false),
+          () => setSaveFailed(true),
+        ),
+      250,
+    );
     return () => clearTimeout(t);
   }, [state, hydrated, storage]);
   useEffect(() => {
@@ -294,7 +303,7 @@ export function DemoStoreProvider({ children, initial, storage = deviceStorage }
     };
   }, [hydrated, storage]);
 
-  const value = useMemo(() => ({ state, dispatch }), [state]);
+  const value = useMemo(() => ({ state, dispatch, saveFailed }), [state, saveFailed]);
   if (!hydrated) return null;
   return <StoreContext value={value}>{children}</StoreContext>;
 }

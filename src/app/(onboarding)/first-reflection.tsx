@@ -5,6 +5,7 @@ import { Button } from '@/components/button';
 import { ReflectionView } from '@/components/reflection-view';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { makeStyles } from '@/theme/theme';
 import { radius, space } from '@/theme/tokens';
@@ -17,7 +18,8 @@ export default function FirstReflection() {
 
   const finish = () => {
     dispatch({ type: 'patch', patch: { onboarded: true } });
-    router.replace('/reminders-setup');
+    // The web has no reminder step yet.
+    router.replace(onWeb() ? '/today' : '/reminders-setup');
   };
 
   return (

@@ -5,6 +5,7 @@ import { EveningGlow, HeldLight } from '@/components/brand';
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { InstallTip } from '@/components/web-notices';
 import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -22,6 +23,7 @@ export default function Welcome() {
           <Button variant="text" label="I already have an account" onPress={() => router.push('/account?mode=signin')} style={styles.center} />
         </>
       }>
+      <InstallTip />
       <View style={styles.mark}>
         <HeldLight size={64} breathe />
       </View>

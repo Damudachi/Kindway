@@ -47,9 +47,9 @@ export const appearanceStorage = jsonStorage('kindway:appearance:v1');
 
 const isAppearance = (v: unknown): v is Appearance => v === 'system' || v === 'light' || v === 'night';
 
-/** Tells native views (system bars, dialogs, pickers) which scheme the app is in. */
+/** Tells native views (system bars, dialogs, pickers) which scheme the app is in. The web has no such call. */
 function applyNative(appearance: Appearance) {
-  RNAppearance.setColorScheme(appearance === 'system' ? 'auto' : appearance === 'night' ? 'dark' : 'light');
+  RNAppearance.setColorScheme?.(appearance === 'system' ? 'auto' : appearance === 'night' ? 'dark' : 'light');
 }
 
 type Props = { children: ReactNode; /** Test seam. */ storage?: StateStorage };

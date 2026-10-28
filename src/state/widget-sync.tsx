@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
+import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { stepView } from '@/state/tomorrow';
 import type { WidgetSnapshot } from '@/widget/content';
@@ -15,12 +16,14 @@ export function widgetSnapshot(step: ReturnType<typeof useStore>['state']['tomor
 
 /**
  * Keeps the home-screen widget in step with the current journal. Redrawn when the step or the
- * setting changes, and when the app comes back (a new day changes the prompt). Renders nothing.
+ * setting changes, and when the app comes back (a new day changes the prompt). Nothing on the
+ * web, which has no widget. Renders nothing.
  */
 export function WidgetSync() {
   const { state } = useStore();
   const { tomorrow, widgetShowsStep } = state;
   useEffect(() => {
+    if (onWeb()) return;
     const draw = () => void updateWidget(widgetSnapshot(tomorrow, widgetShowsStep)).catch(() => {});
     draw();
     const sub = AppState.addEventListener('change', (s) => s === 'active' && draw());

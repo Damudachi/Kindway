@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -7,6 +7,7 @@ import { Chip, ChipRow } from '@/components/chip';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { EVENING_TEXT, TIMES } from '@/services/reminders';
 import { useStore } from '@/state/demo-store';
 import { useAllowReminders } from '@/state/reminders';
@@ -16,9 +17,14 @@ import { radius, space } from '@/theme/tokens';
 /**
  * Optional evening reminder, the last onboarding step: offered after the first entry, once
  * there's something to come back to. Android's permission prompt comes only after "Remind me",
- * and skipping asks nothing. Either way Today comes next.
+ * and skipping asks nothing. Either way Today comes next, and on the web, which has no
+ * reminders yet, straight away.
  */
 export default function RemindersSetup() {
+  return onWeb() ? <Redirect href="/today" /> : <RemindersStep />;
+}
+
+function RemindersStep() {
   const styles = useStyles();
   const { state, dispatch } = useStore();
   const allow = useAllowReminders();

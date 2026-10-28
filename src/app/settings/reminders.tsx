@@ -1,3 +1,4 @@
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 
@@ -8,18 +9,24 @@ import { Dialog, useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { EVENING_TEXT, isPaused, pauseUntil, TIMES, WEEKLY_TEXT } from '@/services/reminders';
+import { onWeb } from '@/services/platform';
+import { askOnTime, EVENING_TEXT, isPaused, pauseUntil, TIMES, WEEKLY_TEXT } from '@/services/reminders';
 import { useStore } from '@/state/demo-store';
-import { useAllowReminders } from '@/state/reminders';
+import { useAllowReminders, useOnTime } from '@/state/reminders';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space, touch } from '@/theme/tokens';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 /**
  * Gentle reminders, as local notifications on this device. Opt-in; Android's permission prompt
- * comes only after the user turns one on and reads what it will do.
+ * comes only after the user turns one on and reads what it will do. The web has none yet, so it
+ * goes back to Settings.
  */
 export default function Reminders() {
+  return onWeb() ? <Redirect href="/settings" /> : <RemindersSettings />;
+}
+
+function RemindersSettings() {
   const styles = useStyles();
   const { color } = useTheme();
   const { state, dispatch } = useStore();
@@ -29,6 +36,9 @@ export default function Reminders() {
   const [asking, setAsking] = useState<'enabled' | 'weekly' | null>(null);
   const set = (patch: Partial<typeof r>) => dispatch({ type: 'reminders', patch });
   const allow = useAllowReminders();
+  const onTime = useOnTime();
+  // Without Android's "Alarms & reminders" a reminder lands within half an hour of its time.
+  const at = onTime === false ? `around ${r.time}` : r.time;
   const paused = isPaused(r);
   const until = paused && r.pausedUntil ? new Date(r.pausedUntil).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : null;
 
@@ -47,7 +57,13 @@ export default function Reminders() {
       </Text>
 
       <Section first>
-        <SwitchRow title="Evening reminder" detail={r.enabled ? `On · ${r.time}` : 'Off'} value={r.enabled} onChange={toggle('enabled')} />
+        <SwitchRow title="Evening reminder" detail={r.enabled ? `On · ${at}` : 'Off'} value={r.enabled} onChange={toggle('enabled')} />
+        {r.permission === 'granted' && (r.enabled || r.weekly) && onTime === false && (
+          <Notice title="Arrives within half an hour">
+            Android can hold a reminder back by up to an hour, so Kindway sends it a little early. To have it arrive right at {r.time}, allow “Alarms & reminders”.
+            <Button variant="tonal" label="Allow on-time reminders" trailingIcon="arrow-right" onPress={() => void askOnTime().catch(() => {})} />
+          </Notice>
+        )}
         {r.permission === 'denied' && (
           <Notice tone="warn" title="Notifications are blocked">
             Android isn’t allowing Kindway to send notifications. You can change that in system settings, or skip reminders entirely.

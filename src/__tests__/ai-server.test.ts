@@ -10,7 +10,7 @@ import { groqProvider, type AiProvider, type CompletionRequest, type CompletionR
 import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase/functions/_shared/ai-consent';
 import type { AiStore, BeginResult, CompassLink, EntryRow, ProfileRow, StoredFollowUp, StoredInsight, StoredReflection } from '../../supabase/functions/_shared/ai-store';
 import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
-import { handleInsights, parseInsights } from '../../supabase/functions/_shared/insights';
+import { handleInsights, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
 import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
 import { ADVISORS, CHAIR_RULES, parseNotes, withCouncil } from '../../supabase/functions/_shared/council';
@@ -319,7 +319,7 @@ describe('generate-reflection', () => {
     const result = await handleReflection(reflect(), ctx(store, provider));
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ status: 'ready', reflection: { id: 'ref-1', entry_id: 'e1', style: 'understand', provider: 'groq', model: 'openai/gpt-oss-120b' } });
-    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p5', entry_updated_at: '2026-10-19T20:00:00.000Z' });
+    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p6', entry_updated_at: '2026-10-19T20:00:00.000Z' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
     expect(store.entries).toHaveBeenCalledWith(['e1']);
     const sent = provider.calls[0].user;
@@ -552,6 +552,23 @@ describe('generate-insights', () => {
   });
 });
 
+describe('review input', () => {
+  // Tags and the good thing are optional. Listed as "none", the advisors and the review read
+  // their absence as something to fix (live R9, 2026-10-27: "No feeling tags", "Consistent journaling").
+  it('leaves out optional fields an entry doesn’t have, so nothing reads as missing', () => {
+    const prompt = insightsUserPrompt([entry('a', 'Fictional: repainted the door.', { feelings: [], gratitude: null, revisit: false })], []);
+    expect(prompt).not.toMatch(/none|Feeling tags|One good thing|come back to this/);
+    expect(prompt).toContain('repainted the door');
+  });
+
+  it('includes the ones it has', () => {
+    const prompt = insightsUserPrompt([entry('a', 'Fictional: a walk.', { feelings: ['Calm'], gratitude: 'The river', revisit: true })], []);
+    expect(prompt).toMatch(/Feeling tags: .*Calm/);
+    expect(prompt).toMatch(/One good thing: .*The river/);
+    expect(prompt).toContain('Marked "come back to this"');
+  });
+});
+
 describe('server safety screen', () => {
   it('matches common high-risk phrasing, including curly apostrophes', () => {
     expect(needsSafetyRoute('I don’t want to be alive anymore')).toBe(true);
@@ -711,7 +728,7 @@ describe('generate-follow-up', () => {
     const res = await run(ask());
     expect(res.body).toMatchObject({ status: 'ready', follow_up: { id: 'fu-6', entry_id: 'e1', provider: 'groq', model: 'openai/gpt-oss-120b', output: { reply: expect.stringContaining('Fictional reply') } } });
     expect(JSON.stringify(res.body)).not.toContain('was I wrong to stay late');
-    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p3' });
+    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p4' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
   });
 

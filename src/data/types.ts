@@ -152,4 +152,6 @@ export type Reminders = {
   offered?: boolean;
   /** Today said once that Android blocks notifications; it isn't said again. */
   blockedOffered?: boolean;
+  /** Asked once whether reminders should arrive on time (Android's "Alarms & reminders"). */
+  onTimeAsked?: boolean;
 };

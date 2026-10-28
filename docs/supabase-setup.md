@@ -55,6 +55,8 @@ The app chooses the redirect in `redirectTo()` (`src/services/auth.ts`), by wher
 | Email confirmation | `exp://<lan-ip>:8081/--/auth/confirm` (`exps://<tunnel-host>/--/auth/confirm` with `--tunnel`) | `kindway:///auth/confirm` | `src/app/auth/confirm.tsx` |
 | Password reset | `exp://<lan-ip>:8081/--/reset-password` (`exps://…` with `--tunnel`) | `kindway:///reset-password` | `src/app/reset-password.tsx` |
 
+The web app sends links back to its own site, `https://<site>/auth/confirm` and `https://<site>/reset-password`, and never uses the landing page below. Allow-list `https://<site>/**` and `https://*.<site>/**` (see `docs/web-app.md`, which also explains what iPhone users see when Mail opens a link in Safari).
+
 In development, the redirect the app sent is printed in the Metro log (`[auth] confirmation links return to …`) and shown on the "Check your email" screen. Only that address is logged, never a token, code or session.
 
 Auth uses the PKCE flow: links arrive as `…?code=…`, and the app exchanges the code on the same device that requested it. A link opened on another device can't finish signing in there. For a confirmation link the email is still confirmed, so the person can just sign in. For a reset link they request a new one from the device they'll use. An expired or already-used link comes back with `error_code` (for example `otp_expired`) in the URL fragment and the query; both routes read the full URL and say what went wrong instead of showing an empty screen.
@@ -204,7 +206,7 @@ No request carries entry text or a user id; the server reads both itself (a foll
 
 **Provider.** GroqCloud, model `openai/gpt-oss-120b`, ordinary chat-completions endpoint only (no tools, web search, Batch, Files or fine-tuning), strict JSON-schema output, `reasoning_effort: low`, reasoning excluded from the reply. Model availability was checked in Groq's docs on 2026-10-20 (listed as production). The app only knows the `AiService`/review contracts; another provider means a new adapter in `ai-provider.ts` plus a new disclosure version.
 
-**Council (against sycophancy).** Before each reflection, review or follow-up reply, `council.ts` sends the same request three times in parallel as different "advisors" (Feelings first, Fair witness, Grounded friend). Each writes short notes (≤ 700 chars, 500 output tokens), and the answer is then written by the same model with those notes and a self-check against taking the user's side or flattering them. If an advisor fails, its notes are dropped; if all fail, the answer is written alone. If any advisor flags a safety concern, the request goes to the support route. The provider, model and data sent are unchanged, so consent versions were not bumped, but Groq now receives each request's content **four times** under the same retention terms. Logs record `council_notes` (a count). Cost: about 4× the input tokens and one extra round trip. Prompt versions `reflection-p4`, `insights-p2`, `follow-up-p2`.
+**Council (against sycophancy).** Before each reflection, review or follow-up reply, `council.ts` sends the same request three times in parallel as different "advisors" (Feelings first, Fair witness, Grounded friend). Each writes short notes (≤ 700 chars, 500 output tokens), and the answer is then written by the same model with those notes and a self-check against taking the user's side or flattering them. If an advisor fails, its notes are dropped; if all fail, the answer is written alone. If any advisor flags a safety concern, the request goes to the support route. The provider, model and data sent are unchanged, so consent versions were not bumped, but Groq now receives each request's content **four times** under the same retention terms. Logs record `council_notes` (a count). Cost: about 4× the input tokens and one extra round trip. Introduced with prompt versions `reflection-p4`, `insights-p2`, `follow-up-p2`; current versions are `reflection-p6`, `insights-p3` and `follow-up-p4` (2026-10-28: advisors stay in scope, and a review's input leaves out empty optional fields).
 
 **Settings** (Edge Function secrets; invalid values make AI fail closed with `not_configured`):
 
@@ -260,7 +262,34 @@ npx supabase secrets set --env-file supabase/functions/.env
 npx supabase functions deploy generate-reflection generate-insights generate-follow-up
 ```
 
-Then verify, with a disposable account and fictional entries, that a reflection and a review work in a build pointed at the project, and check **Database → Advisors**. Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).
+**Calls from the web app (CORS).** Browsers ask permission (`OPTIONS`) before calling a function from a website. All four functions answer through `_shared/cors.ts`, for the sites listed in the `ALLOWED_ORIGINS` secret: comma-separated exact origins, or one wildcard label for preview addresses.
+
+```bash
+npx supabase secrets set "ALLOWED_ORIGINS=https://<site>.pages.dev,https://*.<site>.pages.dev,http://localhost:8081,http://localhost:3000"
+```
+
+Sites not on the list get a 403 to their preflight. Requests without an `Origin` (the Android app) are unaffected. The platform's JWT check lets preflights through, so `verify_jwt` stays on (checked 2026-10-28).
+
+Then verify, with a disposable account and fictional entries, that a reflection and a review work in a build pointed at the project, and check **Database → Advisors**.
+
+### Hosted smoke test
+
+`src/__tests__/hosted.smoke.test.ts` checks what's actually deployed, with no secret key. It covers:
+- two-account isolation
+- a second device reading the journal
+- forged tokens and missing or outdated consent
+- a real reflection, follow-up and review
+- review removal when a source entry is deleted
+- "Delete AI outputs"
+- that each stored reply's `prompt_version` matches this repository's code
+
+It needs two existing throwaway accounts (never real users), and it clears their journals first. Create them confirmed with SQL on `auth.users` and `auth.identities`, because signing up sends an email. Delete them afterwards with the `delete-account` function, which also checks account deletion. Each run makes three live AI requests, spaced out for Groq's per-minute limit.
+
+```bash
+KINDWAY_HOSTED_SMOKE=1 KINDWAY_HOSTED_URL=<project URL> KINDWAY_HOSTED_PUBLISHABLE_KEY=<publishable key> \
+KINDWAY_HOSTED_A_EMAIL=... KINDWAY_HOSTED_A_PASSWORD=... KINDWAY_HOSTED_B_EMAIL=... KINDWAY_HOSTED_B_PASSWORD=... \
+npx jest src/__tests__/hosted.smoke.test.ts
+``` Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).
 
 ## 7. How sync works
 

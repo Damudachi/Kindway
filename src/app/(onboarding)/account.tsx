@@ -30,7 +30,7 @@ function linkRoute() {
 export default function Account() {
   const styles = useStyles();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const [mode, setMode] = useState<Mode>(params.mode === 'signin' ? 'signin' : 'signup');
+  const [mode, setMode] = useState<Mode>(params.mode === 'signin' || params.mode === 'forgot' ? params.mode : 'signup');
   const { state } = useStore();
   const { auth, user } = useSession();
   const [email, setEmail] = useState('');

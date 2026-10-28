@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import type { Reminders } from '@/data/types';
+import { onWeb } from '@/services/platform';
 
 /**
  * Gentle reminders as local notifications on this device. Nothing goes through a server, and
@@ -17,9 +18,11 @@ let lib: Lib | null | undefined;
 
 /**
  * expo-notifications, or null where its native module is missing (Expo Go on SDK 58 lacks one
- * it loads at import). Loaded on first use, so the rest of the app still runs there.
+ * it loads at import), and on the web, which has no reminders yet. Loaded on first use, so the
+ * rest of the app still runs there.
  */
 export function notifications(): Lib | null {
+  if (onWeb()) return null;
   if (lib === undefined) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- see above
@@ -57,10 +60,23 @@ export function isPaused(r: Reminders, now = new Date()) {
   return !!until && until.getTime() > now.getTime();
 }
 
-/** What should be scheduled for these settings: nothing unless allowed, switched on and not paused. */
-export function plan(r: Reminders, now = new Date()): Planned[] {
+/**
+ * Without exact alarms Android may deliver a reminder up to an hour after its time, so it's
+ * scheduled this many minutes early to land around the time rather than after it.
+ */
+const EARLY_MINUTES = 30;
+
+/**
+ * What should be scheduled for these settings: nothing unless allowed, switched on and not paused.
+ * `onTime` is whether Android delivers at the exact time (see `onTimeAllowed`).
+ */
+export function plan(r: Reminders, now = new Date(), onTime = true): Planned[] {
   if (r.permission !== 'granted' || isPaused(r, now)) return [];
-  const { hour, minute } = parseTime(r.time);
+  const t = parseTime(r.time);
+  // Kept on the same day, so the weekday stays right (the times on offer are all evenings).
+  const at = Math.max(0, t.hour * 60 + t.minute - (onTime ? 0 : EARLY_MINUTES));
+  const hour = Math.floor(at / 60);
+  const minute = at % 60;
   const out: Planned[] = [];
   if (r.enabled) {
     r.days.forEach((on, day) => {
@@ -101,12 +117,29 @@ export async function permissionGranted() {
   return !!Notifications && (await Notifications.getPermissionsAsync()).granted;
 }
 
+/**
+ * Whether Android delivers reminders at their exact time. Android 14+ denies exact alarms to new
+ * installs until the user allows "Alarms & reminders"; elsewhere it's always true.
+ */
+export async function onTimeAllowed() {
+  const Notifications = notifications();
+  if (Platform.OS !== 'android' || !Notifications) return true;
+  return (await Notifications.getExactAlarmPermissionsAsync()).granted;
+}
+
+/** Opens Android's "Alarms & reminders" setting for Kindway; resolves when the user comes back. */
+export async function askOnTime() {
+  const Notifications = notifications();
+  if (!Notifications) return false;
+  return (await Notifications.requestExactAlarmPermissionsAsync()).granted;
+}
+
 /** Replaces everything scheduled with the plan for these settings. */
 export async function applySchedule(r: Reminders, now = new Date()) {
   const Notifications = notifications();
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
-  const items = plan(r, now);
+  const items = plan(r, now, await onTimeAllowed());
   if (items.length === 0) return;
   await ensureChannel(Notifications);
   for (const p of items) {

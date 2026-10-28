@@ -22,7 +22,11 @@ const N = Notifications as jest.Mocked<typeof Notifications>;
 
 const base: Reminders = { ...initialState.reminders, permission: 'granted', enabled: true };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  N.getPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: true, status: 'undetermined' } as never);
+  N.getExactAlarmPermissionsAsync.mockResolvedValue({ granted: true } as never);
+});
 afterEach(() => jest.restoreAllMocks());
 
 describe('reminder schedule', () => {
@@ -70,12 +74,36 @@ describe('reminder schedule', () => {
     expect(N.deleteNotificationChannelAsync).toHaveBeenCalledWith('reminders');
     expect(N.scheduleNotificationAsync.mock.calls[0][0]).toMatchObject({ trigger: { channelId: 'reminders-v2' } });
   });
+
+  // Without exact alarms Android delivers up to an hour after the time (seen 2026-10-27), so the
+  // reminder is scheduled half an hour early to land around the time instead of after it.
+  it('without on-time permission, plans half an hour early so it lands around the time', () => {
+    const p = plan({ ...base, time: '7:00 PM', days: [true, false, false, false, false, false, false], weekly: true, weeklyDay: 0 }, new Date(), false);
+    expect(p.map((x) => [x.kind, x.hour, x.minute])).toEqual([
+      ['evening', 18, 30],
+      ['weekly', 18, 30],
+    ]);
+  });
+
+  it('schedules on time only when Android allows exact alarms', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    N.getExactAlarmPermissionsAsync.mockResolvedValueOnce({ granted: false } as never);
+    await applySchedule({ ...base, days: [true, false, false, false, false, false, false] });
+    expect(N.scheduleNotificationAsync.mock.calls[0][0]).toMatchObject({ trigger: { hour: 20, minute: 30 } });
+    await applySchedule({ ...base, days: [true, false, false, false, false, false, false] });
+    expect(N.scheduleNotificationAsync.mock.calls[1][0]).toMatchObject({ trigger: { hour: 21, minute: 0 } });
+  });
 });
 
 function Probe() {
   const { state } = useStore();
   const r = state.reminders;
-  return <Text>{`reminders:${r.permission}|${r.enabled}|${!!r.offered}|${!!r.blockedOffered}`}</Text>;
+  return (
+    <>
+      <Text>{`reminders:${r.permission}|${r.enabled}|${!!r.offered}|${!!r.blockedOffered}`}</Text>
+      <Text>{`onTimeAsked:${!!r.onTimeAsked}`}</Text>
+    </>
+  );
 }
 
 async function open(initialUrl: string, state: Partial<DemoState> = {}, { scheduler = false } = {}) {
@@ -177,7 +205,6 @@ describe('reminders offered on Today', () => {
     N.getPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true, status: 'granted' } as never);
     await open('/today', { ...written, reminders: { ...initialState.reminders, permission: 'denied', enabled: true, offered: true, blockedOffered: true } }, { scheduler: true });
     await waitFor(() => expect(screen.getByText('reminders:granted|true|true|true')).toBeOnTheScreen(), wait);
-    N.getPermissionsAsync.mockResolvedValue({ granted: false, canAskAgain: true, status: 'undetermined' } as never);
   });
 });
 
@@ -189,6 +216,47 @@ describe('reminders in settings', () => {
     expect(N.requestPermissionsAsync).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getByText(/reminders:granted\|true/)).toBeOnTheScreen(), wait);
+  });
+
+  it('says “around” when reminders can’t be on time, and offers to fix it', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    N.getExactAlarmPermissionsAsync.mockResolvedValue({ granted: false } as never);
+    await open('/settings/reminders', { reminders: base });
+    expect(await screen.findByText(/On · around 9:00 PM/, {}, wait)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow on-time reminders' }));
+    await waitFor(() => expect(N.requestExactAlarmPermissionsAsync).toHaveBeenCalled(), wait);
+  });
+});
+
+describe('on-time reminders', () => {
+  const on = { onboarded: true, reminders: base };
+  beforeEach(() => N.getPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true, status: 'granted' } as never));
+
+  it('asks once, after reminders are on, and opens Android’s setting', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    N.getExactAlarmPermissionsAsync.mockResolvedValue({ granted: false } as never);
+    await open('/today', on, { scheduler: true });
+    expect(await screen.findByText('Reminders right on time?', {}, wait)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open settings' }));
+    await waitFor(() => expect(N.requestExactAlarmPermissionsAsync).toHaveBeenCalled(), wait);
+    expect(screen.getByText('onTimeAsked:true')).toBeOnTheScreen();
+    expect(screen.queryByText('Reminders right on time?')).toBeNull();
+  });
+
+  it('“around” is fine: not asked again, and Android isn’t opened', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    N.getExactAlarmPermissionsAsync.mockResolvedValue({ granted: false } as never);
+    await open('/today', on, { scheduler: true });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Around 9:00 PM is fine' }, wait));
+    expect(screen.getByText('onTimeAsked:true')).toBeOnTheScreen();
+    expect(N.requestExactAlarmPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('isn’t asked when Android already allows it', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    await open('/today', on, { scheduler: true });
+    await waitFor(() => expect(N.getExactAlarmPermissionsAsync).toHaveBeenCalled(), wait);
+    expect(screen.queryByText('Reminders right on time?')).toBeNull();
   });
 });
 

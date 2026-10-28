@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -7,6 +7,7 @@ import { SwitchRow } from '@/components/controls';
 import { useSnackbar } from '@/components/feedback';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { widgetSnapshot } from '@/state/widget-sync';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -17,8 +18,13 @@ import { pinWidget } from '@/widget/native';
 /**
  * The Android home-screen widget: what it shows, whether it may show the Tomorrow Bridge step,
  * and a shortcut to add it. The preview below is drawn like the widget, in the current scheme.
+ * The web has no widget, so it goes back to Settings.
  */
 export default function Widget() {
+  return onWeb() ? <Redirect href="/settings" /> : <WidgetSettings />;
+}
+
+function WidgetSettings() {
   const styles = useStyles();
   const { color } = useTheme();
   const { state, dispatch } = useStore();

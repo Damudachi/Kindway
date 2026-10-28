@@ -13,6 +13,7 @@ import { Screen } from '@/components/screen';
 import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { Feelings, Trail, TrailStop } from '@/components/trail';
+import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
 import { useSync } from '@/state/cloud-sync';
@@ -25,7 +26,7 @@ import { space } from '@/theme/tokens';
 export default function Today() {
   const styles = useStyles();
   const { color, tint } = useTheme();
-  const { state, dispatch } = useStore();
+  const { state, dispatch, saveFailed } = useStore();
   const entries = useEntries();
   const snack = useSnackbar();
   const { mode } = useSession();
@@ -69,6 +70,23 @@ export default function Today() {
   return (
     <Screen inTabs top={{ wordmark: true, actions: <IconButton icon="cog-outline" label="Settings" onPress={() => router.push('/settings')} /> }}
       backdrop={<EveningGlow />}>
+      <UpdateNotice />
+      {saveFailed && (
+        <View style={styles.banner}>
+          <Notice tone="warn" icon="content-save-alert-outline" title="Couldn’t save on this device">
+            {mode === 'cloud-sync'
+              ? 'This device’s storage is full or unavailable, so your latest changes could be lost here when Kindway closes. Keep it open until Settings says everything is backed up.'
+              : 'This device’s storage is full or unavailable, so your latest changes could be lost when Kindway closes. Backing up to an account keeps them safe.'}
+          </Notice>
+          {mode !== 'cloud-sync' && (
+            <View style={styles.bannerActions}>
+              <Button variant="tonal" label="Back up now" onPress={() => router.push(mode === 'signed-in-local' ? '/sync' : '/account?mode=signin')} />
+            </View>
+          )}
+        </View>
+      )}
+      <InstallTip />
+      <BackupNudge />
       {state.demo.ai === 'offline' && (
         <View style={styles.banner}>
           <Notice tone="info" icon="wifi-off" title="You're offline">

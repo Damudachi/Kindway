@@ -5,6 +5,7 @@ import { Linking, View } from 'react-native';
 import { Button } from '@/components/button';
 import { useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
+import { onWeb } from '@/services/platform';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useAllowReminders } from '@/state/reminders';
 import { makeStyles } from '@/theme/theme';
@@ -14,7 +15,7 @@ import { space } from '@/theme/tokens';
  * Today's reminder offers, each shown at most once and only after the first entry:
  * - never asked: the evening reminder, switched on right here (Android asks next);
  * - blocked by Android: says why reminders can't arrive and opens system settings.
- * A "no" to either is final. Renders nothing otherwise.
+ * A "no" to either is final. Renders nothing otherwise, and nothing on the web.
  */
 export function ReminderOffer() {
   const styles = useStyles();
@@ -25,7 +26,7 @@ export function ReminderOffer() {
   const [busy, setBusy] = useState(false);
   const r = state.reminders;
   const set = (patch: Partial<typeof r>) => dispatch({ type: 'reminders', patch });
-  if (!state.onboarded || entries.length === 0) return null;
+  if (onWeb() || !state.onboarded || entries.length === 0) return null;
 
   if (r.permission === 'unasked' && !r.offered && !r.enabled) {
     const turnOn = async () => {

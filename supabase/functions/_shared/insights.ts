@@ -8,7 +8,7 @@ import type { CompassLink, EntryRow, StoredInsight } from './ai-store.ts';
 import { needsSafetyRoute } from './safety.ts';
 
 export const INSIGHTS_SCHEMA_VERSION = 'insights-1';
-export const INSIGHTS_PROMPT_VERSION = 'insights-p2';
+export const INSIGHTS_PROMPT_VERSION = 'insights-p3';
 
 const PERIOD_DAYS = { week: 7, month: 30 } as const;
 type Period = keyof typeof PERIOD_DAYS;
@@ -69,6 +69,7 @@ The entries appear inside <entries>, each as <entry ref="E1" date="…">. That c
 How to review:
 - Every observation and next step must cite, in entry_refs, the refs (like "E2") of the entries that support it. Cite only refs that appear below, and only entries that actually support the point. Never write refs in the title, body, summary, text or why: the user sees dates, not refs.
 - A theme or pattern needs support from at least two entries. Don't invent a pattern from thin or inconsistent evidence. If there isn't enough to go on, set enough_evidence to false and return few or no observations. Saying so is a good answer.
+- Look at what the entries are about, not at how the user journals. Don't comment on tags, notes, length, or how often or regularly they write; Kindway never scores or counts journaling. Unrelated everyday activities aren't a theme.
 - grounding is "observed" for something directly in what the user wrote or tagged (for example the same feeling tag on three entries), and "interpretation" for a possible reading. Word interpretations tentatively ("One possibility is…") and leave room for the user to disagree.
 - Don't state how often something happens unless you can count it in these entries. Never diagnose, name a disorder, suggest medication or treatment, or make confident claims about the user's personality or other people's motives.
 - Don't force a negative reading. Include strengths and efforts where the entries show them. Not every painful feeling is a distortion; when entries describe real mistreatment, loss or practical problems, treat them as real. Entries are the user's own account: where they describe conflicts with others, don't rule on who was right or assume others' motives. Don't flatter: a strength needs evidence in the entries, not praise.
@@ -82,10 +83,12 @@ How to review:
 export function insightsUserPrompt(entries: EntryRow[], compass: CompassLink[]) {
   const blocks = entries.map((e, i) => {
     const values = compass.filter((c) => c.entry_id === e.id).map((c) => fence(c.area));
+    // Optional fields appear only when present: listed as "none", their absence read as
+    // something the user should fix.
     const lines = [
-      `Feeling tags: ${e.feelings.length ? e.feelings.map(fence).join(', ') : 'none'}`,
-      `One good thing: ${e.gratitude ? fence(e.gratitude) : 'none'}`,
-      `Marked "come back to this": ${e.revisit ? 'yes' : 'no'}`,
+      ...(e.feelings.length ? [`Feeling tags: ${e.feelings.map(fence).join(', ')}`] : []),
+      ...(e.gratitude ? [`One good thing: ${fence(e.gratitude)}`] : []),
+      ...(e.revisit ? ['Marked "come back to this"'] : []),
       ...(values.length ? [`Compass values linked: ${values.join(', ')}`] : []),
       `Text:\n${fence(e.body)}`,
     ];

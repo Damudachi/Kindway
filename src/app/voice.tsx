@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space } from '@/theme/tokens';
@@ -85,7 +86,7 @@ export default function Voice() {
         <View style={styles.block}>
           <Text variant="title">Kindway needs your microphone</Text>
           <Text variant="body">
-            Audio is used only to create the transcript, then discarded. Android will ask you to allow access.
+            Audio is used only to create the transcript, then discarded. {onWeb() ? 'Your browser' : 'Android'} will ask you to allow access.
           </Text>
           <Button label="Allow microphone (demo)" onPress={() => setStep('recording')} />
           <Button variant="secondary" label="Don't allow (demo)" onPress={() => setStep('denied')} />
@@ -95,9 +96,9 @@ export default function Voice() {
       {step === 'denied' && (
         <View style={styles.block}>
           <Notice tone="warn" title="Microphone access is off">
-            You can turn it on in Android settings, or write instead. Nothing you’ve written is affected.
+            You can turn it on in {onWeb() ? 'your browser’s settings' : 'Android settings'}, or write instead. Nothing you’ve written is affected.
           </Notice>
-          <Button variant="secondary" label="Open Android settings (demo)" onPress={() => setStep('permission')} />
+          <Button variant="secondary" label={onWeb() ? 'Try again (demo)' : 'Open Android settings (demo)'} onPress={() => setStep('permission')} />
           <Button variant="tonal" label="Write instead" onPress={() => router.replace('/write')} />
         </View>
       )}

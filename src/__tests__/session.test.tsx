@@ -65,8 +65,19 @@ function Probe() {
       <Pressable accessibilityRole="button" onPress={() => sync?.retry()}>
         <Text>retry</Text>
       </Pressable>
+      {/* Like an AI reply: the request starts in this journal and its result lands later. */}
+      <Pressable accessibilityRole="button" onPress={() => void late.promise.then(() => dispatch({ type: 'saveEntry', entry: entry('late', 0, { title: 'Late reply' }) }))}>
+        <Text>start slow request</Text>
+      </Pressable>
     </>
   );
+}
+
+let late = deferred();
+function deferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((r) => (resolve = r));
+  return { promise, resolve };
 }
 
 const wait = { timeout: 5000 };
@@ -136,6 +147,26 @@ describe('accounts and journals on one device', () => {
     expect(await screen.findByText('sync:synced', {}, wait)).toBeOnTheScreen();
     expect(screen.getByText('entries:none')).toBeOnTheScreen();
     expect(screen.queryByText(/A private entry/)).toBeNull();
+  });
+
+  it('a reply that lands after switching accounts never reaches the new account', async () => {
+    late = deferred();
+    const cloud = fakeCloud();
+    const f = fakeAuth();
+    await render(
+      <SessionProvider auth={f.auth} repo={cloud.repo} watchUser={f.watchUser} settings={memoryStorage({ syncUsers: ['user-a', 'user-b'] })}>
+        <Journal />
+      </SessionProvider>,
+    );
+    await f.signIn(A);
+    expect(await screen.findByText('sync:synced', {}, wait)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('start slow request'));
+
+    await f.signIn(B);
+    expect(await screen.findByText('sync:synced', {}, wait)).toBeOnTheScreen();
+    await act(async () => late.resolve());
+    expect(screen.getByText('entries:none')).toBeOnTheScreen();
+    expect(cloud.data('user-b').entries).toEqual({});
   });
 
   it('writes while synced reach the cloud; a failed write says so and retries without losing anything', async () => {

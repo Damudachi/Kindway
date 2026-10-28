@@ -10,6 +10,7 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import type { DemoAi } from '@/data/types';
+import { onWeb } from '@/services/platform';
 import { consentSummary, useAiConsent } from '@/state/ai-consent';
 import { useSync, type SyncStatus } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
@@ -80,10 +81,20 @@ export default function Settings() {
       <Section title="Your journal">
         <Card flush>
           <NavRow icon="shield-lock-outline" title="Privacy & data" detail="Storage, export, deletion" onPress={() => router.push('/settings/privacy')} />
-          <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
-          <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
+          {/* The web app has no reminders or widget yet. */}
+          {!onWeb() && (
+            <>
+              <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
+              <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
+            </>
+          )}
           <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
         </Card>
+        {onWeb() && (
+          <Text variant="small" style={styles.gapSm}>
+            Gentle reminders aren’t available in the web app yet.
+          </Text>
+        )}
       </Section>
 
       <Section title="Appearance">

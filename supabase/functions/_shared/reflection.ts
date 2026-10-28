@@ -8,7 +8,7 @@ import type { CompassLink, EntryRow, ProfileRow, StoredReflection } from './ai-s
 import { needsSafetyRoute } from './safety.ts';
 
 export const REFLECTION_SCHEMA_VERSION = 'reflection-1';
-export const REFLECTION_PROMPT_VERSION = 'reflection-p5';
+export const REFLECTION_PROMPT_VERSION = 'reflection-p6';
 
 /** Limits on the entry title and on the other topics a many-topic entry is split into. */
 export const MAX_TITLE = 60;

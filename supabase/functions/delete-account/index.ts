@@ -5,6 +5,8 @@
 // default Edge Function secret on the server; it is never shipped in the app.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { withCors } from '../_shared/cors.ts';
+
 const json = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -21,7 +23,7 @@ function adminKey() {
   return Deno.env.get('SUPABASE_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
 
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
@@ -43,4 +45,4 @@ Deno.serve(async (req) => {
     return json(500, { error: 'delete_failed' });
   }
   return json(200, { deleted: true });
-});
+}, (name) => Deno.env.get(name)));

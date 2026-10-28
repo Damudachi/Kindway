@@ -8,6 +8,8 @@ AI details, limits and deployment: [`docs/supabase-setup.md`](docs/supabase-setu
 
 Backend setup, sync behavior and security notes: [`docs/supabase-setup.md`](docs/supabase-setup.md).
 
+The iPhone web app (installable PWA on Cloudflare Pages): [`docs/web-app.md`](docs/web-app.md).
+
 Planning sources: `reflection_companion_product_blueprint.md`, `reflection_companion_wireframe.html`, `PRODUCT.md`.
 
 ## Commands
@@ -18,6 +20,7 @@ npx expo start --android   # Expo Go on an emulator or device
 npm run typecheck          # tsc --noEmit
 npm run lint               # expo lint
 npm test                   # jest (jest-expo)
+npm run build:web          # web app into dist/, with the offline service worker
 npx supabase start         # local Supabase (Docker) with supabase/migrations applied
 npx supabase test db       # pgTAP two-user RLS tests
 ```

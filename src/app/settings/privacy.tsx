@@ -6,6 +6,7 @@ import { Section } from '@/components/controls';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { makeStyles } from '@/theme/theme';
@@ -30,7 +31,9 @@ export default function Privacy() {
             : 'Only on this device. Nothing is backed up or synced unless you sign in and choose to turn cloud sync on.'}
         </Text>
         <Text variant="small" style={styles.gapSm}>
-          On the device, entries are kept in the app’s storage. Kindway doesn’t encrypt them beyond what Android itself provides, and anyone who can unlock and inspect this device could read them. Uninstalling the app removes them from the device.
+          {onWeb()
+            ? 'On the device, entries are kept in this browser’s storage. Kindway doesn’t encrypt them beyond what your browser provides, and anyone who can unlock and inspect this device could read them. Clearing this site’s data, or removing Kindway from your Home Screen, removes them from the device.'
+            : 'On the device, entries are kept in the app’s storage. Kindway doesn’t encrypt them beyond what Android itself provides, and anyone who can unlock and inspect this device could read them. Uninstalling the app removes them from the device.'}
         </Text>
         <Text variant="small" style={styles.gapSm}>
           In the cloud, each account can read and change only its own rows; the server enforces this, not the app. Data is encrypted in transit and at rest by the hosting provider, but it isn’t end-to-end encrypted: Kindway’s server administrators could technically access it.
