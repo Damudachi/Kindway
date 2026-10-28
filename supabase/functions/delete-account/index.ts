@@ -6,29 +6,17 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { withCors } from '../_shared/cors.ts';
+import { serverKey } from '../_shared/server-key.ts';
 
 const json = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-
-function adminKey() {
-  const keys = Deno.env.get('SUPABASE_SECRET_KEYS');
-  if (keys) {
-    try {
-      const key = JSON.parse(keys)['default'];
-      if (key) return key as string;
-    } catch {
-      // Fall through to the legacy key.
-    }
-  }
-  return Deno.env.get('SUPABASE_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-}
 
 Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
 
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   const url = Deno.env.get('SUPABASE_URL');
-  const key = adminKey();
+  const key = serverKey((name) => Deno.env.get(name));
   if (!url || !key) return json(500, { error: 'not_configured' });
   if (!token) return json(401, { error: 'not_signed_in' });
 

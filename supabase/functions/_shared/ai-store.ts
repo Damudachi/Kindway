@@ -1,5 +1,7 @@
-// What the AI functions read and write, always as the signed-in caller (their JWT), so Row Level
-// Security decides what exists. The service-role key is never used here.
+// What the AI functions read and write. Reads run as the signed-in caller (their JWT), so Row
+// Level Security decides what exists. Writes (the request ledger and AI rows) go through the
+// server key with the user id from the verified token: signed-in callers can't write AI rows
+// themselves, so "Written by AI" only ever comes from here.
 import { type AiScope, hasActiveConsent, type RpcClient } from './ai-consent.ts';
 
 export type RequestKind = 'reflection' | 'insights' | 'follow_up';
@@ -86,8 +88,11 @@ const REFLECTION_COLUMNS = 'id, entry_id, created_at, style, output, provider, m
 const FOLLOW_UP_COLUMNS = 'id, entry_id, created_at, style, message, output, provider, model';
 const INSIGHT_COLUMNS = 'id, created_at, period, range_start, range_end, entry_count, output, provider, model';
 
-/** The AiStore for a Supabase client created with the caller's Authorization header. */
-export function supabaseAiStore(client: Client): AiStore {
+/**
+ * The AiStore for one verified caller. `caller` is a client with the caller's Authorization header;
+ * `server` uses the server key; `userId` comes only from the verified token.
+ */
+export function supabaseAiStore(caller: Client, server: Client, userId: string): AiStore {
   const rows = async <T>(query: PromiseLike<{ data: T | null; error: unknown }>) => {
     const { data, error } = await query;
     if (error) throw new StoreError();
@@ -95,16 +100,17 @@ export function supabaseAiStore(client: Client): AiStore {
   };
   const sourcesFor = async (insightId: string) => {
     const links = (await rows<{ entry_id: string; entries: { written_at: string } | null }[]>(
-      client.from('ai_insight_sources').select('entry_id, entries(written_at)').eq('insight_id', insightId),
+      caller.from('ai_insight_sources').select('entry_id, entries(written_at)').eq('insight_id', insightId),
     )) ?? [];
     return links.map((l) => ({ entry_id: l.entry_id, written_at: l.entries?.written_at ?? '' }));
   };
 
   return {
-    consentActive: (scope) => hasActiveConsent(client, scope),
+    consentActive: (scope) => hasActiveConsent(caller, scope),
 
     async beginRequest(kind, key, limits) {
-      const { data, error } = await client.rpc('ai_begin_request', {
+      const { data, error } = await server.rpc('ai_server_begin_request', {
+        p_user: userId,
         p_kind: kind,
         p_key: key,
         p_cooldown_seconds: limits.cooldownSeconds,
@@ -120,47 +126,47 @@ export function supabaseAiStore(client: Client): AiStore {
     },
 
     async finishRequest(requestId, status, code) {
-      const { error } = await client.rpc('ai_finish_request', { p_request_id: requestId, p_status: status, p_error_code: code ?? null });
+      const { error } = await server.rpc('ai_server_finish_request', { p_user: userId, p_request_id: requestId, p_status: status, p_error_code: code ?? null });
       if (error) throw new StoreError();
     },
 
     async entries(ids) {
       if (ids.length === 0) return [];
-      return (await rows<EntryRow[]>(client.from('entries').select(ENTRY_COLUMNS).in('id', ids))) ?? [];
+      return (await rows<EntryRow[]>(caller.from('entries').select(ENTRY_COLUMNS).in('id', ids))) ?? [];
     },
 
     async profile() {
-      return rows<ProfileRow>(client.from('profiles').select('context_scope, challenge_gently, challenge_level, insights_use_compass').maybeSingle());
+      return rows<ProfileRow>(caller.from('profiles').select('context_scope, challenge_gently, challenge_level, insights_use_compass').maybeSingle());
     },
 
     async compassLinks(entryIds) {
       if (entryIds.length === 0) return [];
       const links = (await rows<{ entry_id: string; compass_values: { area: string; note: string; ai_may_reference: boolean } | null }[]>(
-        client.from('entry_compass_links').select('entry_id, compass_values(area, note, ai_may_reference)').in('entry_id', entryIds),
+        caller.from('entry_compass_links').select('entry_id, compass_values(area, note, ai_may_reference)').in('entry_id', entryIds),
       )) ?? [];
       return links.flatMap((l) => (l.compass_values?.ai_may_reference ? [{ entry_id: l.entry_id, area: l.compass_values.area, note: l.compass_values.note }] : []));
     },
 
-    reflectionForRequest: (requestId) => rows<StoredReflection>(client.from('ai_reflections').select(REFLECTION_COLUMNS).eq('request_id', requestId).maybeSingle()),
+    reflectionForRequest: (requestId) => rows<StoredReflection>(caller.from('ai_reflections').select(REFLECTION_COLUMNS).eq('request_id', requestId).maybeSingle()),
 
     async insightForRequest(requestId) {
-      const insight = await rows<Omit<StoredInsight, 'sources'>>(client.from('ai_insights').select(INSIGHT_COLUMNS).eq('request_id', requestId).maybeSingle());
+      const insight = await rows<Omit<StoredInsight, 'sources'>>(caller.from('ai_insights').select(INSIGHT_COLUMNS).eq('request_id', requestId).maybeSingle());
       return insight ? { ...insight, sources: await sourcesFor(insight.id) } : null;
     },
 
     async saveReflection(row) {
-      const saved = await rows<StoredReflection>(client.from('ai_reflections').insert(row).select(REFLECTION_COLUMNS).single());
+      const saved = await rows<StoredReflection>(server.from('ai_reflections').insert({ ...row, user_id: userId }).select(REFLECTION_COLUMNS).single());
       if (!saved) throw new StoreError();
       return saved;
     },
 
     async saveInsight(row, entries) {
-      const saved = await rows<Omit<StoredInsight, 'sources'>>(client.from('ai_insights').insert(row).select(INSIGHT_COLUMNS).single());
+      const saved = await rows<Omit<StoredInsight, 'sources'>>(server.from('ai_insights').insert({ ...row, user_id: userId }).select(INSIGHT_COLUMNS).single());
       if (!saved) throw new StoreError();
-      const { error } = await client.from('ai_insight_sources').insert(entries.map((e) => ({ insight_id: saved.id, entry_id: e.id })));
+      const { error } = await server.from('ai_insight_sources').insert(entries.map((e) => ({ insight_id: saved.id, entry_id: e.id, user_id: userId })));
       if (error) {
         // A review must never exist without its sources; remove it rather than keep it half-saved.
-        await client.from('ai_insights').delete().eq('id', saved.id);
+        await server.from('ai_insights').delete().eq('id', saved.id);
         throw new StoreError();
       }
       return { ...saved, sources: entries.map((e) => ({ entry_id: e.id, written_at: e.written_at })) };
@@ -168,18 +174,18 @@ export function supabaseAiStore(client: Client): AiStore {
 
     async findReflections(ids) {
       if (ids.length === 0) return [];
-      return (await rows<StoredReflection[]>(client.from('ai_reflections').select(REFLECTION_COLUMNS).in('id', ids))) ?? [];
+      return (await rows<StoredReflection[]>(caller.from('ai_reflections').select(REFLECTION_COLUMNS).in('id', ids))) ?? [];
     },
 
     async followUps(ids) {
       if (ids.length === 0) return [];
-      return (await rows<StoredFollowUp[]>(client.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).in('id', ids).order('created_at', { ascending: true }))) ?? [];
+      return (await rows<StoredFollowUp[]>(caller.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).in('id', ids).order('created_at', { ascending: true }))) ?? [];
     },
 
-    followUpForRequest: (requestId) => rows<StoredFollowUp>(client.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).eq('request_id', requestId).maybeSingle()),
+    followUpForRequest: (requestId) => rows<StoredFollowUp>(caller.from('ai_follow_ups').select(FOLLOW_UP_COLUMNS).eq('request_id', requestId).maybeSingle()),
 
     async saveFollowUp(row) {
-      const saved = await rows<StoredFollowUp>(client.from('ai_follow_ups').insert(row).select(FOLLOW_UP_COLUMNS).single());
+      const saved = await rows<StoredFollowUp>(server.from('ai_follow_ups').insert({ ...row, user_id: userId }).select(FOLLOW_UP_COLUMNS).single());
       if (!saved) throw new StoreError();
       return saved;
     },

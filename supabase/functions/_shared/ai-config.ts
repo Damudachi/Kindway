@@ -18,6 +18,7 @@
 //   AI_FOLLOW_UP_MAX_TURNS       earlier exchanges sent as context         (default 3)
 //   AI_FOLLOW_UP_COOLDOWN_SECONDS / AI_FOLLOW_UP_DAILY_LIMIT               (default 5 / 60)
 import { AI_CONSENT_TERMS } from './ai-consent.ts';
+import { serverKey } from './server-key.ts';
 
 export type Limits = { cooldownSeconds: number; dailyLimit: number };
 
@@ -37,7 +38,7 @@ export const MIN_INSIGHT_ENTRIES = 3;
 type Env = (name: string) => string | undefined;
 
 /** Why AI isn't configured. A code for logs; never shown to users. */
-export type ConfigProblem = 'missing_key' | 'unknown_provider' | 'model_not_disclosed' | `invalid:${string}`;
+export type ConfigProblem = 'missing_key' | 'server_key_missing' | 'unknown_provider' | 'model_not_disclosed' | `invalid:${string}`;
 
 export function loadAiConfig(env: Env): { ok: true; config: AiConfig } | { ok: false; problem: ConfigProblem } {
   const bad: string[] = [];
@@ -86,5 +87,7 @@ export function loadAiConfig(env: Env): { ok: true; config: AiConfig } | { ok: f
   };
   if (bad.length > 0) return { ok: false, problem: `invalid:${bad.join(',')}` };
   if (!config.apiKey) return { ok: false, problem: 'missing_key' };
+  // AI rows and the request ledger are written with the server key (see ai-store.ts).
+  if (!serverKey(env)) return { ok: false, problem: 'server_key_missing' };
   return { ok: true, config };
 }

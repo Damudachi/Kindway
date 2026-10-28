@@ -220,19 +220,19 @@ run('compass context the AI functions may read (Phase 5D1)', () => {
   });
 
   it('only values linked to the asked-about entry and marked “AI may use this”', async () => {
-    const store = supabaseAiStore(a.client);
+    const store = supabaseAiStore(a.client, admin, a.id);
     expect(await store.compassLinks(['c1'])).toEqual([{ entry_id: 'c1', area: 'Family', note: 'Fictional note: stay close.' }]);
   });
 
   it('another account gets nothing, even with the right entry ids, and can’t link to A’s values', async () => {
-    expect(await supabaseAiStore(b.client).compassLinks(['c1', 'c2'])).toEqual([]);
+    expect(await supabaseAiStore(b.client, admin, b.id).compassLinks(['c1', 'c2'])).toEqual([]);
     if ((await b.client.from('entries').insert({ id: 'bx', user_id: b.id, written_at: new Date().toISOString(), body: BODY })).error) throw new Error('entry');
     const spoof = await b.client.from('entry_compass_links').insert({ user_id: b.id, entry_id: 'bx', compass_id: 'v-family' });
     expect(spoof.error).not.toBeNull();
   });
 
   it('switching the value off, unlinking or deleting it removes it from what AI may read', async () => {
-    const store = supabaseAiStore(a.client);
+    const store = supabaseAiStore(a.client, admin, a.id);
     await a.client.from('compass_values').update({ ai_may_reference: false }).eq('id', 'v-family');
     expect(await store.compassLinks(['c1'])).toEqual([]);
     expect(await store.compassLinks(['c2'])).toHaveLength(1);

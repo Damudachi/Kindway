@@ -8,7 +8,7 @@ import { loadAiConfig, type AiConfig } from '../../supabase/functions/_shared/ai
 import { serveAi, type Deps, type LogFields } from '../../supabase/functions/_shared/ai-http';
 import { groqProvider, type AiProvider, type CompletionRequest, type CompletionResult, type Usage } from '../../supabase/functions/_shared/ai-provider';
 import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase/functions/_shared/ai-consent';
-import type { AiStore, BeginResult, CompassLink, EntryRow, ProfileRow, StoredFollowUp, StoredInsight, StoredReflection } from '../../supabase/functions/_shared/ai-store';
+import { supabaseAiStore, type AiStore, type BeginResult, type CompassLink, type EntryRow, type ProfileRow, type StoredFollowUp, type StoredInsight, type StoredReflection } from '../../supabase/functions/_shared/ai-store';
 import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { handleInsights, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
 import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
@@ -18,7 +18,8 @@ import { caseEntry, caseTurns, FOLLOW_UP_CASES } from '@/test-utils/follow-up-ca
 
 const KEY = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const NOW = Date.parse('2026-10-20T12:00:00.000Z');
-const env = (vars: Record<string, string>) => (name: string) => vars[name];
+// Every environment has the server key the functions write with, unless a test removes it.
+const env = (vars: Record<string, string>) => (name: string) => ({ SUPABASE_SECRET_KEY: 'test-server-key-not-real', ...vars })[name];
 const config = (overrides: Record<string, string> = {}) => {
   const loaded = loadAiConfig(env({ GROQ_API_KEY: 'test-key-not-real', ...overrides }));
   if (!loaded.ok) throw new Error(loaded.problem);
@@ -160,6 +161,12 @@ describe('AI configuration', () => {
     expect(loadAiConfig(env({ GROQ_API_KEY: 'k', AI_PROVIDER: 'other' }))).toEqual({ ok: false, problem: 'unknown_provider' });
   });
 
+  it('needs the server key that AI rows are written with', () => {
+    expect(loadAiConfig(env({ GROQ_API_KEY: 'k', SUPABASE_SECRET_KEY: '' }))).toEqual({ ok: false, problem: 'server_key_missing' });
+    expect(loadAiConfig(env({ GROQ_API_KEY: 'k', SUPABASE_SECRET_KEY: '', SUPABASE_SECRET_KEYS: JSON.stringify({ default: 'sk' }) })).ok).toBe(true);
+    expect(loadAiConfig(env({ GROQ_API_KEY: 'k', SUPABASE_SECRET_KEY: '', SUPABASE_SERVICE_ROLE_KEY: 'legacy' })).ok).toBe(true);
+  });
+
   it('rejects out-of-range or non-numeric settings', () => {
     expect(loadAiConfig(env({ GROQ_API_KEY: 'k', AI_TIMEOUT_MS: '5', AI_INSIGHTS_DAILY_LIMIT: 'lots' }))).toEqual({
       ok: false,
@@ -253,6 +260,14 @@ describe('request pipeline', () => {
     expect(await status(post('{}'), deps(fakeStore(), {}).d)).toBe(503);
     expect(handler).not.toHaveBeenCalled();
     expect(await status(post('{}'))).toBe(200);
+  });
+
+  it('says the server isn’t set up when the server key is missing', async () => {
+    const { d, logs } = deps(fakeStore(), { GROQ_API_KEY: 'k', SUPABASE_SECRET_KEY: '' });
+    const res = await serveAi('t', post('{}'), d, handler);
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ error: 'not_configured' });
+    expect(logs.at(-1)).toMatchObject({ config_problem: 'server_key_missing' });
   });
 
   it('returns only a code on unexpected failures and never logs content', async () => {
@@ -1089,5 +1104,78 @@ describe('council against sycophancy', () => {
     const followUp = followUpSystemPrompt('understand', null);
     expect(followUp).toContain("don't change your view only because they disagree");
     expect(followUp).not.toContain("don't defend the other person");
+  });
+});
+
+// Who writes what -------------------------------------------------------------------------------
+
+describe('supabaseAiStore', () => {
+  // A client that records calls and answers every query with `data`.
+  function fakeClient(data: unknown = null) {
+    const calls: { table?: string; rpc?: string; op: string; args?: unknown }[] = [];
+    const query = (table: string) => {
+      const q: Record<string, unknown> = {};
+      for (const op of ['select', 'insert', 'delete', 'eq', 'in', 'order']) {
+        q[op] = (args?: unknown) => {
+          calls.push({ table, op, args });
+          return q;
+        };
+      }
+      q.single = q.maybeSingle = async () => ({ data, error: null });
+      q.then = (resolve: (v: unknown) => unknown) => resolve({ data, error: null });
+      return q;
+    };
+    return {
+      calls,
+      from: (table: string) => query(table),
+      rpc: async (fn: string, args: unknown) => {
+        calls.push({ rpc: fn, op: 'rpc', args });
+        return { data, error: null };
+      },
+    };
+  }
+
+  it('opens requests through the server, for the verified user', async () => {
+    const caller = fakeClient();
+    const server = fakeClient({ outcome: 'started', request_id: 'r1' });
+    const store = supabaseAiStore(caller as never, server as never, 'u1');
+    await expect(store.beginRequest('reflection', KEY, { cooldownSeconds: 10, dailyLimit: 50 })).resolves.toEqual({ outcome: 'started', requestId: 'r1' });
+    expect(server.calls).toEqual([
+      { rpc: 'ai_server_begin_request', op: 'rpc', args: { p_user: 'u1', p_kind: 'reflection', p_key: KEY, p_cooldown_seconds: 10, p_daily_limit: 50 } },
+    ]);
+    await store.finishRequest('r1', 'failed', 'timeout');
+    expect(server.calls.at(-1)).toEqual({ rpc: 'ai_server_finish_request', op: 'rpc', args: { p_user: 'u1', p_request_id: 'r1', p_status: 'failed', p_error_code: 'timeout' } });
+    expect(caller.calls.filter((c) => c.op === 'rpc')).toEqual([]);
+  });
+
+  it('writes AI rows through the server with the user id set, and reads as the caller', async () => {
+    const caller = fakeClient([]);
+    const server = fakeClient({ id: 'x1', entry_id: 'e1' });
+    const store = supabaseAiStore(caller as never, server as never, 'u1');
+    await store.saveReflection({ entry_id: 'e1', style: 'listen', output: {}, provider: 'groq', model: 'm', request_id: 'r1', schema_version: 's', prompt_version: 'p', entry_updated_at: 't' });
+    await store.saveFollowUp({ entry_id: 'e1', style: 'listen', message: 'hi', output: {}, provider: 'groq', model: 'm', request_id: 'r2', schema_version: 's', prompt_version: 'p' });
+    const inserts = server.calls.filter((c) => c.op === 'insert');
+    expect(inserts.map((c) => c.table)).toEqual(['ai_reflections', 'ai_follow_ups']);
+    for (const c of inserts) expect(c.args).toMatchObject({ user_id: 'u1' });
+    await store.entries(['e1']);
+    expect(caller.calls).toContainEqual({ table: 'entries', op: 'in', args: 'id' });
+    expect(caller.calls.some((c) => c.op === 'insert')).toBe(false);
+  });
+
+  it('writes a review and its sources through the server, each row with the user id', async () => {
+    const caller = fakeClient([]);
+    const server = fakeClient({ id: 'i1' });
+    const store = supabaseAiStore(caller as never, server as never, 'u1');
+    await store.saveInsight(
+      { period: 'week', range_start: 'a', range_end: 'b', entry_count: 2, output: {}, provider: 'groq', model: 'm', request_id: 'r3', schema_version: 's', prompt_version: 'p' },
+      [{ id: 'e1', written_at: 'w1' }, { id: 'e2', written_at: 'w2' }],
+    );
+    const inserts = server.calls.filter((c) => c.op === 'insert');
+    expect(inserts.map((c) => c.table)).toEqual(['ai_insights', 'ai_insight_sources']);
+    expect(inserts[0].args).toMatchObject({ user_id: 'u1' });
+    expect(inserts[1].args).toEqual([
+      { insight_id: 'i1', entry_id: 'e1', user_id: 'u1' },
+      { insight_id: 'i1', entry_id: 'e2', user_id: 'u1' },
+    ]);
   });
 });
