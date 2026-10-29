@@ -2,7 +2,7 @@
 -- Run with: npx supabase test db
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(26);
 
 insert into auth.users (id, email, aud, role)
 values
@@ -16,15 +16,16 @@ $$;
 create function pg_temp.act_as_anon() returns void language sql as $$
   select set_config('role', 'anon', true), set_config('request.jwt.claims', '{"role":"anon"}', true);
 $$;
-create function pg_temp.start(kind text, key uuid) returns uuid language sql as $$
-  select (public.ai_begin_request(kind, key, 0, 50) ->> 'request_id')::uuid;
+-- The server's side (Edge Functions with the server key), for whichever user is acting.
+create function pg_temp.start(kind text, key uuid) returns uuid language sql security definer as $$
+  select (public.ai_server_begin_request(auth.uid(), kind, key, 0, 50) ->> 'request_id')::uuid;
 $$;
-create function pg_temp.finish(id uuid) returns void language sql as $$
-  select public.ai_finish_request(id, 'succeeded');
+create function pg_temp.finish(id uuid) returns void language sql security definer as $$
+  select public.ai_server_finish_request(auth.uid(), id, 'succeeded');
 $$;
-create function pg_temp.save(entry text, req uuid, msg text default 'Fictional follow-up message') returns void language sql as $$
-  insert into public.ai_follow_ups (entry_id, request_id, style, message, output, schema_version, prompt_version, provider, model)
-  values (entry, req, 'understand', msg, '{"schema_version":"follow-up-1","reply":"Fictional reply"}', 'follow-up-1', 'test', 'groq', 'openai/gpt-oss-120b');
+create function pg_temp.save(entry text, req uuid, msg text default 'Fictional follow-up message') returns void language sql security definer as $$
+  insert into public.ai_follow_ups (user_id, entry_id, request_id, style, message, output, schema_version, prompt_version, provider, model)
+  values (auth.uid(), entry, req, 'understand', msg, '{"schema_version":"follow-up-1","reply":"Fictional reply"}', 'follow-up-1', 'test', 'groq', 'openai/gpt-oss-120b');
 $$;
 
 select ok((select relrowsecurity from pg_class where oid = 'public.ai_follow_ups'::regclass), 'RLS is enabled on follow-ups');
@@ -51,16 +52,14 @@ select throws_ok($$ select public.grant_ai_consent('chat_everything', '1', 'x', 
 -- Saving an exchange -------------------------------------------------------------------------
 select isnt(pg_temp.start('follow_up', '20000000-0000-4000-8000-000000000001'), null, 'A follow-up request starts in the ledger');
 select lives_ok($$ select pg_temp.save('f1', (select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000001')) $$,
-  'An exchange is saved against the caller''s own pending follow-up request');
+  'The server saves an exchange against the user''s follow-up request');
 select throws_ok($$ select pg_temp.save('f1', (select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000001')) $$,
   '23505', null, 'One exchange per request');
 select pg_temp.finish((select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000001'));
-select throws_ok($$ select pg_temp.save('f2', (select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000001')) $$,
-  '42501', null, 'Nothing can be saved against a finished request');
-
-select pg_temp.start('reflection', '20000000-0000-4000-8000-000000000002');
-select throws_ok($$ select pg_temp.save('f1', (select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000002')) $$,
-  '42501', null, 'A reflection request cannot carry a follow-up');
+select pg_temp.start('follow_up', '20000000-0000-4000-8000-000000000002');
+select throws_ok($$ insert into public.ai_follow_ups (entry_id, request_id, style, message, output, schema_version, prompt_version, provider, model)
+  values ('f2', (select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000002'), 'understand', 'forged', '{}', 'v', 'v', 'groq', 'm') $$,
+  '42501', null, 'A signed-in caller cannot write an exchange, even against their own open request');
 select pg_temp.finish((select id from public.ai_requests where idempotency_key = '20000000-0000-4000-8000-000000000002'));
 
 select pg_temp.start('follow_up', '20000000-0000-4000-8000-000000000003');

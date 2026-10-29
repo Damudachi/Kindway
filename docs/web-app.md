@@ -68,7 +68,7 @@ The service worker downloads a new version in the background. It doesn't take ov
 
 ## Storage and backups
 
-The journal lives in the browser's storage (`localStorage`). A Home Screen app keeps its storage, but a Safari tab can lose it after 7 days without a visit, and any browser can clear storage when space runs low. So, for a local-only journal, Today recommends an account with cloud backup, and asks again a week after "Not now". In a Safari tab, a one-time tip explains Add to Home Screen and says to do it before writing much, because the Home Screen app and the tab keep separate journals.
+The journal lives in the browser's IndexedDB, which has far more room than `localStorage` (about 5 MB in Safari). The browser is asked to keep it (`navigator.storage.persist()`). A journal saved by an older version in `localStorage` moves to IndexedDB on the next start: it's copied, read back and compared, and only then removed from `localStorage`. Where IndexedDB is missing or broken, Kindway keeps using `localStorage` (`src/storage/web-kv.ts`). A Home Screen app keeps its storage, but a Safari tab can lose it after 7 days without a visit, and any browser can clear storage when space runs low. So, for a local-only journal, Today recommends an account with cloud backup, and asks again a week after "Not now". If a save ever fails, Today says "Couldn’t save on this device". In a Safari tab, a one-time tip explains Add to Home Screen and says to do it before writing much, because the Home Screen app and the tab keep separate journals.
 
 ## Checks on an iPhone
 

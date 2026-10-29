@@ -88,6 +88,7 @@ The schema is in checked-in migrations under `supabase/migrations/`:
 - `20261020055800_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
 - `20261020140000_ai_consent.sql`: table `ai_consents`, its guard trigger, the functions `grant_ai_consent`, `revoke_ai_consent` and `ai_consent_active`; RLS policies; grants. See section 6a.
 - `20261020170000_ai_outputs.sql`: tables `ai_requests` (request ledger), `ai_reflections`, `ai_insights`, `ai_insight_sources`; the functions `ai_begin_request`, `ai_finish_request`, `delete_ai_outputs`; a trigger that deletes AI reviews when a source entry is deleted; RLS policies; grants. See section 6b.
+- `20261029100000_ai_server_ledger.sql` and `20261029110000_ai_outputs_server_only.sql` (Phase 7): the ledger functions became `ai_server_begin_request` and `ai_server_finish_request`, callable only by `service_role` with an explicit user id; signed-in users lost insert rights on the AI output tables. See section 6b.
 
 Key rules:
 
@@ -97,7 +98,7 @@ Key rules:
 - Deleting an entry cascades to its compass links. A Tomorrow step that came from it keeps existing and only loses the link (`ON DELETE SET NULL (source_entry_id)`), the same as on the device.
 - Deleting the auth user cascades to all of that user's rows.
 - A trigger caps the compass at three areas per account. Feedback on fictional `sample:` insights is rejected.
-- Three narrow `SECURITY DEFINER` functions exist, all with `search_path = ''` and all limited to the caller's own rows (or, for the trigger, the deleted entry's own account): `ai_begin_request` and `ai_finish_request` (so users can't edit the request ledger directly and reset their limits), and `delete_ai_insights_for_entry` (so the cascade also works during account deletion). Everything else runs as the caller.
+- Three narrow `SECURITY DEFINER` functions exist, all with `search_path = ''` and all limited to one account's rows: `ai_server_begin_request` and `ai_server_finish_request` (only `service_role` may run them, for the user id the Edge Function verified, so nobody can edit the request ledger or reset their limits), and `delete_ai_insights_for_entry` (so the cascade also works during account deletion). Everything else runs as the caller.
 
 Deliberately **not** stored in the cloud: simulated reflections, simulated follow-up replies, saved memory, reminders (device-specific), drafts, and sample-insight feedback. Real AI reflections and reviews **are** stored (section 6b); the entry text sent, the prompts and raw model output are not.
 
@@ -186,7 +187,18 @@ Consent needs an account; local-only users can't grant it, so nothing can be sen
 
 Version history: `entry_reflection` went to **2** in Phase 5D1, when its disclosure started naming exactly what compass context is sent (linked values marked "AI may use this": name and note, first 400 characters). A version-1 grant is "outdated" and refused until the user agrees again. **Deploy the server and the app together:** an app expecting version 2 against a server still requiring version 1 (or the reverse) makes every reflection request fail closed with `consent_required`.
 
-**Provider disclosure.** It describes GroqCloud's *default* retention posture, as stated in Groq's docs on 2026-10-20: no retention of inference content by default; logging of inputs and outputs for up to 30 days for reliability or abuse investigations; usage metadata without content; retained data stored in the US. Zero Data Retention has **not** been verified in Kindway's Groq console. If you enable it there, first verify it in Groq's **Data Controls**, then rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
+**Provider disclosure.** It describes GroqCloud's retention as stated in Groq's docs (console.groq.com/docs/your-data, checked 2026-10-28): no retention of inference content by default; usage metadata without content; retained data stored in the US. The owner turned on **Zero Data Retention** in Groq's Data Controls on 2026-10-28, which also stops logging for reliability or abuse investigations; the disclosure (`disclosureVersion` `groq-zdr-2026-10-28`) says that. Kindway uses no Batch or fine-tuning, which ZDR disables. If ZDR is ever turned off, rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
+
+**Releasing a disclosure change.** The server only accepts consents for the current version, and an app still running the old version believes its old consent is active. So release the app and the server together, then make sure every device actually runs the new version:
+
+1. Push. Cloudflare Pages builds the web app; wait until its JS bundle contains the new version string.
+2. Deploy the functions: `npx supabase functions deploy generate-reflection generate-insights generate-follow-up`.
+3. Publish the Android update: `npx eas-cli@latest update --channel preview --message "<what changed>"`.
+4. Android: close Kindway fully and open it twice (the first start downloads the update, the second runs it).
+5. iPhone web app: tap **Restart now** when Today offers it, or close the app fully from the app switcher and reopen it.
+6. On each device, Settings → AI processing asks to agree again; agree, then check a reflection works.
+
+Until step 6, AI requests on a device still running the old version are refused (`consent_required`). Don't push a disclosure change on its own, ahead of the server deploy.
 
 **Withdrawing** blocks new requests on the server immediately. It doesn't delete outputs already written; the AI processing screen has a separate **Delete AI outputs** action (section 6b).
 
@@ -227,7 +239,7 @@ No request carries entry text or a user id; the server reads both itself (a foll
 
 The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while". With the council, one request uses about 4× the tokens, so a long entry or a full review can reach the 8,000 tokens/min limit by itself.
 
-**Limits and duplicates** (`ai_requests`, no content): `ai_begin_request` serializes each user's requests with an advisory lock, returns the earlier result for a repeated idempotency key, allows one request in progress per user (stale ones are released after two minutes), and applies the cooldown and the rolling 24-hour cap per kind. Failed requests count too. Users can read their ledger but not change it.
+**Limits and duplicates** (`ai_requests`, no content): `ai_server_begin_request` serializes each user's requests with an advisory lock, returns the earlier result for a repeated idempotency key, allows one request in progress per user (stale ones are released after two minutes), and applies the cooldown and the rolling 24-hour cap per kind. Failed requests count too. Users can read their ledger but not change it.
 
 **Validation.** Replies are parsed against the schema and Kindway's rules; one retry if a reply is malformed, then `invalid_response`. "Just listen" can't carry reframing or advice; a compass connection survives only for a value that was actually sent. Review points must cite entries by neutral labels (`E1`…); labels that weren't sent are dropped and counted (`dropped_refs` in the log), points left without a source are dropped, and nothing left means "not enough evidence". Labels are also removed from the prose.
 
@@ -235,7 +247,7 @@ The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REV
 
 **What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. `ai_follow_ups`: one row per completed exchange (entry id, style, the user's message, validated reply, provider, model, versions, request id); later turns read their context from here rather than trusting the app's copy. Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
 
-**Known limitation: stored provider and model are not proof of provenance.** The insert policies only require a row to belong to the caller and to one of the caller's own pending requests, and `ai_begin_request` / `ai_finish_request` are callable by any signed-in user. So a user can open a request themselves, insert any `output`, `provider` and `model` into their own `ai_reflections`, `ai_insights` or `ai_follow_ups`, and finish it, without the Edge Function or the provider being involved (it uses up their own rate limit). RLS keeps this inside their own account: it can't create, read or change another user's rows. But the "Written by AI" label and the stored provider/model metadata are only what was written to the row, not a verified record that the output came from the provider, and must not be relied on for anything outside the user's own view of their journal.
+**Who writes AI rows.** Only the Edge Functions. They read as the caller (so RLS decides what exists), then open the request and write the reflection, review or follow-up reply with the server key, setting the user id from the verified token. Signed-in users have no insert rights on `ai_reflections`, `ai_insights`, `ai_insight_sources` or `ai_follow_ups` and can't run the ledger functions (Phase 7, 2026-10-29), so a stored output's provider, model and "Written by AI" label come from the server. Foreign keys still tie every row to an entry and a request of the same account, for the server too. Users can read and delete their own rows.
 
 **Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections, reviews and follow-up conversations (both sides); entries stay. Deleting an entry also deletes its follow-up conversation; **Clear this conversation** deletes that entry's exchanges from the account. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage. Since Phase 5A every signed-in device with cloud backup reads the account's newest reflection per entry with each pull (`aiOutputs.reflections` in `src/state/cloud-sync.tsx`), so a reflection deleted on one device disappears from the others on their next pull; the Patterns screen reads the newest stored review per period from the account (Phase 5B).
 
@@ -289,7 +301,9 @@ It needs two existing throwaway accounts (never real users), and it clears their
 KINDWAY_HOSTED_SMOKE=1 KINDWAY_HOSTED_URL=<project URL> KINDWAY_HOSTED_PUBLISHABLE_KEY=<publishable key> \
 KINDWAY_HOSTED_A_EMAIL=... KINDWAY_HOSTED_A_PASSWORD=... KINDWAY_HOSTED_B_EMAIL=... KINDWAY_HOSTED_B_PASSWORD=... \
 npx jest src/__tests__/hosted.smoke.test.ts
-``` Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).
+```
+
+Before inviting anyone, verify Groq's limits and Data Controls (ZDR, Batch, fine-tuning) in the console and keep the disclosure accurate (section 6a).
 
 ## 7. How sync works
 

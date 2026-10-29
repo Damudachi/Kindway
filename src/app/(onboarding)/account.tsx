@@ -8,6 +8,7 @@ import { Notice } from '@/components/notice';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { appTarget, redirectTo } from '@/services/auth';
 import { useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
@@ -160,6 +161,9 @@ export default function Account() {
             ? 'An account can keep a private copy of your journal in the cloud, so you can open it on another device. Creating one doesn’t upload anything; you choose that separately.'
             : 'Sign in to pick up where you left off. Nothing from this device is uploaded until you choose to.'}
       </Text>
+      {forgot && onWeb() && (
+        <Notice>On iPhone, the reset link opens in Safari. If Safari says so, ask for the link again there; the new password then works here too.</Notice>
+      )}
       {user && !forgot && <Notice>You’re signed in as {user.email}.</Notice>}
       {!auth && (
         <Notice tone="demo" title="Accounts aren’t set up in this build">

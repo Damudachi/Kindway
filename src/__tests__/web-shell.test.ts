@@ -43,7 +43,10 @@ describe('service worker settings', () => {
 
   it('waits for the app to restart before a new version takes over', () => {
     expect(config.skipWaiting).toBeFalsy();
-    expect(config.clientsClaim).toBeFalsy();
+  });
+
+  it('takes charge of the page on the very first install, so it works offline from the start', () => {
+    expect(config.clientsClaim).toBe(true);
   });
 });
 
@@ -122,12 +125,37 @@ describe('page', () => {
     'viewport-fit=cover',
     'name="theme-color" content="#F1EFEA" media="(prefers-color-scheme: light)"',
     'name="theme-color" content="#14181D" media="(prefers-color-scheme: dark)"',
-    "navigator.serviceWorker.register('/sw.js')",
+    '<script src="/register-sw.js" defer></script>',
   ])('has %s', (snippet) => {
     expect(html).toContain(snippet);
   });
 
+  it('runs no inline script, so the Content-Security-Policy can forbid them', () => {
+    expect(html).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+  });
+
+  it('registers the service worker from its own file', () => {
+    expect(read('public/register-sw.js')).toContain("navigator.serviceWorker.register('/sw.js')");
+  });
+
   it('has the Home Screen icon', () => {
     expect(fs.existsSync(path.join(root, 'public/icons/apple-touch-icon.png'))).toBe(true);
+  });
+});
+
+describe('security headers on Cloudflare Pages', () => {
+  const headers = read('public/_headers');
+
+  it.each([
+    "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://paceaswvraqjwzoyftsr.supabase.co; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    'Referrer-Policy: strict-origin-when-cross-origin',
+    'X-Content-Type-Options: nosniff',
+    'Permissions-Policy: camera=(), geolocation=(), microphone=()',
+  ])('sends %s', (line) => {
+    expect(headers).toContain(line);
+  });
+
+  it('applies them to every path', () => {
+    expect(headers.split(/\r?\n/)[0].trim()).toBe('/*');
   });
 });

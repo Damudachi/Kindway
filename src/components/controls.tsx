@@ -52,7 +52,11 @@ export function SwitchRow({ title, detail, value, onChange, disabled }: SwitchRo
         value={value}
         onValueChange={onChange}
         disabled={disabled}
+        // The row is the switch for assistive tech; on the web the inner control would otherwise be
+        // a second, nameless switch and an extra keyboard stop.
         importantForAccessibility="no"
+        aria-hidden
+        focusable={false}
         trackColor={{ false: color.sand, true: color.trail }}
         // Material 3: an outline-coloured thumb when off keeps the control visible on either paper.
         thumbColor={value ? color.raised : color.outline}

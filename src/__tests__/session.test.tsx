@@ -192,6 +192,28 @@ describe('accounts and journals on one device', () => {
     expect(cloud.data('user-b').entries).toEqual({});
   });
 
+  it('a sign-in that expired while offline says to sign in again, and keeps the unsent change', async () => {
+    const cloud = fakeCloud();
+    const f = fakeAuth();
+    await render(
+      <SessionProvider auth={f.auth} repo={cloud.repo} watchUser={f.watchUser} settings={memoryStorage({ syncUsers: ['user-a'] })}>
+        <Journal />
+      </SessionProvider>,
+    );
+    await f.signIn(A);
+    expect(await screen.findByText('sync:synced', {}, wait)).toBeOnTheScreen();
+
+    cloud.failNext('auth', 0);
+    await fireEvent.press(screen.getByText('write'));
+    expect(await screen.findByText('sync:signed-out', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText('entries:Written while synced')).toBeOnTheScreen();
+    expect(Object.keys(cloud.data('user-a').entries)).toEqual([]);
+
+    await fireEvent.press(screen.getByText('retry'));
+    expect(await screen.findByText('sync:synced', {}, wait)).toBeOnTheScreen();
+    expect(Object.values(cloud.data('user-a').entries).map((e) => e.title)).toEqual(['Written while synced']);
+  });
+
   it('enabling sync switches to the account journal the migration prepared', async () => {
     await seed('guest', ['Guest entry']);
     await seed('user:user-a', ['Moved entry']);

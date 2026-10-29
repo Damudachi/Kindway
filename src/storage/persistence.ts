@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { storeFor } from '@/storage/web-kv';
+
 /**
- * Where the app keeps its state between launches: this device's app storage (AsyncStorage).
- * Nothing here is encrypted by Kindway.
+ * Where the app keeps its state between launches: this device's app storage (AsyncStorage), or
+ * IndexedDB in the web app (see web-kv.ts). Nothing here is encrypted by Kindway.
  *
  * Storage is partitioned by scope. The local-only journal lives under `guest`; each account
  * with cloud sync turned on gets its own `user:<id>` cache on this device, so signing in as
@@ -25,13 +27,13 @@ export function jsonStorage(key: string): StateStorage {
   return {
     async load() {
       erased.delete(key);
-      const raw = await AsyncStorage.getItem(key);
+      const raw = await (await storeFor(key)).get(key);
       return raw ? JSON.parse(raw) : null;
     },
     save: async (snapshot) => {
-      if (!erased.has(key)) await AsyncStorage.setItem(key, JSON.stringify(snapshot));
+      if (!erased.has(key)) await (await storeFor(key)).set(key, JSON.stringify(snapshot));
     },
-    clear: () => AsyncStorage.removeItem(key),
+    clear: async () => (await storeFor(key)).remove(key),
   };
 }
 
@@ -51,15 +53,17 @@ export const webPrefsStorage = jsonStorage('kindway:web:v1');
 
 /** Erases one journal on this device, e.g. the local-only copy after it moved to an account. */
 export async function eraseScope(scope: Scope) {
-  erased.add(stateKey(scope));
-  await AsyncStorage.removeItem(stateKey(scope));
+  const key = stateKey(scope);
+  erased.add(key);
+  // From wherever it is: a key that failed to move to IndexedDB stays in localStorage.
+  await Promise.all([AsyncStorage.removeItem(key), (await storeFor(key)).remove(key)]);
 }
 
 /** Removes everything this device holds for one account. The local-only journal is untouched. */
 export async function clearAccountData(userId: string) {
   const keys = [stateKey(`user:${userId}`), `kindway:sync-base:v1:${userId}`];
   keys.forEach((k) => erased.add(k));
-  await AsyncStorage.multiRemove(keys);
+  await Promise.all([AsyncStorage.multiRemove(keys), ...keys.map(async (k) => (await storeFor(k)).remove(k))]);
 }
 
 /** In-memory storage for tests and previews. */

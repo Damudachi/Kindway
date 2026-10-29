@@ -94,6 +94,26 @@ run('the deployed system, with two throwaway accounts', () => {
     expect(data).toEqual([]);
   });
 
+  it('a signed-in user can’t write AI rows or open AI requests themselves; only the server can', async () => {
+    const forged = await a.client.from('ai_reflections').insert({
+      user_id: a.id,
+      entry_id: 's1',
+      request_id: crypto.randomUUID(),
+      style: 'listen',
+      output: { acknowledgment: 'Forged' },
+      schema_version: 'reflection-1',
+      prompt_version: 'forged',
+      provider: 'groq',
+      model: 'openai/gpt-oss-120b',
+      entry_updated_at: new Date().toISOString(),
+    });
+    expect(forged.error).not.toBeNull();
+    const ledger = await a.client.rpc('ai_server_begin_request', { p_user: a.id, p_kind: 'reflection', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 50 });
+    expect(ledger.error).not.toBeNull();
+    const old = await a.client.rpc('ai_begin_request', { p_kind: 'reflection', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 50 });
+    expect(old.error).not.toBeNull();
+  });
+
   it('every function refuses a forged token', async () => {
     for (const fn of ['generate-reflection', 'generate-insights', 'generate-follow-up'] as const) {
       expect((await call(fn, 'not-a-real-token', {})).status).toBe(401);

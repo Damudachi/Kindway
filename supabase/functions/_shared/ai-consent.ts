@@ -16,7 +16,7 @@ export type AiScope = 'entry_reflection' | 'cross_entry_analysis' | 'follow_up';
 export const AI_CONSENT_TERMS = {
   provider: 'groq',
   modelRef: 'openai/gpt-oss-120b',
-  disclosureVersion: 'groq-default-retention-2026-10-20',
+  disclosureVersion: 'groq-zdr-2026-10-28',
   consentVersion: { entry_reflection: '2', cross_entry_analysis: '1', follow_up: '1' } satisfies Record<AiScope, string>,
 } as const;
 

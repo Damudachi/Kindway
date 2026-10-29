@@ -49,7 +49,7 @@ function TabButton({ isFocused, label, icon, ...props }: Omit<TabTriggerSlotProp
       <View style={[styles.pill, isFocused && styles.pillOn]}>
         <MaterialCommunityIcons name={icon} size={22} color={isFocused ? color.onTrailContainer : color.inkMuted} />
       </View>
-      <Text variant="labelSmall" style={isFocused ? styles.labelOn : undefined}>
+      <Text variant="labelSmall" numberOfLines={1} style={isFocused ? styles.labelOn : undefined}>
         {label}
       </Text>
     </Pressable>
@@ -60,8 +60,9 @@ const useStyles = makeStyles((color) => ({
   root: { flex: 1 },
   slot: { flexShrink: 1, flexBasis: 0, minHeight: 0 },
   bar: { flexDirection: 'row', backgroundColor: color.bar, paddingTop: space.xs },
-  item: { flex: 1, alignItems: 'center', gap: space.xxs, paddingVertical: space.xxs },
-  pill: { width: 56, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  // Items and pills may shrink, so four tabs still fit at 200% zoom on a small phone.
+  item: { flex: 1, minWidth: 0, alignItems: 'center', gap: space.xxs, paddingVertical: space.xxs, paddingHorizontal: 2 },
+  pill: { width: '100%', maxWidth: 56, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   pillOn: { backgroundColor: color.barIndicator },
   labelOn: { color: color.ink },
 }));

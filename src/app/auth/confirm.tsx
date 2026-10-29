@@ -52,18 +52,18 @@ export default function ConfirmEmail() {
           body="You’re signed in. Nothing has been uploaded; you can choose whether to back up your journal next."
           action={<Button label="Continue" onPress={() => router.replace('/sync')} />}
         />
-      ) : onWeb() && 'reference' in shown && shown.reference === 'pkce_verifier_missing' ? (
-        <StateView
-          title="Email confirmed"
-          body="Open Kindway from your Home Screen and sign in with your email and password."
-          action={<Button variant="secondary" label="Sign in here instead" onPress={() => router.replace('/account?mode=signin')} />}
-        />
       ) : user ? (
         // A link opened again after it worked, or one for an account that is already signed in here.
         <StateView
           title="You’re already signed in"
           body={`This device is signed in as ${user.email || 'your account'}, so there’s nothing more to confirm here.`}
           action={<Button label="Continue" onPress={() => router.replace('/sync')} />}
+        />
+      ) : onWeb() && 'reference' in shown && shown.reference === 'pkce_verifier_missing' ? (
+        <StateView
+          title="Email confirmed"
+          body="Open Kindway from your Home Screen and sign in with your email and password."
+          action={<Button variant="secondary" label="Sign in here instead" onPress={() => router.replace('/account?mode=signin')} />}
         />
       ) : (
         <StateView

@@ -2,6 +2,7 @@ import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-li
 
 import AiConsentScreen from '@/app/settings/ai-consent';
 import { SnackbarProvider } from '@/components/feedback';
+import { PROVIDER_COPY } from '@/data/ai-disclosure';
 import { consentStatus, CURRENT_TERMS, supabaseConsentRepo, type AiScope, type ConsentRecord, type ConsentRepo } from '@/services/ai/consent';
 import { CloudError } from '@/services/cloud/repo';
 import { AiConsentProvider } from '@/state/ai-consent';
@@ -28,6 +29,15 @@ const record = (scope: AiScope, patch: Partial<ConsentRecord> = {}): ConsentReco
 describe('consent terms', () => {
   it('the app records exactly the terms the server requires', () => {
     expect(CURRENT_TERMS).toEqual(AI_CONSENT_TERMS);
+  });
+
+  it('describes Zero Data Retention, which is on in Kindway’s Groq account, under its own version', () => {
+    expect(CURRENT_TERMS.disclosureVersion).toBe('groq-zdr-2026-10-28');
+    expect(AI_CONSENT_TERMS.disclosureVersion).toBe('groq-zdr-2026-10-28');
+    expect(PROVIDER_COPY.retention).toContain(
+      'Zero Data Retention is turned on in Kindway’s Groq account, so Groq doesn’t log inputs or outputs for reliability or abuse checks either.',
+    );
+    expect(PROVIDER_COPY.retention.some((line) => /hasn’t confirmed/.test(line))).toBe(false);
   });
 });
 
@@ -227,6 +237,13 @@ describe('AI processing consent screen', () => {
     expect(await screen.findByText('Couldn’t check your choices')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('button', { name: 'Allow: reflections on an entry' })).toBeOnTheScreen();
+  });
+
+  it('someone who agreed before Zero Data Retention is asked to agree again', async () => {
+    const fake = fakeConsentRepo();
+    fake.records.push(record('entry_reflection', { disclosureVersion: 'groq-default-retention-2026-10-20' }));
+    await renderConsent(A, fake.repo);
+    expect(await screen.findByText(/changed since you agreed/)).toBeOnTheScreen();
   });
 
   it('an outdated grant must be agreed to again', async () => {

@@ -51,8 +51,11 @@ select throws_ok($$ select public.ai_server_begin_request('00000000-0000-4000-a0
 select is(public.ai_server_begin_request('00000000-0000-4000-a000-0000000000a5', 'follow_up', gen_random_uuid(), 0, 50) ->> 'outcome', 'started', 'Follow-ups are a kind of request');
 
 -- A request opened the old way (before the deploy) is closed the new way ---------------------
-select pg_temp.act_as('00000000-0000-4000-a000-0000000000b5');
-create temp table legacy as select public.ai_begin_request('insights', gen_random_uuid(), 0, 50) as r;
+-- (The old function was removed in step 3; this is the row it created, made directly.)
+reset role;
+insert into public.ai_requests (id, user_id, kind, idempotency_key)
+values ('50000000-0000-4000-8000-0000000000b5', '00000000-0000-4000-a000-0000000000b5', 'insights', gen_random_uuid());
+create temp table legacy as select jsonb_build_object('request_id', '50000000-0000-4000-8000-0000000000b5') as r;
 grant select on legacy to service_role;
 select pg_temp.as_server();
 select lives_ok($$ select public.ai_server_finish_request('00000000-0000-4000-a000-0000000000b5', (select (r ->> 'request_id')::uuid from legacy), 'failed') $$,

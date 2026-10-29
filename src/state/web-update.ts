@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { onWeb } from '@/services/platform';
@@ -28,6 +28,8 @@ const container = () => (onWeb() ? ((globalThis.navigator as { serviceWorker?: C
  */
 export function useUpdateReady(): { ready: boolean; restart(): void } {
   const [waiting, setWaiting] = useState<Waiting | null>(null);
+  // Restart now was pressed; once is enough, since the page reloads when the new version takes over.
+  const restarting = useRef(false);
 
   useEffect(() => {
     const sw = container();
@@ -63,7 +65,8 @@ export function useUpdateReady(): { ready: boolean; restart(): void } {
 
   const restart = useCallback(() => {
     const sw = container();
-    if (!waiting || !sw) return;
+    if (!waiting || !sw || restarting.current) return;
+    restarting.current = true;
     let reloaded = false;
     sw.addEventListener('controllerchange', () => {
       if (reloaded) return;

@@ -152,10 +152,10 @@ describe('web: email links opened in Safari', () => {
   // A link asked for in the Home Screen app opens in Safari, which lacks that app's PKCE verifier.
   const missing = { ok: false as const, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' };
 
-  function withAuth(Screen: () => React.ReactElement | null, auth: Partial<AuthService>) {
+  function withAuth(Screen: () => React.ReactElement | null, auth: Partial<AuthService>, user: { id: string; email: string } | null = null) {
     return function Wrapped() {
       return (
-        <SessionProvider auth={auth as AuthService} repo={null} watchUser={(on) => (on(null), () => {})} settings={memoryStorage()}>
+        <SessionProvider auth={auth as AuthService} repo={null} watchUser={(on) => (on(user), () => {})} settings={memoryStorage()}>
           <DemoStoreProvider initial={initialState}>
             <SnackbarProvider>
               <Screen />
@@ -177,6 +177,27 @@ describe('web: email links opened in Safari', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Sign in here instead' }));
     expect(await screen.findByText('Account screen', {}, wait)).toBeOnTheScreen();
     expect(screen).toHaveSearchParams({ mode: 'signin' });
+  });
+
+  it('a link opened again in a tab that is already signed in says so, rather than pointing to the Home Screen', async () => {
+    const auth = { exchangeCode: jest.fn(async () => missing) };
+    const screen = await renderRouter({ 'auth/confirm': withAuth(ConfirmEmail, auth, { id: 'u1', email: 'a@example.test' }) }, { initialUrl: '/auth/confirm?code=abcdefgh-1234' });
+    expect(await screen.findByText('You’re already signed in', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Email confirmed')).toBeNull();
+  });
+
+  it('asking for a reset on the web says the link opens in Safari', async () => {
+    const screen = await renderRouter({ account: withAuth(Account, {}) }, { initialUrl: '/account?mode=forgot' });
+    expect(
+      await screen.findByText('On iPhone, the reset link opens in Safari. If Safari says so, ask for the link again there; the new password then works here too.', {}, wait),
+    ).toBeOnTheScreen();
+  });
+
+  it('off the web, the reset form has no Safari note', async () => {
+    web.mockReturnValue(false);
+    const screen = await renderRouter({ account: withAuth(Account, {}) }, { initialUrl: '/account?mode=forgot' });
+    expect(await screen.findByRole('button', { name: 'Send reset link' }, wait)).toBeOnTheScreen();
+    expect(screen.queryByText(/reset link opens in Safari/)).toBeNull();
   });
 
   it('off the web, the same failure keeps the existing explanation', async () => {
@@ -250,6 +271,17 @@ describe('web: a new version waiting', () => {
     expect(postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
     expect(reload).not.toHaveBeenCalled();
     controllerChange.forEach((fn) => fn());
+    controllerChange.forEach((fn) => fn());
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('pressing Restart now twice still reloads only once', async () => {
+    fakeWorker(true);
+    const screen = await renderRouter({ today: withProviders(Today) }, { initialUrl: '/today' });
+    const restart = await screen.findByRole('button', { name: 'Restart now' }, wait);
+    await fireEvent.press(restart);
+    await fireEvent.press(restart);
+    expect(controllerChange).toHaveLength(1);
     controllerChange.forEach((fn) => fn());
     expect(reload).toHaveBeenCalledTimes(1);
   });

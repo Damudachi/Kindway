@@ -111,3 +111,27 @@ describe('a link opened where it was not requested', () => {
     expect(result).toEqual({ ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' });
   });
 });
+
+describe('a link from another browser whose flow state is gone', () => {
+  afterEach(() => jest.restoreAllMocks());
+  const exchange = (onTheWeb: boolean) => {
+    let auth!: typeof import('@/services/auth');
+    jest.isolateModules(() => {
+      // Set on whatever platform module auth will get: an earlier test's mock of it can be reused here.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      jest.spyOn(require('@/services/platform') as { onWeb: () => boolean }, 'onWeb').mockReturnValue(onTheWeb);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      auth = require('@/services/auth');
+    });
+    const exchangeCodeForSession = jest.fn(async () => ({ error: { name: 'AuthApiError', code: 'flow_state_not_found', status: 404, message: 'invalid flow state' } }));
+    return auth.supabaseAuth({ auth: { exchangeCodeForSession } } as never).exchangeCode('abcdefgh-1234');
+  };
+
+  it('is treated on the web like a missing verifier: opened outside where it was asked for', async () => {
+    await expect(exchange(true)).resolves.toEqual({ ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' });
+  });
+
+  it('keeps its usual message in the Android app', async () => {
+    await expect(exchange(false)).resolves.toEqual({ ok: false, message: 'This link has expired or was already used. Request a new one.' });
+  });
+});

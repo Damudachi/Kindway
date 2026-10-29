@@ -38,15 +38,16 @@ async function testUser(admin: SupabaseClient, label: string) {
   return { id: data.user.id, client, outputs: supabaseAiOutputs(client) };
 }
 
-/** Saves a fictional reflection for one of the caller's entries, as the server does. */
-async function saveReflection(client: SupabaseClient, entryId: string, acknowledgment: string) {
-  const begin = await client.rpc('ai_begin_request', { p_kind: 'reflection', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 100 });
+/** Saves a fictional reflection for one of the user's entries, as the server does: with the server key and their id. */
+async function saveReflection(server: SupabaseClient, userId: string, entryId: string, acknowledgment: string) {
+  const begin = await server.rpc('ai_server_begin_request', { p_user: userId, p_kind: 'reflection', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 100 });
   const requestId = (begin.data as { request_id?: string } | null)?.request_id;
   if (!requestId) throw new Error(`could not start a request: ${JSON.stringify(begin.data)}`);
-  const { data: entry } = await client.from('entries').select('body_updated_at').eq('id', entryId).single();
-  const { data, error } = await client
+  const { data: entry } = await server.from('entries').select('body_updated_at').eq('user_id', userId).eq('id', entryId).single();
+  const { data, error } = await server
     .from('ai_reflections')
     .insert({
+      user_id: userId,
       entry_id: entryId,
       request_id: requestId,
       style: 'understand',
@@ -60,7 +61,7 @@ async function saveReflection(client: SupabaseClient, entryId: string, acknowled
     .select('id')
     .single();
   if (error) throw new Error(`could not save a reflection: ${error.message}`);
-  await client.rpc('ai_finish_request', { p_request_id: requestId, p_status: 'succeeded' });
+  await server.rpc('ai_server_finish_request', { p_user: userId, p_request_id: requestId, p_status: 'succeeded' });
   return data.id as string;
 }
 
@@ -77,9 +78,9 @@ run('stored AI reflections, read back on another device', () => {
     const rows = ['e1', 'e2'].map((id) => ({ id, user_id: a.id, written_at: new Date().toISOString(), body: BODY, feelings: [], gratitude: null, exclude_from_analysis: false }));
     const { error } = await a.client.from('entries').insert(rows);
     if (error) throw new Error('could not insert fictional entries');
-    await saveReflection(a.client, 'e1', 'Fictional: the first one.');
-    newest = await saveReflection(a.client, 'e1', 'Fictional: the newer one.');
-    await saveReflection(a.client, 'e2', 'Fictional: about e2.');
+    await saveReflection(admin, a.id, 'e1', 'Fictional: the first one.');
+    newest = await saveReflection(admin, a.id, 'e1', 'Fictional: the newer one.');
+    await saveReflection(admin, a.id, 'e2', 'Fictional: about e2.');
   });
 
   afterAll(async () => {
@@ -113,15 +114,16 @@ run('stored AI reflections, read back on another device', () => {
   });
 });
 
-/** Saves a fictional review of some of the caller's entries, as the server does. */
-async function saveReview(client: SupabaseClient, entryIds: string[], summary: string) {
-  const begin = await client.rpc('ai_begin_request', { p_kind: 'insights', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 100 });
+/** Saves a fictional review of some of the user's entries, as the server does: with the server key and their id. */
+async function saveReview(server: SupabaseClient, userId: string, entryIds: string[], summary: string) {
+  const begin = await server.rpc('ai_server_begin_request', { p_user: userId, p_kind: 'insights', p_key: crypto.randomUUID(), p_cooldown_seconds: 0, p_daily_limit: 100 });
   const requestId = (begin.data as { request_id?: string } | null)?.request_id;
   if (!requestId) throw new Error(`could not start a request: ${JSON.stringify(begin.data)}`);
   const now = Date.now();
-  const { data, error } = await client
+  const { data, error } = await server
     .from('ai_insights')
     .insert({
+      user_id: userId,
       request_id: requestId,
       period: 'week',
       range_start: new Date(now - 7 * 86_400_000).toISOString(),
@@ -142,9 +144,9 @@ async function saveReview(client: SupabaseClient, entryIds: string[], summary: s
     .select('id')
     .single();
   if (error) throw new Error(`could not save a review: ${error.message}`);
-  const sources = await client.from('ai_insight_sources').insert(entryIds.map((entry_id) => ({ insight_id: data.id, entry_id })));
+  const sources = await server.from('ai_insight_sources').insert(entryIds.map((entry_id) => ({ insight_id: data.id, entry_id, user_id: userId })));
   if (sources.error) throw new Error(`could not save review sources: ${sources.error.message}`);
-  await client.rpc('ai_finish_request', { p_request_id: requestId, p_status: 'succeeded' });
+  await server.rpc('ai_server_finish_request', { p_user: userId, p_request_id: requestId, p_status: 'succeeded' });
   return data.id as string;
 }
 
@@ -161,8 +163,8 @@ run('stored AI reviews, read back on another device', () => {
     const rows = ['w1', 'w2', 'w3'].map((id) => ({ id, user_id: a.id, written_at: new Date().toISOString(), body: BODY, feelings: [], gratitude: null, exclude_from_analysis: false }));
     const { error } = await a.client.from('entries').insert(rows);
     if (error) throw new Error('could not insert fictional entries');
-    await saveReview(a.client, ['w1', 'w2', 'w3'], 'Fictional: the older review.');
-    newest = await saveReview(a.client, ['w1', 'w2', 'w3'], 'Fictional: the newer review.');
+    await saveReview(admin, a.id, ['w1', 'w2', 'w3'], 'Fictional: the older review.');
+    newest = await saveReview(admin, a.id, ['w1', 'w2', 'w3'], 'Fictional: the newer review.');
   });
 
   afterAll(async () => {
@@ -180,7 +182,7 @@ run('stored AI reviews, read back on another device', () => {
 
   it('B reads none of A’s reviews, and cannot cite A’s entries in its own', async () => {
     expect(await b.outputs.latestReview('week')).toBeNull();
-    await expect(saveReview(b.client, ['w1', 'w2', 'w3'], 'Fictional: spoofed.')).rejects.toThrow(/could not save review sources/);
+    await expect(saveReview(admin, b.id, ['w1', 'w2', 'w3'], 'Fictional: spoofed.')).rejects.toThrow(/could not save review sources/);
     expect(await a.outputs.latestReview('week')).toMatchObject({ ai: { id: newest } });
   });
 

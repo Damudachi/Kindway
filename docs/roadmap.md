@@ -52,6 +52,22 @@ Plan: `docs/superpowers/plans/2026-10-28-web-app.md`. How to host it: `docs/web-
 - [x] The live site had no icons or Literata: Cloudflare Pages never uploads `node_modules` folders, where Expo puts package fonts. `scripts/web-postexport.js` now moves them to `assets/vendor` during `build:web` (`web-shell.test.ts`). Live since commit 872c1f0
 - [x] Live-site check (2026-10-28, Chrome at iPhone size, throwaway account): icons and fonts load with no page errors; sign-in, cloud backup and a real AI reflection from kindway.pages.dev; with no signal, Today and an entry's own address open. The throwaway accounts were deleted afterwards through `delete-account` (sign-in refused, no rows left)
 - [ ] On an iPhone: install from Safari, sign up and confirm by email, write, get a reflection, back up, reopen in airplane mode (`docs/web-app.md`, "Checks on an iPhone")
-- [ ] Large text on the web: not checked yet whether the iPhone's text size settings reach the web app. Moved to Phase 7's accessibility checklist
+- [x] Large text on the web: moved to Phase 7. 200% zoom passes there; iPhone text size is on the owner's checklist (`docs/accessibility.md`)
 - [x] A failed save is no longer silent: Today says "Couldn’t save on this device" and offers a backup (found in the final review; `web-app.test.tsx`). Browser storage is about 5 MB in Safari, and the journal is one JSON string (two when synced), so a daily writer could reach it in about two years
-- [ ] Phase 7: move the web journal from `localStorage` to IndexedDB, and ask for persistent storage (`navigator.storage.persist()`)
+- [x] Phase 7: the web journal moved to IndexedDB, with persistent storage requested (see Phase 7 below)
+
+## Phase 7 checklist: beta hardening
+
+Design: `docs/superpowers/specs/2026-10-28-phase-7-hardening-design.md`. Plan: `docs/superpowers/plans/2026-10-28-phase-7-hardening.md`.
+
+- [x] "Written by AI" can't be faked: only the Edge Functions write AI rows (server key, verified user id); users can read and delete their own. Three migrations went live in turn on 2026-10-29; hosted smoke test 9/9, including a direct write refused
+- [x] Extra support lists verified Philippine contacts (911, NCMH Crisis Hotline), each with its source and the date checked (`src/data/support-contacts.ts`)
+- [x] Privacy wording for Zero Data Retention (turned on by the owner 2026-10-28); disclosure version `groq-zdr-2026-10-28`, so both users agree once more. Live once the owner pushes and the functions and the Android update are released together
+- [x] The web journal is in IndexedDB: moved from `localStorage` by copying and checking before removing; `localStorage` stays the fallback where IndexedDB is missing (checked in Chrome)
+- [x] Security headers on the website (`public/_headers`): no inline scripts, no third-party origins, no framing; checked with the policy applied
+- [x] Security and privacy review: `docs/security-review.md`, 10 findings, none High open
+- [x] Accessibility: `docs/accessibility.md`. Two web fixes (unnamed switches on AI & memory; the tab bar at 200% zoom). A test now checks every control has a name on 14 screens
+- [x] Offline recovery: covered in the security review; two new tests
+- [x] The 6B review's small issues fixed
+- [ ] Owner: TalkBack read-through on the A37; VoiceOver and Safari text size on the iPhone (`docs/accessibility.md`)
+- [ ] Owner: dial or text one NCMH number to confirm it reaches the hotline

@@ -181,16 +181,16 @@ run('generate-follow-up on the local stack (refusals only; the provider is never
     if ((await a.client.from('entries').insert([row(a.id, 'fa', 'Fictional entry of A.'), row(a.id, 'risk', 'Fictional safety test: some nights I want to die.')])).error) throw new Error('entries');
     if ((await b.client.from('entries').insert([row(b.id, 'fb', 'Fictional entry of B.')])).error) throw new Error('entries');
     // A stored exchange of A's, saved the way the function saves one, with fictional text.
-    const begin = await a.client.rpc('ai_begin_request', { p_kind: 'follow_up', p_key: uuid(), p_cooldown_seconds: 0, p_daily_limit: 100 });
+    const begin = await admin.rpc('ai_server_begin_request', { p_user: a.id, p_kind: 'follow_up', p_key: uuid(), p_cooldown_seconds: 0, p_daily_limit: 100 });
     const requestId = (begin.data as { request_id: string }).request_id;
-    const saved = await a.client
+    const saved = await admin
       .from('ai_follow_ups')
-      .insert({ entry_id: 'fa', request_id: requestId, style: 'understand', message: 'Fictional earlier message', output: { schema_version: 'follow-up-1', reply: 'Fictional earlier reply' }, schema_version: 'follow-up-1', prompt_version: 'test', provider: 'groq', model: 'openai/gpt-oss-120b' })
+      .insert({ user_id: a.id, entry_id: 'fa', request_id: requestId, style: 'understand', message: 'Fictional earlier message', output: { schema_version: 'follow-up-1', reply: 'Fictional earlier reply' }, schema_version: 'follow-up-1', prompt_version: 'test', provider: 'groq', model: 'openai/gpt-oss-120b' })
       .select('id')
       .single();
     if (saved.error) throw new Error('follow-up');
     aTurn = saved.data.id;
-    await a.client.rpc('ai_finish_request', { p_request_id: requestId, p_status: 'succeeded' });
+    await admin.rpc('ai_server_finish_request', { p_user: a.id, p_request_id: requestId, p_status: 'succeeded' });
   });
 
   afterAll(async () => {

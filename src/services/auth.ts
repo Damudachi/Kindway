@@ -167,8 +167,11 @@ export function supabaseAuth(client: SupabaseClient): AuthService {
     async exchangeCode(code) {
       const { error } = await client.auth.exchangeCodeForSession(code);
       if (!error) return { ok: true };
-      // On iPhone this is also a link asked for in the Home Screen app and opened in Safari.
-      if (error.name === 'AuthPKCECodeVerifierMissingError')
+      // On iPhone this is also a link asked for in the Home Screen app and opened in Safari. There,
+      // Safari may also hold a stale verifier from an earlier request, so the server can't find the
+      // flow: on the web that means the same thing.
+      const elsewhere = onWeb() && (error.code === 'flow_state_not_found' || error.code === 'bad_code_verifier');
+      if (error.name === 'AuthPKCECodeVerifierMissingError' || elsewhere)
         return { ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' };
       return { ok: false, message: authMessage(error) };
     },

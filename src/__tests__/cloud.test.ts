@@ -84,6 +84,16 @@ describe('sync merging', () => {
     expect(merged.links['n1|c-Work']).toBeUndefined();
   });
 
+  it('a day offline on two phones of one account: edits to different entries both survive', () => {
+    const base = toCloud(journal());
+    const local = toCloud(reducer(journal(), { type: 'updateEntry', id: 'n2', patch: { title: 'Edited on this phone' } }));
+    const remote = structuredClone(base);
+    remote.entries.n1.title = 'Edited on the other phone';
+    const merged = mergeSnapshots(base, local, remote);
+    expect(merged.entries.n2.title).toBe('Edited on this phone');
+    expect(merged.entries.n1.title).toBe('Edited on the other phone');
+  });
+
   it('a pull through the reducer leaves pending local edits in place', () => {
     const state = reducer(journal(), { type: 'updateEntry', id: 'n2', patch: { title: 'Unsent edit' } });
     const base = toCloud(journal());
