@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -6,6 +7,8 @@ import { Section } from '@/components/controls';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { openPolicy } from '@/services/app-info';
+import { exportFileName, journalMarkdown, shareJournal } from '@/services/export';
 import { onWeb } from '@/services/platform';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
@@ -17,6 +20,15 @@ export default function Privacy() {
   const styles = useStyles();
   const { state } = useStore();
   const { mode, user } = useSession();
+  const [failed, setFailed] = useState(false);
+  const hasEntries = state.entries.some((e) => !e.sample);
+
+  // No await before shareJournal: the browser's share sheet needs this tap's user gesture.
+  const exportJournal = () => {
+    setFailed(false);
+    const at = new Date();
+    shareJournal(journalMarkdown(state.entries, state.compass, at), exportFileName(at)).catch(() => setFailed(true));
+  };
 
   return (
     <Screen top={{ back: true, title: 'Privacy & data' }}>
@@ -41,7 +53,10 @@ export default function Privacy() {
         <Text variant="small" style={styles.gapSm}>
           Never uploaded: simulated reflections and simulated follow-up replies, saved memory, reminders, drafts and feedback on sample insights. Signing out hides a synced journal on this device until you sign in again; it doesn’t erase your local-only journal.
         </Text>
-        <Notice tone="demo">This is a pre-release app. Nothing here is a production privacy or security guarantee.</Notice>
+        <Text variant="small" style={styles.gapSm}>
+          Kindway is in beta.
+        </Text>
+        <Button variant="tonal" label="Read the privacy policy" trailingIcon="arrow-right" onPress={() => openPolicy('privacy')} style={styles.gapSm} />
       </Section>
 
       <Section title="When AI sees your writing">
@@ -59,7 +74,11 @@ export default function Privacy() {
       </Section>
 
       <Section title="Export">
-        <Text variant="body">Not available yet. A later version will let you download a copy of your entries.</Text>
+        <Text variant="body">
+          A text copy of your journal: each entry’s date, title, feelings, compass areas, words and one good thing, oldest first. AI reflections and follow-up conversations aren’t included. It’s made on this device and not uploaded; you choose where it goes.
+        </Text>
+        <Button variant="tonal" icon="export-variant" label="Export my journal" onPress={exportJournal} disabled={!hasEntries} style={styles.gapSm} />
+        {failed && <Notice tone="warn">Couldn’t export. Your journal is unchanged.</Notice>}
       </Section>
 
       <Section title="Delete">

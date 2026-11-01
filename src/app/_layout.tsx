@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { SnackbarProvider } from '@/components/feedback';
 import { ThemeFade } from '@/components/theme-fade';
 import { AiConsentProvider } from '@/state/ai-consent';
+import { AppLock, AppLockNotice } from '@/state/app-lock';
 import { CloudSync } from '@/state/cloud-sync';
 import { DemoStoreProvider } from '@/state/demo-store';
 import { RealAiProvider, useRealAi } from '@/state/real-ai';
@@ -51,28 +52,33 @@ function App() {
     void SystemUI.setBackgroundColorAsync(color.paper);
   }, [color.paper]);
 
+  // App lock covers every journal, so it sits above the session. Its cover is up from the first
+  // frame after the splash, until it knows whether the lock is on.
   return (
-    <SessionProvider>
-      <AiConsentProvider>
-        <RealAiProvider>
-          <Journal>
-            <SnackbarProvider>
-              <StatusBar style={scheme === 'night' ? 'light' : 'dark'} />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: color.paper },
-                  animation: 'fade_from_bottom',
-                }}>
-                <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-                <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
-              </Stack>
-              <ThemeFade />
-            </SnackbarProvider>
-          </Journal>
-        </RealAiProvider>
-      </AiConsentProvider>
-    </SessionProvider>
+    <AppLock>
+      <SessionProvider>
+        <AiConsentProvider>
+          <RealAiProvider>
+            <Journal>
+              <SnackbarProvider>
+                <StatusBar style={scheme === 'night' ? 'light' : 'dark'} />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: color.paper },
+                    animation: 'fade_from_bottom',
+                  }}>
+                  <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+                  <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+                </Stack>
+                <ThemeFade />
+                <AppLockNotice />
+              </SnackbarProvider>
+            </Journal>
+          </RealAiProvider>
+        </AiConsentProvider>
+      </SessionProvider>
+    </AppLock>
   );
 }
 

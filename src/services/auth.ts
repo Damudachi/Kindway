@@ -21,6 +21,10 @@ export interface AuthService {
   /** Finishes an email link (confirmation or password recovery) opened on this device. */
   exchangeCode(code: string): Promise<AuthResult>;
   updatePassword(password: string): Promise<AuthResult>;
+  /** Sends the sign-up confirmation email again. */
+  resendConfirmation(email: string): Promise<AuthResult>;
+  /** Starts an email change: links go to both the current and the new address. */
+  changeEmail(email: string): Promise<AuthResult>;
   deleteAccount(): Promise<AuthResult>;
 }
 
@@ -75,8 +79,9 @@ const thrown = (e: unknown) => {
  * What an email link brought back. With PKCE a good link carries `?code=`; Supabase reports a
  * failed one (expired, already used) with `error_code`/`error_description`, in the fragment and,
  * for PKCE, also in the query. Expo Router only exposes the query, so the full URL is read too.
+ * The first link of an email change answers with no code, only a `message` to open the other link.
  */
-export type AuthCallback = { kind: 'code'; code: string } | { kind: 'error'; message: string } | { kind: 'missing' };
+export type AuthCallback = { kind: 'code'; code: string } | { kind: 'error'; message: string } | { kind: 'message'; message: string } | { kind: 'missing' };
 
 export function parseAuthCallback(url: string | null | undefined, params: Record<string, string | string[] | undefined> = {}): AuthCallback {
   const found = new Map<string, string>();
@@ -103,6 +108,7 @@ export function parseAuthCallback(url: string | null | undefined, params: Record
   const code = found.get('code');
   // Supabase codes are UUID-like; anything else is a mangled link and isn't sent to the server.
   if (code && /^[\w-]{8,200}$/.test(code)) return { kind: 'code', code };
+  if (found.has('message')) return { kind: 'message', message: 'Now open the link we sent to your other email address.' };
   return { kind: 'missing' };
 }
 
@@ -165,19 +171,39 @@ export function supabaseAuth(client: SupabaseClient): AuthService {
       return error ? { ok: false, message: authMessage(error) } : { ok: true };
     },
     async exchangeCode(code) {
-      const { error } = await client.auth.exchangeCodeForSession(code);
-      if (!error) return { ok: true };
-      // On iPhone this is also a link asked for in the Home Screen app and opened in Safari. There,
-      // Safari may also hold a stale verifier from an earlier request, so the server can't find the
-      // flow: on the web that means the same thing.
-      const elsewhere = onWeb() && (error.code === 'flow_state_not_found' || error.code === 'bad_code_verifier');
-      if (error.name === 'AuthPKCECodeVerifierMissingError' || elsewhere)
-        return { ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' };
-      return { ok: false, message: authMessage(error) };
+      try {
+        const { error } = await client.auth.exchangeCodeForSession(code);
+        if (!error) return { ok: true };
+        // On iPhone this is also a link asked for in the Home Screen app and opened in Safari. There,
+        // Safari may also hold a stale verifier from an earlier request, so the server can't find the
+        // flow: on the web that means the same thing.
+        const elsewhere = onWeb() && (error.code === 'flow_state_not_found' || error.code === 'bad_code_verifier');
+        if (error.name === 'AuthPKCECodeVerifierMissingError' || elsewhere)
+          return { ok: false, message: 'Open this link on the device where you asked for it, or request a new one here.', reference: 'pkce_verifier_missing' };
+        return { ok: false, message: authMessage(error) };
+      } catch (e) {
+        return thrown(e);
+      }
     },
     async updatePassword(password) {
       const { error } = await client.auth.updateUser({ password });
       return error ? { ok: false, message: authMessage(error) } : { ok: true };
+    },
+    async resendConfirmation(email) {
+      try {
+        const { error } = await client.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo('auth/confirm') } });
+        return error ? failed(error) : { ok: true };
+      } catch (e) {
+        return thrown(e);
+      }
+    },
+    async changeEmail(email) {
+      try {
+        const { error } = await client.auth.updateUser({ email }, { emailRedirectTo: redirectTo('auth/confirm') });
+        return error ? failed(error) : { ok: true };
+      } catch (e) {
+        return thrown(e);
+      }
     },
     async deleteAccount() {
       const { error } = await client.functions.invoke('delete-account', { method: 'POST' });

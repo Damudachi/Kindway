@@ -51,6 +51,13 @@ export function sameDay(a: Date, iso: string) {
   return startOfDay(a).getTime() === startOfDay(new Date(iso)).getTime();
 }
 
+/** `iso`'s local time of day moved onto `day`; a time that would fall after `at` becomes `at`. */
+export function onDay(iso: string, day: Date, at = now()) {
+  const t = new Date(iso);
+  const moved = new Date(day.getFullYear(), day.getMonth(), day.getDate(), t.getHours(), t.getMinutes(), t.getSeconds(), t.getMilliseconds());
+  return (moved > at ? at : moved).toISOString();
+}
+
 export function nowIso() {
   return now().toISOString();
 }

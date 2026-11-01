@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
 
-import { nowIso } from '@/data/dates';
+import { nowIso, onDay } from '@/data/dates';
 import { looksHighRisk } from '@/data/safety';
 import { hasAutoTitle, titleFrom } from '@/data/titles';
 import type { ChatMessage, Entry, SupportStyle } from '@/data/types';
@@ -142,11 +142,11 @@ export function useSaveDraft() {
       const title = editing && !hasAutoTitle(editing) ? editing.title : titleFrom(body);
       const fields = { body, title, feelings: draft.feelings, gratitude: draft.gratitude.trim() || undefined, compassIds: draft.compassIds };
       if (draft.editingId) {
-        dispatch({ type: 'updateEntry', id: draft.editingId, patch: fields });
+        dispatch({ type: 'updateEntry', id: draft.editingId, patch: draft.date ? { ...fields, date: draft.date } : fields });
         dispatch({ type: 'clearDraft' });
         return draft.editingId;
       }
-      const entry: Entry = { id: `n${Date.now()}`, date: nowIso(), ...fields, reflectionStatus: 'none', sample: false };
+      const entry: Entry = { id: `n${Date.now()}`, date: draft.date ? onDay(nowIso(), new Date(draft.date)) : nowIso(), ...fields, reflectionStatus: 'none', sample: false };
       dispatch({ type: 'saveEntry', entry });
       if (opts.reflect && looksHighRisk(entry.body)) {
         router.push('/support');

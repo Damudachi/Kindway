@@ -104,6 +104,14 @@ describe('in the web app', () => {
 });
 
 describe('a link opened where it was not requested', () => {
+  it('a thrown exchange is reported, not lost', async () => {
+    const exchangeCodeForSession = jest.fn(async () => {
+      throw new TypeError('network down');
+    });
+    const { supabaseAuth } = jest.requireActual<typeof import('@/services/auth')>('@/services/auth');
+    await expect(supabaseAuth({ auth: { exchangeCodeForSession } } as never).exchangeCode('abcdefgh-1234')).resolves.toMatchObject({ ok: false, message: expect.any(String) });
+  });
+
   it('is reported with a reference the screens can recognise', async () => {
     const exchangeCodeForSession = jest.fn(async () => ({ error: { name: 'AuthPKCECodeVerifierMissingError', message: 'missing' } }));
     const { supabaseAuth } = jest.requireActual<typeof import('@/services/auth')>('@/services/auth');
@@ -133,5 +141,82 @@ describe('a link from another browser whose flow state is gone', () => {
 
   it('keeps its usual message in the Android app', async () => {
     await expect(exchange(false)).resolves.toEqual({ ok: false, message: 'This link has expired or was already used. Request a new one.' });
+  });
+});
+
+describe('resending the confirmation email and changing the email address', () => {
+  // An earlier describe's mock of the platform module would otherwise carry over.
+  beforeEach(() => jest.dontMock('@/services/platform'));
+  const service = (client: object) => inEnv(ENVS['a release build'], (auth) => auth.supabaseAuth(client as never));
+  const REDIRECT = ENVS['a release build'].expected;
+  const rateLimited = { name: 'AuthApiError', code: 'over_email_send_rate_limit', status: 429, message: 'rate' };
+  const exists = { name: 'AuthApiError', code: 'email_exists', status: 422, message: 'exists' };
+
+  it('resends the sign-up email with the confirm redirect', async () => {
+    const resend = jest.fn(async () => ({ error: null }));
+    await expect(service({ auth: { resend } }).resendConfirmation('a@b.co')).resolves.toEqual({ ok: true });
+    expect(resend).toHaveBeenCalledWith({ type: 'signup', email: 'a@b.co', options: { emailRedirectTo: REDIRECT } });
+  });
+
+  it('words a resend rate limit for people and keeps its reference', async () => {
+    const resend = jest.fn(async () => ({ error: rateLimited }));
+    await expect(service({ auth: { resend } }).resendConfirmation('a@b.co')).resolves.toEqual({
+      ok: false,
+      message: 'Too many attempts for now. Wait a few minutes and try again.',
+      reference: 'over_email_send_rate_limit',
+    });
+  });
+
+  it('reports a resend that throws', async () => {
+    const resend = jest.fn(async () => {
+      throw new Error('boom');
+    });
+    await expect(service({ auth: { resend } }).resendConfirmation('a@b.co')).resolves.toMatchObject({ ok: false, reference: 'Error' });
+  });
+
+  it('asks Supabase to change the email with the confirm redirect', async () => {
+    const updateUser = jest.fn(async () => ({ error: null }));
+    await expect(service({ auth: { updateUser } }).changeEmail('new@b.co')).resolves.toEqual({ ok: true });
+    expect(updateUser).toHaveBeenCalledWith({ email: 'new@b.co' }, { emailRedirectTo: REDIRECT });
+  });
+
+  it('words an address that is already taken', async () => {
+    const updateUser = jest.fn(async () => ({ error: exists }));
+    await expect(service({ auth: { updateUser } }).changeEmail('new@b.co')).resolves.toEqual({
+      ok: false,
+      message: 'An account with this email already exists. Try signing in instead.',
+      reference: 'email_exists',
+    });
+  });
+
+  it('reports an email change that throws', async () => {
+    const updateUser = jest.fn(async () => {
+      throw new Error('boom');
+    });
+    await expect(service({ auth: { updateUser } }).changeEmail('new@b.co')).resolves.toMatchObject({ ok: false });
+  });
+});
+
+describe('the callbacks of an email change', () => {
+  const MESSAGE = 'message=Confirmation+link+accepted.+Please+proceed+to+confirm+link+sent+to+the+other+email';
+  const parse = (url: string, params?: Record<string, string>) => load().parseAuthCallback(url, params);
+  const load = () => inEnv(ENVS['a release build'], (auth) => auth);
+
+  it('reads the first link (one of two confirmed) as a message, in a query, a fragment or the app form', () => {
+    for (const url of [`https://kindway.pages.dev/auth/confirm?${MESSAGE}`, `https://kindway.pages.dev/auth/confirm#${MESSAGE}`, `kindway:///auth/confirm?${MESSAGE}`])
+      expect(parse(url)).toEqual({ kind: 'message', message: expect.stringMatching(/other/) });
+  });
+
+  it('reads the message from router params too', () => {
+    expect(parse('', { message: 'Confirmation link accepted.' })).toEqual({ kind: 'message', message: expect.stringMatching(/other/) });
+  });
+
+  it('reads the second link as a code', () => {
+    expect(parse('https://kindway.pages.dev/auth/confirm?code=abc12345-0000-4000-8000-000000000000')).toEqual({ kind: 'code', code: 'abc12345-0000-4000-8000-000000000000' });
+  });
+
+  it('lets a code or an error win over a message', () => {
+    expect(parse(`https://kindway.pages.dev/auth/confirm?code=abc12345-0000-4000-8000-000000000000&${MESSAGE}`).kind).toBe('code');
+    expect(parse(`https://kindway.pages.dev/auth/confirm?error_code=otp_expired&${MESSAGE}`).kind).toBe('error');
   });
 });

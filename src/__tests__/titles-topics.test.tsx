@@ -76,7 +76,7 @@ function Probe() {
 }
 
 async function open(state: DemoState, initialUrl: string) {
-  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => true) };
+  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, refresh: async () => {}, ensureSynced: jest.fn(async () => true) };
   const value: RealAi = { reflections: true, insights: false, followUps: true, needs: null, account: 'user-a', invoke: jest.fn(), outputs: null };
   function Layout() {
     return (

@@ -79,11 +79,18 @@ type DialogProps = {
   children?: ReactNode;
 };
 
+/**
+ * Whether app lock's cover is up. state/app-lock provides it; it lives here so this file needn't
+ * import the lock. A Modal is its own window above the lock, so a dialog hides while it's up.
+ */
+export const LockCoverContext = createContext(false);
+
 /** Material basic dialog. Only for decisions that must interrupt (delete, sign out). */
 export function Dialog({ visible, title, body, confirmLabel, cancelLabel = 'Cancel', destructive, confirmDisabled, confirmLoading, onConfirm, onCancel, children }: DialogProps) {
   const styles = useStyles();
+  const covered = use(LockCoverContext);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent navigationBarTranslucent>
+    <Modal visible={visible && !covered} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent navigationBarTranslucent>
       <View style={styles.scrim}>
         <View style={styles.dialog} accessibilityViewIsModal>
           <Text variant="title" accessibilityRole="header" style={{ fontSize: 22, lineHeight: 28 }}>

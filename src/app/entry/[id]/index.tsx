@@ -10,9 +10,10 @@ import { StateView } from '@/components/notice';
 import { ReflectionView } from '@/components/reflection-view';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { DateDialog } from '@/components/date-dialog';
 import { longDate } from '@/data/dates';
 import { TITLE_MAX, titleFrom } from '@/data/titles';
-import { useStore } from '@/state/demo-store';
+import { useDeleteWithUndo, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
@@ -23,10 +24,12 @@ export default function EntryDetail() {
   const { state, dispatch } = useStore();
   const { mode } = useSession();
   const snack = useSnackbar();
+  const deleteWithUndo = useDeleteWithUndo();
   const { color } = useTheme();
   const [confirmDelete, setConfirmDelete] = useState(false);
   // The title being edited, or null when the rename dialog is closed.
   const [rename, setRename] = useState<string | null>(null);
+  const [changeDate, setChangeDate] = useState(false);
   const entry = state.entries.find((e) => e.id === id);
 
   if (!entry) {
@@ -40,7 +43,7 @@ export default function EntryDetail() {
   const edit = () => {
     dispatch({
       type: 'draft',
-      patch: { text: entry.body, feelings: entry.feelings, gratitude: entry.gratitude ?? '', compassIds: entry.compassIds ?? [], editingId: entry.id, style: undefined },
+      patch: { text: entry.body, feelings: entry.feelings, gratitude: entry.gratitude ?? '', compassIds: entry.compassIds ?? [], date: entry.date, editingId: entry.id, style: undefined },
     });
     router.push(`/write?edit=${entry.id}`);
   };
@@ -58,7 +61,13 @@ export default function EntryDetail() {
           </>
         ),
       }}>
-      <Text variant="small">{longDate(entry.date)}</Text>
+      <Pressable
+        onPress={() => setChangeDate(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${longDate(entry.date)}. Change date`}
+        style={({ pressed }) => [styles.dateRow, pressed && styles.pressed]}>
+        <Text variant="small">{longDate(entry.date)} · Change</Text>
+      </Pressable>
       <Pressable
         onPress={() => setRename(entry.title)}
         accessibilityRole="button"
@@ -107,6 +116,16 @@ export default function EntryDetail() {
         />
       </Section>
 
+      <DateDialog
+        visible={changeDate}
+        value={entry.date}
+        onCancel={() => setChangeDate(false)}
+        onSave={(date) => {
+          dispatch({ type: 'updateEntry', id: entry.id, patch: { date } });
+          setChangeDate(false);
+        }}
+      />
+
       <Dialog
         visible={rename !== null}
         title="Rename entry"
@@ -123,15 +142,18 @@ export default function EntryDetail() {
       <Dialog
         visible={confirmDelete}
         title="Delete this entry?"
-        body="The entry, its reflection and any follow-up conversation will be removed. This can't be undone."
+        body="The entry, its reflection and any follow-up conversation will be removed."
         confirmLabel="Delete"
         destructive
         onCancel={() => setConfirmDelete(false)}
         onConfirm={() => {
           setConfirmDelete(false);
-          dispatch({ type: 'deleteEntry', id: entry.id });
+          const undo = deleteWithUndo(entry.id);
           router.back();
-          snack({ message: mode === 'cloud-sync' ? 'Entry deleted. It’s removed from your account at the next sync.' : 'Entry deleted from this device.' });
+          snack({
+            message: mode === 'cloud-sync' ? 'Entry deleted. It’s removed from your account at the next sync.' : 'Entry deleted from this device.',
+            action: { label: 'Undo', onPress: undo },
+          });
         }}
       />
     </Screen>
@@ -139,6 +161,7 @@ export default function EntryDetail() {
 }
 
 const useStyles = makeStyles((color) => ({
+  dateRow: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xs, marginTop: space.xxs, marginBottom: space.xxs },
   title: { flexShrink: 1 },
   titleIcon: { marginTop: 8 },

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -10,22 +10,15 @@ import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import type { DemoAi } from '@/data/types';
+import { appInfo, feedbackMailto, openPolicy, SUPPORT_EMAIL, versionLabel } from '@/services/app-info';
 import { onWeb } from '@/services/platform';
 import { consentSummary, useAiConsent } from '@/state/ai-consent';
-import { useSync, type SyncStatus } from '@/state/cloud-sync';
+import { useAppLock } from '@/state/app-lock';
+import { SYNC_TEXT, useSync } from '@/state/cloud-sync';
 import { useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { makeStyles, useTheme, type Appearance } from '@/theme/theme';
 import { space } from '@/theme/tokens';
-
-const SYNC_TEXT: Record<SyncStatus, string> = {
-  connecting: 'Connecting to your account…',
-  syncing: 'Backing up changes…',
-  synced: 'All changes are backed up to your account.',
-  offline: 'Offline. Changes are saved on this device and will back up when you’re online.',
-  error: 'Some changes haven’t backed up yet. They’re safe on this device.',
-  'signed-out': 'Your session ended. Sign in again to keep backing up; changes stay on this device.',
-};
 
 const APPEARANCES: { id: Appearance; label: string }[] = [
   { id: 'system', label: 'System' },
@@ -52,7 +45,25 @@ export default function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string>();
+  const [noMailApp, setNoMailApp] = useState(false);
+  const lock = useAppLock();
+  const [lockBusy, setLockBusy] = useState(false);
+  const [noScreenLock, setNoScreenLock] = useState(false);
   const { user, mode } = session;
+  const info = useMemo(() => appInfo(), []);
+
+  const contact = () => {
+    const mailto = feedbackMailto({ ...info, version: info.version ?? 'unknown' });
+    Linking.openURL(mailto).catch(() => setNoMailApp(true));
+  };
+
+  // The phone asks to confirm either way; the switch only moves once it has.
+  const toggleLock = async (on: boolean) => {
+    setLockBusy(true);
+    const result = await lock.setEnabled(on);
+    setLockBusy(false);
+    setNoScreenLock(result === 'no-screen-lock');
+  };
 
   const deleteAccount = async () => {
     if (!session.auth || deleting) return;
@@ -86,10 +97,22 @@ export default function Settings() {
             <>
               <NavRow icon="bell-outline" title="Gentle reminders" detail={state.reminders.enabled ? `On · ${state.reminders.time}` : 'Off'} onPress={() => router.push('/settings/reminders')} />
               <NavRow icon="widgets-outline" title="Home-screen widget" detail="Prompt or next step, never your entries" onPress={() => router.push('/widget')} />
+              <SwitchRow
+                title="App lock"
+                detail="Use your fingerprint, face or phone PIN to open Kindway. Kindway also stays hidden in recent apps and screenshots."
+                value={lock.enabled}
+                disabled={lockBusy}
+                onChange={(on) => void toggleLock(on)}
+              />
             </>
           )}
           <NavRow icon="lifebuoy" title="Extra support" detail="When you need more than a journal" onPress={() => router.push('/support')} />
         </Card>
+        {noScreenLock && (
+          <View style={styles.gap}>
+            <Notice title="App lock is off">Set up a screen lock in your phone’s settings first.</Notice>
+          </View>
+        )}
         {onWeb() && (
           <Text variant="small" style={styles.gapSm}>
             Gentle reminders aren’t available in the web app yet.
@@ -114,6 +137,12 @@ export default function Settings() {
         ) : (
           <>
             <Text variant="body">Signed in as {user?.email}</Text>
+            <View style={styles.gap}>
+              <Card flush>
+                <NavRow icon="email-edit-outline" title="Change email" detail={user?.email} onPress={() => router.push('/settings/email')} />
+                <NavRow icon="form-textbox-password" title="Change password" onPress={() => router.push('/settings/password')} />
+              </Card>
+            </View>
             {mode === 'signed-in-local' ? (
               <>
                 <Text variant="small" style={styles.gapSm}>Cloud sync is off on this device. Your journal here is local-only and isn’t backed up.</Text>
@@ -154,6 +183,17 @@ export default function Settings() {
         <Button variant="danger" label="Reset everything on this device" onPress={() => setConfirmReset(true)} style={styles.gap} />
       </Section>
 
+      <Section title="About">
+        <Text variant="small">{versionLabel(info)}</Text>
+        <View style={styles.gap}>
+          <Card flush>
+            <NavRow icon="shield-account-outline" title="Privacy policy" onPress={() => void openPolicy('privacy')} />
+            <NavRow icon="file-document-outline" title="Terms of use" onPress={() => void openPolicy('terms')} />
+            <NavRow icon="email-outline" title="Contact us" detail="Questions, problems or ideas" onPress={contact} />
+          </Card>
+        </View>
+      </Section>
+
       {/* Simulated backend conditions, for development only. */}
       {__DEV__ && (
         <Section title="Preview states">
@@ -170,6 +210,11 @@ export default function Settings() {
         </Section>
       )}
 
+      <Dialog visible={noMailApp} title="Write to us" body="There’s no email app on this device. You can write to this address instead:" confirmLabel="Done" cancelLabel="Close" onCancel={() => setNoMailApp(false)} onConfirm={() => setNoMailApp(false)}>
+        <Text variant="body" selectable>
+          {SUPPORT_EMAIL}
+        </Text>
+      </Dialog>
       <Dialog
         visible={confirmSignOut}
         title="Sign out?"

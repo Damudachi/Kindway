@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Kindway privacy policy</title>
+<link rel="stylesheet" href="/legal.css">
+<!-- Not legal advice. Plain-language draft for the beta; have it reviewed before a public store release. -->
+</head>
+<body>
+<main>
+<h1>Kindway privacy policy</h1>
+<p class="meta">Last updated: 30 October 2026</p>
+
+<p class="note">Kindway is a beta, tested by two people for now. This page says what the app does with your writing. It is written to be read, and it is not a promise of production-grade security.</p>
+
+<h2>Who this is from</h2>
+<p>Kindway (“we”) runs the app. Questions, requests and complaints go to <a href="mailto:aldrichgavriels@gmail.com">aldrichgavriels@gmail.com</a>.</p>
+
+<h2>What is stored, and where</h2>
+<table>
+<thead><tr><th>Where</th><th>What</th></tr></thead>
+<tbody>
+<tr><td>Your device</td><td>Your journal, drafts, reminders and sign-in session. On Android this is the app’s storage; on the web app it is your browser’s storage.</td></tr>
+<tr><td>Supabase (our database host)</td><td>Once you create an account: your email address and password. The password is handled by Supabase’s sign-in service and stored hashed; Kindway doesn’t store it. Only if you also turn cloud backup on: your entries, compass areas, small step, preferences, feedback on insights, consent records, and any AI replies and reviews. When you ask for AI: a record of the request (your account, the type of request, a request id, when it started and finished, whether it worked, and an error code such as “timeout” if it failed), never its text. It is used to apply limits, such as a short wait between requests and a daily cap.</td></tr>
+<tr><td>Groq (AI provider, United States)</td><td>Only the text needed for a request you start yourself, and only if you allowed that kind of request. See “When AI sees your writing”.</td></tr>
+<tr><td>Cloudflare Pages</td><td>The web app’s own files. No journal data.</td></tr>
+</tbody>
+</table>
+<p>Without an account, your journal stays on your device. Nothing is backed up or synced unless you sign in and choose to turn cloud backup on.</p>
+<p>Simulated reflections and replies, saved memory, reminders and drafts are never uploaded.</p>
+
+<h2>Why we keep it</h2>
+<p>To run the journal you use: to show your entries back to you, to back them up and sync them if you ask, and to write AI reflections only when you ask for them. We do not sell your data and we do not use it for advertising.</p>
+
+<h2>How long we keep it</h2>
+<ul>
+<li>On your device: until you delete it, reset the journal, or remove the app (or clear the site’s data in your browser).</li>
+<li>In the cloud: until you delete the entry, or delete your account. Deleting your account removes your user and everything you own in the database.</li>
+<li>AI replies and reviews: kept on your account until you delete them, delete the entries they came from, or delete your account. Withdrawing consent does not delete them; “Delete AI outputs” does.</li>
+<li>Backups: the database host keeps its own routine backups under its plan. Kindway adds none, and we do not control how long the host holds them.</li>
+</ul>
+
+<h2>Who can access it</h2>
+<ul>
+<li>You. Each account can read and change only its own rows; the server enforces this, not the app.</li>
+<li>Anyone who can unlock and look inside your device. Kindway does not encrypt your journal on the device beyond what Android or your browser provides.</li>
+<li>Kindway’s administrators. Cloud data is encrypted in transit and at rest by the host, but it is not end-to-end encrypted, so administrators of the database could technically read it.</li>
+</ul>
+
+<h2>When AI sees your writing</h2>
+<p>Only when you ask, and only if you allowed it. There are three separate choices: reflections on an entry, follow-up conversations, and reviews across entries. Each one needs an account with cloud backup on, and you can withdraw any of them at any time. Our server checks your choice before every request.</p>
+<ul>
+<li>A reflection sends one entry, its feeling tags and your “one good thing”, your support settings, and notes on compass areas you marked for AI.</li>
+<li>A follow-up sends your message, that entry, its reflection and up to the last 3 replies of that conversation.</li>
+<li>A review sends the entries in the period you choose.</li>
+<li>Never sent: your email address, your account details, or entries you kept out of analysis.</li>
+</ul>
+<p>The AI runs on GroqCloud, run by Groq, Inc. in the United States. Groq says it does not keep what is sent or generated. Zero Data Retention is turned on in Kindway’s Groq account (set by the owner; nobody else has verified it), so Groq does not log inputs or outputs for reliability or abuse checks either. Groq collects usage metadata such as request counts and timing, which it says does not include content. Kindway uses only Groq’s ordinary inference service, not features that store files or train models.</p>
+<p>Without consent, nothing goes to AI. Replies are written by a model, can be wrong, and are not a substitute for a person.</p>
+
+<h2>Your rights</h2>
+<p>Under the Philippine Data Privacy Act you have the right to be informed, to access your data, to correct it, to object to how it is used, and to have it erased. In the app:</p>
+<ul>
+<li><strong>Access and export:</strong> Settings, Privacy &amp; data, Export my journal, gives you a text copy of your entries. The export is made on your device and is not uploaded.</li>
+<li><strong>Correction:</strong> edit any entry in the app.</li>
+<li><strong>Deletion:</strong> delete a single entry from its page; delete AI replies with “Delete AI outputs”; reset the journal; or delete your account and all its cloud data from Settings.</li>
+<li><strong>Objection and withdrawing consent:</strong> turn off any AI choice in AI processing, or turn off cloud backup.</li>
+</ul>
+<p>If you cannot do something in the app, email <a href="mailto:aldrichgavriels@gmail.com">aldrichgavriels@gmail.com</a> and we will help. If you are unhappy with our answer, you may also complain to the National Privacy Commission of the Philippines.</p>
+
+<h2>Changes</h2>
+<p>If the way Kindway handles your data changes, we will update this page and its date. If what AI receives changes, the app asks for your agreement again.</p>
+
+<footer>
+<p><a href="/terms.html">Terms of use</a></p>
+</footer>
+</main>
+</body>
+</html>

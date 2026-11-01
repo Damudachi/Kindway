@@ -118,6 +118,8 @@ export type Draft = {
   style?: SupportStyle;
   /** Optional compass values this entry connects to. */
   compassIds: string[];
+  /** The day this entry is dated, when it isn't today. */
+  date?: string;
   /** When set, the composer edits this entry instead of creating one. */
   editingId?: string;
 };

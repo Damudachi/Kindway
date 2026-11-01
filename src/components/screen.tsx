@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { useEffect, useState, type ReactNode, type Ref } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, View, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HeldLight } from '@/components/brand';
 import { IconButton } from '@/components/button';
 import { Text } from '@/components/text';
+import { onWeb } from '@/services/platform';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
@@ -115,16 +116,55 @@ type ScreenProps = {
   scrollRef?: Ref<ScrollViewInstance>;
   /** Drawn behind everything, from the very top of the screen (status bar included); stays put while content scrolls. */
   backdrop?: ReactNode;
+  /** Pull down to refresh. Not on the web, where react-native-web has no pull to refresh. */
+  onRefresh?: () => Promise<void>;
 };
 
-export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef, backdrop }: ScreenProps) {
+/** The spinner never stays longer than this, even if a refresh is still going. */
+const REFRESH_CAP_MS = 10_000;
+
+/** Pull-to-refresh state: on while `onRefresh` runs, off when it settles or after the cap. */
+function useRefreshing(onRefresh: (() => Promise<void>) | undefined) {
+  const [refreshing, setRefreshing] = useState(false);
+  const alive = useRef(true);
+  const cap = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      clearTimeout(cap.current);
+    };
+  }, []);
+  const start = useCallback(() => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    clearTimeout(cap.current);
+    const capped = new Promise<void>((resolve) => (cap.current = setTimeout(resolve, REFRESH_CAP_MS)));
+    const timer = cap.current;
+    void Promise.race([onRefresh().catch(() => {}), capped]).then(() => {
+      clearTimeout(timer);
+      if (alive.current) setRefreshing(false);
+    });
+  }, [onRefresh]);
+  return { refreshing, start };
+}
+
+export function Screen({ children, top, footer, scroll = true, contentStyle, inTabs, scrollRef, backdrop, onRefresh }: ScreenProps) {
   const styles = useStyles();
+  const { color } = useTheme();
   const insets = useSafeAreaInsets();
   const bottom = useBottomInset(inTabs ? 0 : insets.bottom);
+  const pull = onRefresh && !onWeb() ? onRefresh : undefined;
+  const { refreshing, start } = useRefreshing(pull);
   const body = scroll ? (
     <ScrollView
       ref={scrollRef}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        pull ? (
+          <RefreshControl refreshing={refreshing} onRefresh={start} tintColor={color.trail} colors={[color.trail]} progressBackgroundColor={color.raised} />
+        ) : undefined
+      }
       contentContainerStyle={[styles.content, { paddingBottom: footer ? space.lg : space.xxl + bottom }, contentStyle]}>
       {children}
     </ScrollView>

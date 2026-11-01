@@ -127,6 +127,30 @@ describe('confirm email screen', () => {
     expect(screen.queryByText('Couldn’t confirm here')).toBeNull();
   });
 
+  it('an exchange that rejects ends in the failure view, not an endless Confirming', async () => {
+    const auth = { exchangeCode: jest.fn(async () => Promise.reject(new Error('boom'))) } as unknown as AuthService;
+    await openLink(`/auth/confirm?code=${CODE}`, auth);
+    expect(await screen.findByText('Couldn’t confirm here', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('Confirming…')).toBeNull();
+  });
+
+  it('first email-change link says to open the other one', async () => {
+    const auth = fakeAuth(true);
+    await openLink('/auth/confirm?message=Confirmation+link+accepted.+Please+proceed+to+confirm+link+sent+to+the+other+email', auth, A);
+    expect(await screen.findByText('One link done', {}, wait)).toBeOnTheScreen();
+    // The title already says one is done; the body doesn't repeat it.
+    expect(screen.getByText('Now open the link we sent to your other email address.')).toBeOnTheScreen();
+    expect(screen.queryByText('Confirming…')).toBeNull();
+    expect(auth.exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it('the second email-change link, opened while signed in, says the email is confirmed', async () => {
+    const auth = fakeAuth(true);
+    await openLink(`/auth/confirm?code=${CODE}`, auth, A);
+    expect(await screen.findByText('Email confirmed', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText('Your email address is confirmed.')).toBeOnTheScreen();
+  });
+
   it('without accounts configured it explains instead of showing a blank screen', async () => {
     await openLink(`/auth/confirm?code=${CODE}`, null);
     expect(await screen.findByText(/Accounts aren’t available/, {}, wait)).toBeOnTheScreen();

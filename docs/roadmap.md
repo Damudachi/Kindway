@@ -9,6 +9,7 @@ Hardening comes before new native features, so widgets and notifications don't l
 | **6: Stabilise and verify** (current) | Email-link landing page (`web/auth-link`); clearer reflection screen; backlog retest on a phone; UI upgrade (night scheme, colour, drawn elements, motion; done 2026-10-25); move phone testing from Expo Go to an installed EAS preview build (`eas build --profile preview`, Android APK with over-the-air updates) | Every backlog item below is marked pass, fixed or deferred; the phone runs the installed preview build; a confirmation link opens the app directly |
 | **6B: Kindway for iPhone on the web** (added 2026-10-27) | An installable web app (PWA) on Cloudflare Pages, published automatically from GitHub: home-screen install, offline launch, sign-in links that return to the site, "Android" copy made neutral, the widget hidden. Reminders come in Phase 8. No Apple Developer account, so no native iOS build | A friend's iPhone can install it from Safari, sign in, write, sync, and use AI reflections; it opens offline with saved entries |
 | **7: Beta hardening** | On Android and the web app: close the per-user AI-output provenance limitation; security and privacy review; live Groq evaluation (needs approval: it uses provider quota); offline recovery; accessibility (large text, TalkBack, reduced motion); check Groq retention, quota and consent wording | A review document with no open high-severity findings; evaluation tables in `docs/ai-evaluation.md` filled in; accessibility checklist passed |
+| **7B: Everyday basics** (added 2026-10-30) | What people expect from any app with an account and any journal app: show/hide password, change password and email, resend the confirmation email, app lock (Android), export my journal, About and Contact us, pull down to refresh, undo a delete, change an entry's date, and no demo leftovers. Version 1.3.0, a new runtime | All 12 items are built and tested; the owner's checks on the A37, real email addresses and an iPhone pass; the owner approves the privacy policy and terms |
 | **8: Native capabilities** | Web reminders for the iPhone web app (Web Push sent by Supabase on a schedule; stores only the reminder time). Voice transcription (starts with a feasibility spike). Reminders and the home-screen widget moved up into Phase 6 on 2026-10-25, before the month-long test | Each feature works on the development build and has its own phone test, or is dropped after its spike with the reason written down |
 | **9: Closed beta, then release** | Preview and production EAS builds, internal testing track, privacy policy and store listing, support and incident process, retention and deletion policy | Testers use it for at least 2 weeks with no data-loss or privacy bugs; the release checklist is complete |
 
@@ -71,3 +72,25 @@ Design: `docs/superpowers/specs/2026-10-28-phase-7-hardening-design.md`. Plan: `
 - [x] The 6B review's small issues fixed
 - [ ] Owner: TalkBack read-through on the A37; VoiceOver and Safari text size on the iPhone (`docs/accessibility.md`)
 - [ ] Owner: dial or text one NCMH number to confirm it reaches the hotline
+
+## Phase 7B checklist: everyday basics
+
+Design: `docs/superpowers/specs/2026-10-30-everyday-basics-design.md`. Plan: `docs/superpowers/plans/2026-10-30-everyday-basics.md`. Built and reviewed 2026-10-31.
+
+- [x] Show/hide password on every password field (`screens.test.tsx`, `a11y.test.tsx`)
+- [x] Change password in Settings, checking the current password first (`account-settings.test.tsx`)
+- [x] Resend the confirmation email, with a 60-second wait that starts with the sign-up email itself (`device-followup.test.tsx`)
+- [x] Change email, with links to both addresses and honest wording for the first link (`account-settings.test.tsx`, `smoke-fixes.test.tsx`, `auth-redirect.test.ts`)
+- [x] App lock on Android: fingerprint, face or the phone's PIN; blank in recent apps; a plain cover with no "locked" words while the setting loads (`app-lock.test.tsx`)
+- [x] Export my journal as a Markdown file, made on the device (`export.test.ts`, `screens.test.tsx`)
+- [x] About: version and update, privacy policy and terms of use (`app-info.test.ts`, `screens.test.tsx`, `web-shell.test.ts`)
+- [x] Contact us: an email with the app version and no journal text; on the web, no update line (`app-info.test.ts`, `screens.test.tsx`)
+- [x] Pull down to refresh on Journal and Today, saying so when it couldn't reach the account (`screens.test.tsx`, `cloud-refresh.test.tsx`)
+- [x] Undo after deleting an entry (`screens.test.tsx`)
+- [x] Change an entry's date, on the entry page and in the composer (`screens.test.tsx`, `dates.test.ts`)
+- [x] Demo leftovers removed: the Journal's loading placeholder and sample notice, and the old pre-release wording on Privacy & data (`screens.test.tsx`)
+- [ ] Owner, on the A37 with build 1.3.0: app lock on and off; no "Kindway is locked" flash on a cold start with the lock off; the lock after 1 minute away; blank in recent apps; unlock with the PIN fallback; the PIN screen doesn't lock again; the lost-screen-lock message; export to Drive (including more than 1 minute in Drive, which locks again but still saves the file); pull to refresh; change a date; undo a delete
+- [ ] Owner, with real email addresses: change email end to end (both links, and the second link's wording on a cold start); resend the confirmation email
+- [ ] Owner, on an iPhone web app: export (Safari's share sheet), change password, the policy links, and the show-password toggle keeping the keyboard open
+- [ ] Owner: read and approve `public/privacy.html` and `public/terms.html` before pushing, including "we do not sell", the National Privacy Commission complaint line, the Data Privacy Act rights list and "tested by two people"
+- [ ] Any further over-the-air update for 1.2.1 users must come from the pre-7B tree, because this phase's runtime is 1.3.0

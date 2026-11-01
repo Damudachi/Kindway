@@ -84,7 +84,7 @@ describe('sign-in errors keep a safe reference', () => {
   });
 
   it('signing in again restarts a sync that had stopped with “session ended”', async () => {
-    const sync: SyncInfo = { status: 'signed-out', pending: 0, retry: jest.fn(), ensureSynced: jest.fn() };
+    const sync: SyncInfo = { status: 'signed-out', pending: 0, retry: jest.fn(), refresh: async () => {}, ensureSynced: jest.fn() };
     await openAccount(fakeAuth(async () => ({ ok: true })), sync, A);
     await signIn('A@example.test');
     expect(await screen.findByText('Sync screen', {}, wait)).toBeOnTheScreen();
@@ -92,11 +92,76 @@ describe('sign-in errors keep a safe reference', () => {
   });
 
   it('signing in as another account leaves the old account’s sync alone', async () => {
-    const sync: SyncInfo = { status: 'signed-out', pending: 0, retry: jest.fn(), ensureSynced: jest.fn() };
+    const sync: SyncInfo = { status: 'signed-out', pending: 0, retry: jest.fn(), refresh: async () => {}, ensureSynced: jest.fn() };
     await openAccount(fakeAuth(async () => ({ ok: true })), sync, A);
     await signIn('b@example.test');
     expect(await screen.findByText('Sync screen', {}, wait)).toBeOnTheScreen();
     expect(sync.retry).not.toHaveBeenCalled();
+  });
+});
+
+describe('the confirmation screen can resend the email', () => {
+  const sentScreen = async (resendConfirmation: jest.Mock) => {
+    const auth = { signUp: jest.fn(async () => ({ ok: true, needsConfirmation: true })), resendConfirmation } as unknown as AuthService;
+    await renderRouter(
+      {
+        _layout: () => <Stack />,
+        account: () => (
+          <SessionProvider auth={auth} repo={null} watchUser={(on) => (on(null), () => {})} settings={memoryStorage()}>
+            <DemoStoreProvider initial={{ ...initialState, onboarded: true }}>
+              <SnackbarProvider>
+                <Account />
+              </SnackbarProvider>
+            </DemoStoreProvider>
+          </SessionProvider>
+        ),
+      },
+      { initialUrl: '/account' },
+    );
+    await fireEvent.changeText(await screen.findByLabelText('Email address', {}, wait), 'new@example.test');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'fictional-password');
+    await fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
+    return screen.findByRole('button', { name: 'Send again in 60s' }, wait);
+  };
+
+  /** Lets the 60-second wait run out (renderRouter has put Jest's fake clock in place). */
+  const waitOut = async () => {
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    return screen.findByRole('button', { name: 'Send the email again' }, wait);
+  };
+
+  afterEach(() => jest.useRealTimers());
+
+  it('the sign-up email itself starts the 60-second wait', async () => {
+    const resendConfirmation = jest.fn(async () => ({ ok: true }));
+    const waiting = await sentScreen(resendConfirmation);
+    expect(waiting).toBeDisabled();
+    await fireEvent.press(waiting);
+    expect(resendConfirmation).not.toHaveBeenCalled();
+    expect(await waitOut()).toBeEnabled();
+  });
+
+  it('confirmation screen can resend, then waits 60 seconds', async () => {
+    const resendConfirmation = jest.fn(async () => ({ ok: true }));
+    await sentScreen(resendConfirmation);
+    const button = await waitOut();
+    await fireEvent.press(button);
+    expect(resendConfirmation).toHaveBeenCalledWith('new@example.test');
+    const waiting = await screen.findByRole('button', { name: 'Send again in 60s' }, wait);
+    expect(waiting).toBeDisabled();
+    await act(async () => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(await screen.findByRole('button', { name: 'Send the email again' }, wait)).toBeEnabled();
+  });
+
+  it('resend that hits the email limit says so', async () => {
+    const message = 'Too many attempts for now. Wait a few minutes and try again.';
+    await sentScreen(jest.fn(async () => ({ ok: false, message })));
+    await fireEvent.press(await waitOut());
+    expect(await screen.findByText(message, {}, wait)).toBeOnTheScreen();
   });
 });
 
@@ -136,7 +201,7 @@ describe('cloud reads report what actually failed', () => {
 
 // Onboarding and accounts --------------------------------------------------------------------
 
-const syncInfo = (o: Partial<SyncInfo> = {}): SyncInfo => ({ status: 'synced', pending: 0, retry: jest.fn(), ensureSynced: jest.fn(), loaded: true, ...o });
+const syncInfo = (o: Partial<SyncInfo> = {}): SyncInfo => ({ status: 'synced', pending: 0, retry: jest.fn(), refresh: async () => {}, ensureSynced: jest.fn(), loaded: true, ...o });
 
 /** Receives the journal's state on every render, so tests can check what was saved. */
 const onState = jest.fn<void, [DemoState]>();

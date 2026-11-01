@@ -1,15 +1,16 @@
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Field } from '@/components/controls';
-import { Notice, StateView } from '@/components/notice';
+import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { Feelings, Trail, TrailStop } from '@/components/trail';
 import { relativeDay } from '@/data/dates';
+import { usePullToRefresh } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
@@ -18,31 +19,27 @@ export default function Journal() {
   const styles = useStyles();
   const { tint } = useTheme();
   const { state } = useStore();
+  const refresh = usePullToRefresh();
   const entries = useEntries();
   const [query, setQuery] = useState('');
   const [feeling, setFeeling] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Brief simulated load so the loading state is reviewable.
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
 
   const feelings = useMemo(() => [...new Set(entries.flatMap((e) => e.feelings))], [entries]);
   const q = query.trim().toLowerCase();
   const shown = entries.filter(
     (e) => (!feeling || e.feelings.includes(feeling)) && (!q || `${e.title} ${e.body} ${e.gratitude ?? ''}`.toLowerCase().includes(q)),
   );
-  const hasSample = entries.some((e) => e.sample);
 
   return (
-    <Screen inTabs top={{ title: 'Journal', actions: <IconButton icon="plus" label="New entry" onPress={() => router.push('/write')} /> }}>
+    <Screen
+      inTabs
+      onRefresh={refresh}
+      top={{ title: 'Journal', actions: <IconButton icon="plus" label="New entry" onPress={() => router.push('/write')} /> }}>
       <Text variant="headline" accessibilityRole="header">
         Look back with kindness.
       </Text>
 
-      {entries.length === 0 && !loading ? (
+      {entries.length === 0 ? (
         <StateView
           art="trailhead"
           title="Nothing here yet"
@@ -63,13 +60,7 @@ export default function Journal() {
             </ChipRow>
           )}
 
-          {loading ? (
-            <View style={styles.skeletons} accessibilityLabel="Loading entries" accessibilityLiveRegion="polite">
-              {[0, 1, 2].map((i) => (
-                <View key={i} style={styles.skeleton} />
-              ))}
-            </View>
-          ) : shown.length === 0 ? (
+          {shown.length === 0 ? (
             <StateView
               title="No entries match"
               body={q ? `Nothing found for “${query.trim()}”. Try another word or clear the filter.` : 'No entries with this feeling yet.'}
@@ -107,11 +98,6 @@ export default function Journal() {
             </View>
           )}
 
-          {hasSample && (
-            <Notice tone="demo" title="Sample entries">
-              These entries are fictional examples. They exist only in this demo session.
-            </Notice>
-          )}
           <Button variant="tonal" label="Explore recurring patterns" trailingIcon="arrow-right" onPress={() => router.navigate('/patterns')} />
         </>
       )}
@@ -120,9 +106,7 @@ export default function Journal() {
   );
 }
 
-const useStyles = makeStyles((color) => ({
+const useStyles = makeStyles(() => ({
   search: { marginTop: space.md },
   list: { marginTop: space.md, marginBottom: space.lg },
-  skeletons: { gap: space.sm, marginVertical: space.lg },
-  skeleton: { height: 64, borderRadius: 12, backgroundColor: color.sunk },
 }));

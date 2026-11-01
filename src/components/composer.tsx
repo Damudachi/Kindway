@@ -1,16 +1,18 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { TextInput, View, type TextInputInstance } from 'react-native';
+import { Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Field } from '@/components/controls';
+import { DateDialog } from '@/components/date-dialog';
 import { Dialog } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { daysAgo, nowIso, relativeDay } from '@/data/dates';
 import { FEELINGS, PROMPTS, STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import { useReflectionMode, useSaveDraft } from '@/state/actions';
 import { useStore } from '@/state/demo-store';
@@ -36,12 +38,26 @@ export function Composer({ first, onSaved, onSkip }: Props) {
   const [typing, setTyping] = useState(false);
   const [showGratitude, setShowGratitude] = useState(draft.gratitude.length > 0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [changeDate, setChangeDate] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Guards against a double tap saving the same entry twice.
   const saving = useRef(false);
   const reduce = useReducedMotion();
 
   useEffect(() => () => clearTimeout(typingTimer.current), []);
+
+  // A day chosen on an empty page belongs to nothing yet; left behind, it would date an entry written days later.
+  const latest = useRef(draft);
+  useEffect(() => {
+    latest.current = draft;
+  }, [draft]);
+  useEffect(
+    () => () => {
+      const left = latest.current;
+      if (left.date !== undefined && !left.editingId && !left.text.trim()) dispatch({ type: 'draft', patch: { date: undefined } });
+    },
+    [dispatch],
+  );
 
   // While the user types, everything but the page recedes.
   const chrome = useSharedValue(1);
@@ -73,6 +89,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
   const empty = draft.text.trim().length === 0;
   const editing = !!draft.editingId;
   const canReflect = mode !== 'off' && !editing;
+  const dayLabel = relativeDay(draft.date ?? nowIso());
   const style = draft.style ?? state.supportStyle;
 
   const toggleCompass = (id: string) =>
@@ -123,6 +140,13 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         </Text>
       </Animated.View>
 
+      <Pressable
+        onPress={() => setChangeDate(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`Date: ${dayLabel}. Change date`}
+        style={({ pressed }) => [styles.dateRow, pressed && styles.pressed]}>
+        <Text variant="labelSmall">{dayLabel} · Change</Text>
+      </Pressable>
       <View style={styles.page}>
         <TextInput
           ref={input}
@@ -221,6 +245,17 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         )}
       </Animated.View>
 
+      <DateDialog
+        visible={changeDate}
+        value={draft.date ?? nowIso()}
+        onCancel={() => setChangeDate(false)}
+        onSave={(date) => {
+          // A new entry dated today keeps no date of its own; it's dated when it's saved. An edit keeps the one chosen.
+          dispatch({ type: 'draft', patch: { date: !editing && daysAgo(date) === 0 ? undefined : date } });
+          setChangeDate(false);
+        }}
+      />
+
       <Dialog
         visible={confirmDiscard}
         title={editing ? 'Discard your changes?' : 'Discard this draft?'}
@@ -240,6 +275,8 @@ export function Composer({ first, onSaved, onSkip }: Props) {
 
 const useStyles = makeStyles((color, type) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
+  dateRow: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start', marginBottom: space.xxs },
+  pressed: { opacity: 0.6 },
   page: {
     minHeight: 220,
     backgroundColor: color.raised,

@@ -92,20 +92,26 @@ const variants = (color: Palette): Record<Variant, { bg: string; fg: string; bor
   dangerText: { bg: 'transparent', fg: color.danger, border: 'transparent', ripple: alpha(color.danger, 0.12) },
 });
 
-type IconButtonProps = { icon: IconName; label: string; onPress?: () => void; tint?: string };
+type IconButtonProps = { icon: IconName; label: string; onPress?: () => void; tint?: string; selected?: boolean; keepFocus?: boolean; disabled?: boolean };
 
-/** 48dp icon button, Material standard. */
-export function IconButton({ icon, label, onPress, tint }: IconButtonProps) {
+// react-native-web forwards onMouseDown to the DOM; the native types don't know it.
+const webKeepFocus = { onMouseDown: (e: { preventDefault: () => void }) => e.preventDefault() } as object;
+
+/** 48dp icon button, Material standard. `selected` marks a toggle; `keepFocus` stops a click taking focus off a text field (web). */
+export function IconButton({ icon, label, onPress, tint, selected, keepFocus, disabled }: IconButtonProps) {
   const styles = useStyles();
   const { color } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={selected === undefined && !disabled ? undefined : { selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
+      {...(keepFocus ? webKeepFocus : null)}
       hitSlop={4}
       android_ripple={{ color: alpha(color.ink, 0.1), borderless: true, radius: 24 }}
-      style={styles.icon}>
+      style={[styles.icon, disabled && styles.iconOff]}>
       <MaterialCommunityIcons name={icon} size={24} color={tint ?? color.inkMuted} />
     </Pressable>
   );
@@ -136,5 +142,6 @@ const useStyles = makeStyles(() => ({
   labelStart: { textAlign: 'left' },
   spread: { justifyContent: 'space-between' },
   lead: { flexShrink: 1 },
+  iconOff: { opacity: 0.38 },
   icon: { width: touch, height: touch, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
 }));

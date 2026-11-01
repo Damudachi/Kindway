@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type TextInputInstance } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Field } from '@/components/controls';
+import { useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { OnboardingProgress } from '@/components/onboarding-progress';
 import { Screen } from '@/components/screen';
@@ -17,6 +18,7 @@ import { makeStyles } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESEND_WAIT_MS = 60_000;
 
 type Mode = 'signup' | 'signin' | 'forgot';
 
@@ -41,12 +43,48 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<'confirm' | 'reset' | null>(null);
   const passwordRef = useRef<TextInputInstance>(null);
+  const snack = useSnackbar();
+  // When "Send the email again" may be used next; the clock only ticks while that is in the future.
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [resendNotice, setResendNotice] = useState<string>();
+  const resending = useRef(false);
   const signup = mode === 'signup';
   const forgot = mode === 'forgot';
+
+  useEffect(() => {
+    if (resendAt <= Date.now()) return;
+    const tick = setInterval(() => {
+      setNow(Date.now());
+      if (Date.now() >= resendAt) clearInterval(tick);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [resendAt]);
+
+  const resend = async () => {
+    if (resending.current || !auth || Date.now() < resendAt) return;
+    resending.current = true;
+    setResendNotice(undefined);
+    try {
+      const result = await auth.resendConfirmation(email.trim());
+      if (result.ok) snack({ message: 'Sent again.' });
+      else setResendNotice(result.message);
+    } catch {
+      setResendNotice('Something went wrong. Try again in a moment.');
+    } finally {
+      resending.current = false;
+      // Wait after every try, so a failure can't be retried in a tight loop.
+      const t = Date.now();
+      setNow(t);
+      setResendAt(t + RESEND_WAIT_MS);
+    }
+  };
 
   const switchTo = (next: Mode) => {
     setErrors({});
     setSent(null);
+    setResendAt(0);
+    setResendNotice(undefined);
     setMode(next);
   };
 
@@ -79,6 +117,10 @@ export default function Account() {
       }
       setPassword('');
       if ('needsConfirmation' in result) {
+        // The sign-up email was just sent, so "Send the email again" waits too.
+        const t = Date.now();
+        setNow(t);
+        setResendAt(t + RESEND_WAIT_MS);
         setSent('confirm');
         return;
       }
@@ -115,6 +157,18 @@ export default function Account() {
             : `If an account exists for ${email.trim()}, we sent a link to choose a new password. Open it on this phone.`}
         </Text>
         <Notice>The link can take a minute to arrive. Check spam if you don’t see it.</Notice>
+        {sent === 'confirm' && (
+          <>
+            {resendNotice && <Notice tone="warn">{resendNotice}</Notice>}
+            <Button
+              variant="text"
+              style={styles.center}
+              label={resendAt > now ? `Send again in ${Math.ceil((resendAt - now) / 1000)}s` : 'Send the email again'}
+              disabled={resendAt > now}
+              onPress={() => void resend()}
+            />
+          </>
+        )}
         {__DEV__ && sent === 'confirm' && (
           // Development only: a fresh email's redirect_to matches this; an old one won't.
           <Text variant="small" style={styles.lede}>

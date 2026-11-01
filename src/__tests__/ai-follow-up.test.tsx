@@ -49,7 +49,7 @@ function journal(chat: ChatMessage[] = [], patch: Partial<Entry> = {}): DemoStat
 }
 
 async function open(state: DemoState, real: Partial<RealAi>, synced = true) {
-  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => synced) };
+  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, refresh: async () => {}, ensureSynced: jest.fn(async () => synced) };
   const value: RealAi = { reflections: false, insights: false, followUps: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
   function Wrapped() {
     return (
@@ -79,7 +79,7 @@ describe('follow-up conversation without follow-up consent', () => {
   async function openAsking(grantResult = true, chat: ChatMessage[] = []) {
     const invoke = respond(200, followUp());
     const grant = jest.fn(async (_scope: AiScope) => grantResult);
-    const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => true) };
+    const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, refresh: async () => {}, ensureSynced: jest.fn(async () => true) };
     function Wrapped() {
       const [allowed, setAllowed] = useState(false);
       const consent: AiConsentInfo = {

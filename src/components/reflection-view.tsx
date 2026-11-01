@@ -16,7 +16,7 @@ import { STYLE_LABEL } from '@/data/sample';
 import type { Entry, ReflectionFeedback } from '@/data/types';
 import { perspectiveCount } from '@/services/ai/mock-reflection';
 import { useAnotherPerspective, useReflectionMode, useRequestReflection } from '@/state/actions';
-import { useStore } from '@/state/demo-store';
+import { useEntries, useStore } from '@/state/demo-store';
 import { useRealAi } from '@/state/real-ai';
 import { fitStep } from '@/state/tomorrow';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -55,6 +55,8 @@ export function ReflectionView({ entry, onRest }: Props) {
   const styles = useStyles();
   const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
+  // Leaves out entries waiting to be deleted.
+  const entries = useEntries();
   const request = useRequestReflection();
   const another = useAnotherPerspective();
   const snack = useSnackbar();
@@ -127,7 +129,7 @@ export function ReflectionView({ entry, onRest }: Props) {
   const edited = r.basedOn !== entry.body;
   // Interpretations stay in pencil until the user says they fit.
   const inked = r.feedback === 'fits';
-  const related = (r.related ?? []).map((id) => state.entries.find((e) => e.id === id)).filter((e) => !!e);
+  const related = (r.related ?? []).map((id) => entries.find((e) => e.id === id)).filter((e) => !!e);
   const used = ['this entry', r.longGame && 'one compass value you linked', related.length > 0 && `${related.length} earlier ${related.length === 1 ? 'entry' : 'entries'}`].filter(Boolean);
   const listening = r.style === 'listen';
   // A real AI reflection can be asked for again (a new request); simulated ones cycle pre-written text.

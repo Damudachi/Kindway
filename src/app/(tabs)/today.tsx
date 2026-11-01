@@ -16,7 +16,7 @@ import { Feelings, Trail, TrailStop } from '@/components/trail';
 import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
-import { useSync } from '@/state/cloud-sync';
+import { usePullToRefresh, useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
@@ -31,6 +31,7 @@ export default function Today() {
   const snack = useSnackbar();
   const { mode } = useSession();
   const sync = useSync();
+  const refresh = usePullToRefresh();
   const [backupLater, setBackupLater] = useState(false);
   const [signInLater, setSignInLater] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -68,7 +69,10 @@ export default function Today() {
   };
 
   return (
-    <Screen inTabs top={{ wordmark: true, actions: <IconButton icon="cog-outline" label="Settings" onPress={() => router.push('/settings')} /> }}
+    <Screen
+      inTabs
+      onRefresh={refresh}
+      top={{ wordmark: true, actions: <IconButton icon="cog-outline" label="Settings" onPress={() => router.push('/settings')} /> }}
       backdrop={<EveningGlow />}>
       <UpdateNotice />
       {saveFailed && (

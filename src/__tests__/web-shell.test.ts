@@ -159,3 +159,23 @@ describe('security headers on Cloudflare Pages', () => {
     expect(headers.split(/\r?\n/)[0].trim()).toBe('/*');
   });
 });
+
+describe('policy pages', () => {
+  const page = (f: string) => read(`public/${f}`);
+  it.each(['privacy.html', 'terms.html'])('%s is a complete page with no script and the contact address', (f) => {
+    const html = page(f);
+    expect(html).toMatch(/^<!doctype html>/i);
+    expect(html).toContain('<meta name="viewport"');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).toContain('aldrichgavriels@gmail.com');
+    expect(html).toContain('href="/legal.css"');
+    expect(html).toMatch(/Last updated: \d{1,2} \w+ 2026/);
+  });
+  it('the privacy policy names what is stored, where, and the person’s rights', () => {
+    const html = page('privacy.html');
+    for (const s of ['Supabase', 'Groq', 'Zero Data Retention', 'Data Privacy Act', 'export', 'delete']) expect(html).toContain(s);
+  });
+  it('the terms say Kindway is not a therapy or crisis service', () => {
+    expect(page('terms.html')).toMatch(/not a (therapy|crisis)/i);
+  });
+});

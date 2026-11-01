@@ -116,7 +116,7 @@ function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflect
 }
 
 async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true, consent?: AiConsentInfo) {
-  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, ensureSynced: jest.fn(async () => synced) };
+  const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, refresh: async () => {}, ensureSynced: jest.fn(async () => synced) };
   const value: RealAi = { reflections: false, insights: false, followUps: false, needs: null, account: 'user-a', invoke: null, outputs: fakeOutputs(), ...real };
   let setReal: (v: RealAi) => void = () => {};
   function Wrapped() {

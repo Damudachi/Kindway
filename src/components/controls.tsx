@@ -1,7 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import type { ReactNode, Ref } from 'react';
+import { useState, type ReactNode, type Ref } from 'react';
 import { Pressable, Switch, TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
+import { IconButton } from '@/components/button';
 import { Text } from '@/components/text';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { alpha, radius, space, touch } from '@/theme/tokens';
@@ -134,21 +135,38 @@ type FieldProps = TextInputProps & { label: string; error?: string; helper?: str
 export function Field({ label, error, helper, style, ref, ...rest }: FieldProps) {
   const styles = useStyles();
   const { color } = useTheme();
+  const [shown, setShown] = useState(false);
+  const secure = !!rest.secureTextEntry;
   return (
     <View style={styles.field}>
       <Text variant="label" style={styles.fieldLabel} nativeID={`${label}-label`}>
         {label}
       </Text>
-      <TextInput
-        ref={ref}
-        accessibilityLabel={label}
-        accessibilityHint={error ?? helper}
-        placeholderTextColor={color.pencil}
-        cursorColor={color.trail}
-        selectionColor={color.trailContainer}
-        style={[styles.input, !!error && styles.inputError, style]}
-        {...rest}
-      />
+      <View>
+        <TextInput
+          ref={ref}
+          accessibilityLabel={label}
+          accessibilityHint={error ?? helper}
+          placeholderTextColor={color.pencil}
+          cursorColor={color.trail}
+          selectionColor={color.trailContainer}
+          style={[styles.input, !!error && styles.inputError, secure && styles.inputSecure, style]}
+          {...rest}
+          secureTextEntry={secure && !shown}
+        />
+        {secure && (
+          <View style={styles.reveal}>
+            <IconButton
+              icon={shown ? 'eye-off-outline' : 'eye-outline'}
+              label={shown ? 'Hide password' : 'Show password'}
+              selected={shown}
+              keepFocus
+              tint={color.inkMuted}
+              onPress={() => setShown((v) => !v)}
+            />
+          </View>
+        )}
+      </View>
       {error ? (
         <Text variant="small" style={{ color: color.danger }} accessibilityLiveRegion="polite">
           {error}
@@ -252,6 +270,9 @@ const useStyles = makeStyles((color, type) => ({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
+  // Room for the eye button so text never runs under it.
+  inputSecure: { paddingRight: touch },
+  reveal: { position: 'absolute', right: space.xxs, top: 0, bottom: 0, justifyContent: 'center' },
   inputError: { borderColor: color.danger, borderWidth: 2 },
   section: { paddingVertical: space.lg },
   sectionRule: { borderTopWidth: 1, borderTopColor: color.sand },

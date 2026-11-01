@@ -48,6 +48,9 @@ export const syncBaseStorage = (userId: string) => jsonStorage(`kindway:sync-bas
 /** Device-level choices that aren't part of any one journal, such as which accounts sync here. */
 export const deviceSettingsStorage = jsonStorage('kindway:device:v1');
 
+/** Whether app lock is on for this device. Outside every journal, so it covers them all; never synced. */
+export const appLockStorage = jsonStorage('kindway:lock:v1');
+
 /** The web app's own choices in this browser, whichever journal is open (see state/web-prefs). */
 export const webPrefsStorage = jsonStorage('kindway:web:v1');
 

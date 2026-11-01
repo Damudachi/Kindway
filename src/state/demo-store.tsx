@@ -1,4 +1,4 @@
-import { createContext, use, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode } from 'react';
+import { createContext, use, useCallback, useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
 import type {
@@ -244,6 +244,12 @@ export function fromSnapshot(raw: unknown): DemoState {
 /** `saveFailed`: this device refused the last save (for example a full browser storage), so recent changes are only in memory. */
 const StoreContext = createContext<{ state: DemoState; dispatch: Dispatch<Action>; saveFailed: boolean } | null>(null);
 
+/** How long a deleted entry can still be brought back. */
+export const UNDO_MS = 6000;
+
+/** Entries deleted but not yet removed, and the way to delete one with a chance to undo. */
+const PendingContext = createContext<{ hidden: string[]; deleteWithUndo: (id: string) => () => void } | null>(null);
+
 type ProviderProps = {
   children: ReactNode;
   /** Skip loading and start from this state (tests, previews). It is still saved. */
@@ -255,6 +261,8 @@ export function DemoStoreProvider({ children, initial, storage = deviceStorage }
   const [state, dispatch] = useReducer(reducer, initial ?? initialState);
   const [hydrated, setHydrated] = useState(!!initial);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [hidden, setHidden] = useState<string[]>([]);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const latest = useRef(state);
   useEffect(() => {
     latest.current = state;
@@ -303,9 +311,41 @@ export function DemoStoreProvider({ children, initial, storage = deviceStorage }
     };
   }, [hydrated, storage]);
 
+  // A deletion waits UNDO_MS with the entry only hidden. Its timer is its own, so a newer
+  // snackbar can't cancel it. If this journal closes first (or the app is killed), the entry stays.
+  const deleteWithUndo = useCallback((id: string) => {
+    clearTimeout(timers.current.get(id));
+    setHidden((h) => (h.includes(id) ? h : [...h, id]));
+    const t = setTimeout(() => {
+      timers.current.delete(id);
+      dispatch({ type: 'deleteEntry', id });
+      setHidden((h) => h.filter((x) => x !== id));
+    }, UNDO_MS);
+    timers.current.set(id, t);
+    return () => {
+      // Too late once it's deleted.
+      if (timers.current.get(id) !== t) return;
+      clearTimeout(t);
+      timers.current.delete(id);
+      setHidden((h) => h.filter((x) => x !== id));
+    };
+  }, []);
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const t of pending.values()) clearTimeout(t);
+      pending.clear();
+    };
+  }, []);
+
   const value = useMemo(() => ({ state, dispatch, saveFailed }), [state, saveFailed]);
+  const pending = useMemo(() => ({ hidden, deleteWithUndo }), [hidden, deleteWithUndo]);
   if (!hydrated) return null;
-  return <StoreContext value={value}>{children}</StoreContext>;
+  return (
+    <StoreContext value={value}>
+      <PendingContext value={pending}>{children}</PendingContext>
+    </StoreContext>
+  );
 }
 
 export function useStore() {
@@ -314,8 +354,25 @@ export function useStore() {
   return ctx;
 }
 
-/** The user's entries, newest first. */
+function usePending() {
+  const ctx = use(PendingContext);
+  if (!ctx) throw new Error('usePending must be used inside DemoStoreProvider');
+  return ctx;
+}
+
+/** The user's entries, newest first, leaving out any waiting to be deleted. */
 export function useEntries() {
   const { state } = useStore();
-  return useMemo(() => [...state.entries].sort((a, b) => b.date.localeCompare(a.date)), [state.entries]);
+  const { hidden } = usePending();
+  return useMemo(() => state.entries.filter((e) => !hidden.includes(e.id)).sort((a, b) => b.date.localeCompare(a.date)), [state.entries, hidden]);
+}
+
+/** Hides the entry now and deletes it after UNDO_MS. Returns the undo, which brings it back. */
+export function useDeleteWithUndo() {
+  return usePending().deleteWithUndo;
+}
+
+/** Whether the entry is deleted but can still be brought back. */
+export function useIsHidden(id: string) {
+  return usePending().hidden.includes(id);
 }
