@@ -666,6 +666,58 @@ describe('generate-insights', () => {
     });
   });
 
+  describe('“all” (the latest entries)', () => {
+    const old = (i: number, patch: Partial<EntryRow> = {}) => entry(`o${i}`, `Fictional old entry ${i}.`, { written_at: new Date(Date.UTC(2026, 0, 1 + i, 20)).toISOString(), ...patch });
+    const olds = [old(0), old(1), old(2), old(3)];
+    const oldIds = olds.map((e) => e.id);
+    const all = (ids = oldIds) => ask({ period: 'all', entry_ids: ids });
+
+    it('takes entries of any age, and records a range from the oldest to now', async () => {
+      const store = fakeStore({ entries: olds });
+      const result = await run(store, fakeProvider(review({ observations: [{ kind: 'theme', title: 't', body: 'b', grounding: 'observed', entry_refs: ['E1', 'E2'] }] })), all());
+      expect(result.status).toBe(200);
+      expect(store.insights[0]).toMatchObject({ period: 'all', range_start: olds[0].written_at, range_end: new Date(NOW).toISOString(), entry_count: 4 });
+      expect(store.insights[0].sources.map((s) => s.entry_id)).toEqual(oldIds);
+    });
+
+    it('a week or a month still only takes entries from that period', async () => {
+      expect((await run(fakeStore({ entries: olds }), fakeProvider(review()), ask({ entry_ids: oldIds }))).body).toEqual({ error: 'selection_changed' });
+    });
+
+    it('still refuses entries kept out of analysis, missing ones, and fewer than three', async () => {
+      const provider = fakeProvider(review());
+      const kept = olds.map((e, i) => (i === 0 ? { ...e, exclude_from_analysis: true } : e));
+      expect((await run(fakeStore({ entries: kept }), provider, all())).body).toEqual({ error: 'selection_changed' });
+      expect((await run(fakeStore({ entries: olds.slice(0, 3) }), provider, all())).body).toEqual({ error: 'selection_changed' });
+      expect((await run(fakeStore({ entries: olds.slice(0, 2) }), provider, all(oldIds.slice(0, 2)))).body).toEqual({ error: 'insufficient_entries', needed: 3 });
+      expect(provider.complete).not.toHaveBeenCalled();
+    });
+
+    it('takes up to 25 entries and 20,000 characters, where a week or a month takes 20 and 12,000', async () => {
+      const ids26 = Array.from({ length: 26 }, (_, i) => `o${i}`);
+      expect((await run(fakeStore({ entries: [] }), fakeProvider(review()), all(ids26))).body).toEqual({ error: 'too_many_entries', max_entries: 25 });
+      const ids21 = ids26.slice(0, 21);
+      expect((await run(fakeStore({ entries: [] }), fakeProvider(review()), ask({ entry_ids: ids21 }))).body).toEqual({ error: 'too_many_entries', max_entries: 20 });
+      expect((await run(fakeStore({ entries: [] }), fakeProvider(review()), all(ids21))).body).toEqual({ error: 'selection_changed' });
+
+      const long = [old(0, { body: 'x'.repeat(7000) }), old(1, { body: 'x'.repeat(7000) }), old(2, { body: 'x'.repeat(7000) })];
+      expect((await run(fakeStore({ entries: long }), fakeProvider(review()), all(['o0', 'o1', 'o2']))).body).toEqual({ error: 'too_much_text', max_chars: 20000 });
+      const fits = long.map((e) => ({ ...e, body: 'x'.repeat(6000) }));
+      expect((await run(fakeStore({ entries: fits }), fakeProvider(review()), all(['o0', 'o1', 'o2']))).status).toBe(200);
+    });
+
+    it('an unknown period is invalid', async () => {
+      expect((await run(fakeStore({ entries: olds }), fakeProvider(review()), ask({ period: 'year' }))).status).toBe(400);
+    });
+
+    it('has its own settings, validated like the rest', () => {
+      expect(config().insights).toMatchObject({ maxEntries: 20, maxChars: 12000, latest: { maxEntries: 25, maxChars: 20000 } });
+      expect(config({ AI_INSIGHTS_LATEST_MAX_ENTRIES: '30', AI_INSIGHTS_LATEST_MAX_CHARS: '25000' }).insights.latest).toEqual({ maxEntries: 30, maxChars: 25000 });
+      expect(loadAiConfig(env({ GROQ_API_KEY: 'k', AI_INSIGHTS_LATEST_MAX_ENTRIES: '2' }))).toEqual({ ok: false, problem: 'invalid:AI_INSIGHTS_LATEST_MAX_ENTRIES' });
+      expect(loadAiConfig(env({ GROQ_API_KEY: 'k', AI_INSIGHTS_LATEST_MAX_CHARS: '999999' }))).toEqual({ ok: false, problem: 'invalid:AI_INSIGHTS_LATEST_MAX_CHARS' });
+    });
+  });
+
   it('allows at most two next steps', () => {
     const step = { text: 't', why: 'w', entry_refs: ['E1'] };
     expect(parseInsights(review({ next_steps: [step, step, step] }), entries)?.output.next_steps).toHaveLength(2);
@@ -1104,7 +1156,7 @@ describe('Long Game Compass context (Phase 5D1)', () => {
     const rpc = jest.fn(async () => ({ data: false, error: null }));
     expect(await hasActiveConsent({ rpc }, 'entry_reflection')).toBe(false);
     expect(rpc).toHaveBeenCalledWith('ai_consent_active', expect.objectContaining({ p_scope: 'entry_reflection', p_consent_version: '3' }));
-    expect(AI_CONSENT_TERMS.consentVersion).toEqual({ entry_reflection: '3', cross_entry_analysis: '1', follow_up: '1' });
+    expect(AI_CONSENT_TERMS.consentVersion).toEqual({ entry_reflection: '3', cross_entry_analysis: '2', follow_up: '1' });
   });
 
   it('a review gets value names only, never notes', async () => {

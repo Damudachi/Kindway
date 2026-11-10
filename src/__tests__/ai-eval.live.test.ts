@@ -298,4 +298,46 @@ run('live evaluation (fictional entries)', () => {
     expect(prose).not.toMatch(/\b(better|worse)\b|progress|setback|doing well|improv/i);
     expect(prose).not.toMatch(/tags?\b|journal|habit|consisten|regularly|fictional|diagnos|depress|anxiety disorder/i);
   });
+
+  it('R16 review of a full-size journal (25 entries): the story is found among everyday ones, and the cost is recorded', async () => {
+    await pause();
+    const story = [
+      'I handed in my notice today. Four years. My stomach has been in knots all day.',
+      'Told the team. Mia cried, which set me off. I am dreading the last-week lunches.',
+      'Packed half my desk. Found the card the team gave me in my first year. I do not know who I am without this place.',
+      'Last day was strange and gentle. People hugged me in the car park. I cried the whole drive but also felt lighter.',
+      'First week off. Slept in, walked by the river, texted Mia. Some moments the quiet feels awful; some feel like breathing out.',
+      'Second week. I keep opening my work laptop bag out of habit and finding it empty. It still stings, but less sharply.',
+    ];
+    const everyday = [
+      'Fixed the chain on my old bike.',
+      'Tried a new bread recipe and it came out flat.',
+      'Watched a documentary about whales.',
+      'Repainted the bathroom door.',
+      'Bought oranges, forgot the milk.',
+      'Rain all day, stayed in and read.',
+      'Cleaned out the fridge.',
+      'Called my aunt about her garden.',
+    ];
+    const entries = Array.from({ length: 25 }, (_, i) => {
+      const isStory = i % 4 === 0 && i / 4 < story.length;
+      const body = `Fictional: ${isStory ? story[i / 4] : everyday[i % everyday.length]} ${'It was an ordinary evening and I wrote a little more about it than I planned to. '.repeat(3)}`;
+      return entry(body, { id: `f${i}`, written_at: `2026-10-${String(1 + Math.floor((i * 29) / 25)).padStart(2, '0')}T20:00:00.000Z`, feelings: [] });
+    });
+    const chars = entries.reduce((n, e) => n + e.body.length, 0);
+    console.log(`R16 input: ${entries.length} entries, ${chars} characters`);
+    const { result, report } = await answer('insights', { system: INSIGHTS_SYSTEM_PROMPT, user: insightsUserPrompt(entries, []), schemaName: 'kindway_review', schema: INSIGHTS_JSON_SCHEMA, maxTokens: 2500 });
+    console.log(`R16 full size\n${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseInsights(result.text, entries);
+    console.log(`R16 output\n${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    expect(chars).toBeLessThanOrEqual(20000);
+    expect(parsed!.droppedRefs).toBe(0);
+    expect(parsed!.output.enough_evidence).toBe(true);
+    // The story is the conclusion; the bread and the whales are not.
+    expect(`${parsed!.output.summary} ${parsed!.output.arc?.text}`).toMatch(/work|job|leav|team/i);
+    expect(`${parsed!.output.summary}`).not.toMatch(/curio|initiative|phase of/i);
+  });
 });

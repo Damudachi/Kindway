@@ -231,6 +231,7 @@ No request carries entry text or a user id; the server reads both itself (a foll
 | `AI_REFLECTION_MAX_TOKENS` / `AI_INSIGHTS_MAX_TOKENS` | 1200 / 2500 | 300–4000 / 500–6000 |
 | `AI_MAX_ENTRY_CHARS` | 8000 | 500–20000 |
 | `AI_INSIGHTS_MAX_ENTRIES` / `AI_INSIGHTS_MAX_CHARS` | 20 / 12000 | 3–60 / 1000–40000 |
+| `AI_INSIGHTS_LATEST_MAX_ENTRIES` / `AI_INSIGHTS_LATEST_MAX_CHARS` | 25 / 20000 | 3–60 / 1000–40000. The same limits for an "All entries" review. The consent wording states 25 and about 20,000, so change them only after a new consent version. |
 | `AI_REFLECTION_COOLDOWN_SECONDS` / `AI_REFLECTION_DAILY_LIMIT` | 10 / 30 | per user |
 | `AI_INSIGHTS_COOLDOWN_SECONDS` / `AI_INSIGHTS_DAILY_LIMIT` | 60 / 5 | per user |
 | `AI_FOLLOW_UP_MAX_TOKENS` | 700 | 200–2000 |

@@ -24,7 +24,23 @@ import { space } from '@/theme/tokens';
  * Mirrors the server's default limits so the app can explain them before anything is sent.
  * The server enforces its own configured limits regardless (supabase/functions/_shared/ai-config.ts).
  */
-export const AI_REVIEW_LIMITS = { minEntries: 3, maxEntries: 20, maxChars: 12000 };
+export const AI_REVIEW_LIMITS = { minEntries: 3, maxEntries: 20, maxChars: 12000, latest: { maxEntries: 25, maxChars: 20000 } };
+
+/**
+ * "All entries" never sends the whole journal: the newest entries that fit in the count and size
+ * limits, newest first, stopping at the first one that wouldn't fit so the set stays unbroken.
+ */
+export function latestEntries(entries: Entry[], limits: { maxEntries: number; maxChars: number }): Entry[] {
+  const out: Entry[] = [];
+  let chars = 0;
+  for (const e of [...entries].sort((a, b) => b.date.localeCompare(a.date))) {
+    const n = e.body.length + (e.gratitude?.length ?? 0);
+    if (out.length >= limits.maxEntries || chars + n > limits.maxChars) break;
+    out.push(e);
+    chars += n;
+  }
+  return out;
+}
 
 const ERROR_COPY: Record<AiReviewError, { title: string; body: string }> = {
   failed: { title: 'The review didn’t come through', body: 'Nothing was saved. You can try again.' },
@@ -72,7 +88,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   // Whether the consent dialog is open; it asks right here rather than sending people to Settings.
   const [asking, setAsking] = useState(false);
   const [run, setRun] = useState<Run>({ status: 'idle' });
-  const aiPeriod = period === 'all' ? null : period;
+  const aiPeriod = period;
   // A different period, permission or account starts over, so one account's review is never
   // shown to the next, even for a moment.
   const key = `${period}:${real.insights}:${real.account}`;
@@ -92,7 +108,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   // other than a review, is left alone.
   useFocusEffect(
     useCallback(() => {
-      if (!aiPeriod || !real.insights || !real.outputs) return;
+      if (!real.insights || !real.outputs) return;
       let cancelled = false;
       real.outputs
         .latestReview(aiPeriod)
@@ -137,14 +153,6 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   );
   const intro = 'An AI review reads this period’s entries and suggests themes, patterns and strengths, each linked to the entries it came from.';
 
-  if (!aiPeriod) {
-    return (
-      <Card style={styles.panel}>
-        {header}
-        <Text variant="bodyMuted">AI reviews cover “This week” or “Last 30 days”, so they never send your whole journal.</Text>
-      </Card>
-    );
-  }
   if (real.needs) {
     return (
       <Card style={styles.panel}>
@@ -177,17 +185,20 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
   }
 
   const invoke = real.invoke;
-  const chars = entries.reduce((n, e) => n + e.body.length + (e.gratitude?.length ?? 0), 0);
-  const tooFew = entries.length < AI_REVIEW_LIMITS.minEntries;
-  const tooMany = entries.length > AI_REVIEW_LIMITS.maxEntries;
-  const tooMuch = chars > AI_REVIEW_LIMITS.maxChars;
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const all = period === 'all';
+  // "All entries" sends the latest ones that fit; a week or a month sends every entry in it, or says it's too much.
+  const sendable = all ? latestEntries(entries, AI_REVIEW_LIMITS.latest) : entries;
+  const chars = sendable.reduce((n, e) => n + e.body.length + (e.gratitude?.length ?? 0), 0);
+  const tooFew = sendable.length < AI_REVIEW_LIMITS.minEntries;
+  const tooMany = !all && sendable.length > AI_REVIEW_LIMITS.maxEntries;
+  const tooMuch = !all && chars > AI_REVIEW_LIMITS.maxChars;
+  const sorted = [...sendable].sort((a, b) => a.date.localeCompare(b.date));
 
   const send = async () => {
     setRun({ status: 'loading' });
-    const synced = sync ? await sync.ensureSynced(entries.map((e) => ({ id: e.id, body: e.body }))) : false;
+    const synced = sync ? await sync.ensureSynced(sendable.map((e) => ({ id: e.id, body: e.body }))) : false;
     if (!synced) return setRun({ status: 'error', error: sync?.status === 'offline' ? 'offline' : 'not-synced' });
-    const result = await requestAiReview(invoke, aiPeriod, entries.map((e) => e.id));
+    const result = await requestAiReview(invoke, aiPeriod, sendable.map((e) => e.id));
     if (result.status === 'ready') setRun({ status: 'ready', review: result.review, stored: false });
     else if (result.status === 'safety') setRun({ status: 'safety' });
     else setRun({ status: 'error', error: result.error });
@@ -200,8 +211,16 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
         Optional. Sends the text, feeling tags, good things and “come back to this” marks of the entries below to GroqCloud, plus compass links if you allow them. Nothing is sent until you ask.
       </Text>
 
+      {all && (
+        <Text variant="small">
+          {`“All entries” never sends your whole journal: only your latest entries, up to ${AI_REVIEW_LIMITS.latest.maxEntries} entries and about ${AI_REVIEW_LIMITS.latest.maxChars.toLocaleString('en-US')} characters. ${
+            sendable.length < entries.length ? `You have ${entries.length} entries, so this review would use the latest ${sendable.length}.` : 'All of yours fit.'
+          }`}
+        </Text>
+      )}
+
       <Text variant="label" style={styles.gap}>
-        {entries.length === 1 ? '1 entry' : `${entries.length} entries`} would be sent
+        {sendable.length === 1 ? '1 entry' : `${sendable.length} entries`} would be sent
       </Text>
       {sorted.length > 0 && (
         <ChipRow>
@@ -221,7 +240,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
       ) : (
         <Button
           variant="secondary"
-          label={`Send ${entries.length} entries for an AI review`}
+          label={`Send ${sendable.length} entries for an AI review`}
           icon="creation-outline"
           loading={run.status === 'loading'}
           disabled={run.status === 'loading'}
@@ -245,7 +264,7 @@ export function AiReviewPanel({ period, entries, resolve, onSaveStep }: Props) {
           Looking for your saved AI review…
         </Text>
       )}
-      {run.status === 'idle' && saved === 'loaded' && <Text variant="small">No saved AI review for {aiPeriod === 'week' ? 'this week' : 'the last 30 days'} yet.</Text>}
+      {run.status === 'idle' && saved === 'loaded' && <Text variant="small">No saved AI review for {aiPeriod === 'week' ? 'this week' : aiPeriod === 'month' ? 'the last 30 days' : 'your latest entries'} yet.</Text>}
       {saved === 'failed' && (
         <View style={styles.block}>
           <Notice tone="warn" title="Your saved AI review couldn’t be loaded">

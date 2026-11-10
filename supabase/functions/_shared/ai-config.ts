@@ -11,6 +11,10 @@
 //   AI_MAX_ENTRY_CHARS           longest entry a reflection accepts        (default 8000)
 //   AI_INSIGHTS_MAX_ENTRIES      most entries one review may send          (default 20)
 //   AI_INSIGHTS_MAX_CHARS        combined text one review may send         (default 12000)
+//   AI_INSIGHTS_LATEST_MAX_ENTRIES / AI_INSIGHTS_LATEST_MAX_CHARS          (default 25 / 20000)
+//                                the same limits for a review of the latest entries ("all"); the
+//                                consent wording states these numbers, so changing them means a new
+//                                consent version first
 //   AI_REFLECTION_COOLDOWN_SECONDS / AI_REFLECTION_DAILY_LIMIT             (default 10 / 30)
 //   AI_INSIGHTS_COOLDOWN_SECONDS / AI_INSIGHTS_DAILY_LIMIT                 (default 60 / 5)
 //   AI_FOLLOW_UP_MAX_TOKENS      output budget for a follow-up reply       (default 700)
@@ -28,7 +32,7 @@ export type AiConfig = {
   apiKey: string;
   timeoutMs: number;
   reflection: { maxTokens: number; maxEntryChars: number } & Limits;
-  insights: { maxTokens: number; maxEntries: number; maxChars: number; minEntries: number } & Limits;
+  insights: { maxTokens: number; maxEntries: number; maxChars: number; minEntries: number; latest: { maxEntries: number; maxChars: number } } & Limits;
   followUp: { maxTokens: number; maxMessageChars: number; maxTurns: number } & Limits;
 };
 
@@ -73,6 +77,10 @@ export function loadAiConfig(env: Env): { ok: true; config: AiConfig } | { ok: f
       maxEntries: int('AI_INSIGHTS_MAX_ENTRIES', 20, MIN_INSIGHT_ENTRIES, 60),
       maxChars: int('AI_INSIGHTS_MAX_CHARS', 12000, 1000, 40000),
       minEntries: MIN_INSIGHT_ENTRIES,
+      latest: {
+        maxEntries: int('AI_INSIGHTS_LATEST_MAX_ENTRIES', 25, MIN_INSIGHT_ENTRIES, 60),
+        maxChars: int('AI_INSIGHTS_LATEST_MAX_CHARS', 20000, 1000, 40000),
+      },
       cooldownSeconds: int('AI_INSIGHTS_COOLDOWN_SECONDS', 60, 0, 86400),
       dailyLimit: int('AI_INSIGHTS_DAILY_LIMIT', 5, 1, 100),
     },

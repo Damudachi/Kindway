@@ -269,6 +269,53 @@ describe('the AI review in Patterns', () => {
     expect([...body.entry_ids].sort()).toEqual(['w1', 'w2', 'w3']);
   });
 
+  describe('“All entries”', () => {
+    const journal = (n: number, body = 'Fictional entry.') => Array.from({ length: n }, (_, i) => entry(`d${i}`, i, { body }));
+    const chooseAll = async () => fireEvent.press(await screen.findByText('All entries'));
+
+    it('sends only the latest 25 of a long journal, and says so before anything is sent', async () => {
+      const invoke = respond(200, { status: 'ready', insight: storedInsight });
+      await render('patterns', Patterns, { ...initialState, onboarded: true, entries: journal(30) }, { insights: true, invoke });
+      await chooseAll();
+      expect(await screen.findByText('25 entries would be sent')).toBeOnTheScreen();
+      expect(screen.getByText(/never sends your whole journal.*You have 30 entries, so this review would use the latest 25/)).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Send 25 entries for an AI review' }));
+      await waitFor(() => expect(invoke).toHaveBeenCalled());
+      const body = (invoke as jest.Mock).mock.calls[0][1];
+      expect(body.period).toBe('all');
+      expect(body.entry_ids).toHaveLength(25);
+      expect(body.entry_ids).toContain('d0');
+      expect(body.entry_ids).not.toContain('d25');
+    });
+
+    it('sends everything when it all fits', async () => {
+      await render('patterns', Patterns, { ...initialState, onboarded: true, entries: journal(5) }, { insights: true, invoke: respond(200, {}) });
+      await chooseAll();
+      expect(await screen.findByText('5 entries would be sent')).toBeOnTheScreen();
+      expect(screen.getByText(/All of yours fit/)).toBeOnTheScreen();
+    });
+
+    it('stops at 20,000 characters, keeping the newest', async () => {
+      await render('patterns', Patterns, { ...initialState, onboarded: true, entries: journal(5, 'x'.repeat(6000)) }, { insights: true, invoke: respond(200, {}) });
+      await chooseAll();
+      expect(await screen.findByText('3 entries would be sent')).toBeOnTheScreen();
+      expect(screen.getByText(/You have 5 entries, so this review would use the latest 3/)).toBeOnTheScreen();
+    });
+
+    it('looks for the saved review of the latest entries, and says when there is none', async () => {
+      const outputs = fakeOutputs();
+      await render('patterns', Patterns, { ...initialState, onboarded: true, entries: journal(5) }, { insights: true, invoke: respond(200, {}), outputs });
+      await chooseAll();
+      expect(await screen.findByText('No saved AI review for your latest entries yet.', {}, wait)).toBeOnTheScreen();
+      expect(outputs.latestReview).toHaveBeenCalledWith('all');
+    });
+  });
+
+  it('reads a stored review of the latest entries as one', () => {
+    expect(toReview({ ...storedInsight, period: 'all' })?.period).toBe('all');
+    expect(toReview({ ...storedInsight, period: 'something-new' })?.period).toBe('week');
+  });
+
   const stored = (o: Record<string, unknown> = {}) => toReview({ ...storedInsight, ...o });
   const open = (outputs: ReturnType<typeof fakeOutputs>, real: Partial<RealAi> = {}, entries = week(3)) =>
     render('patterns', Patterns, { ...initialState, onboarded: true, entries }, { insights: true, invoke: respond(200, {}), outputs, ...real });

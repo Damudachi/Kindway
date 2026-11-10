@@ -16,7 +16,8 @@ const MAX_BODY = 900;
 const MAX_ARC = 900;
 
 const PERIOD_DAYS = { week: 7, month: 30 } as const;
-type Period = keyof typeof PERIOD_DAYS;
+/** `all`: the user's latest entries, however old, up to the "latest" limits in ai-config.ts. */
+type Period = keyof typeof PERIOD_DAYS | 'all';
 const KINDS = ['theme', 'pattern', 'strength', 'concern'] as const;
 type Kind = (typeof KINDS)[number];
 
@@ -213,7 +214,7 @@ const DAY = 24 * 60 * 60 * 1000;
 export async function handleInsights(body: unknown, { store, provider, config }: AiContext, now = Date.now()): Promise<HandlerResult> {
   if (!isObject(body) || !onlyKeys(body, ['period', 'entry_ids', 'idempotency_key'])) return invalid();
   const { period, entry_ids, idempotency_key } = body;
-  if ((period !== 'week' && period !== 'month') || !isUuid(idempotency_key)) return invalid();
+  if ((period !== 'week' && period !== 'month' && period !== 'all') || !isUuid(idempotency_key)) return invalid();
   if (!Array.isArray(entry_ids) || entry_ids.length === 0 || entry_ids.length > 100 || !entry_ids.every(isEntryId)) return invalid();
   const ids = [...new Set(entry_ids as string[])];
   if (ids.length !== entry_ids.length) return invalid();
@@ -221,21 +222,27 @@ export async function handleInsights(body: unknown, { store, provider, config }:
   if (!(await store.consentActive('cross_entry_analysis'))) return { status: 403, body: { error: 'consent_required' } };
 
   const limits = config.insights;
-  if (ids.length > limits.maxEntries) return { status: 413, body: { error: 'too_many_entries', max_entries: limits.maxEntries } };
+  const all = period === 'all';
+  const maxEntries = all ? limits.latest.maxEntries : limits.maxEntries;
+  const maxChars = all ? limits.latest.maxChars : limits.maxChars;
+  if (ids.length > maxEntries) return { status: 413, body: { error: 'too_many_entries', max_entries: maxEntries } };
 
   // The window the app's "this week" / "last 30 days" can mean in any time zone, plus clock slack.
-  const rangeStart = new Date(now - (PERIOD_DAYS[period as Period] + 1) * DAY);
+  // The latest entries have no window: any age is allowed, within the count and size limits.
+  const windowStart = all ? Number.NEGATIVE_INFINITY : now - (PERIOD_DAYS[period as 'week' | 'month'] + 1) * DAY;
   const rangeEnd = new Date(now);
   const latest = now + 60 * 60 * 1000;
   const rows = await store.entries(ids);
   const fits = (e: EntryRow) => {
     const t = Date.parse(e.written_at);
-    return t >= rangeStart.getTime() && t <= latest && !e.exclude_from_analysis;
+    return t >= windowStart && t <= latest && !e.exclude_from_analysis;
   };
   if (rows.length !== ids.length || !rows.every(fits)) return { status: 409, body: { error: 'selection_changed' } };
   if (rows.length < limits.minEntries) return { status: 422, body: { error: 'insufficient_entries', needed: limits.minEntries } };
   const chars = rows.reduce((n, e) => n + e.body.length + (e.gratitude?.length ?? 0), 0);
-  if (chars > limits.maxChars) return { status: 413, body: { error: 'too_much_text', max_chars: limits.maxChars } };
+  if (chars > maxChars) return { status: 413, body: { error: 'too_much_text', max_chars: maxChars } };
+  // For the latest entries the range runs from the oldest one sent to now (always before the end).
+  const rangeStart = new Date(all ? Math.min(...rows.map((e) => Date.parse(e.written_at)), now - 1000) : windowStart);
   if (rows.some((e) => needsSafetyRoute(e.body, e.gratitude))) return safetyRoute();
 
   const begin = await store.beginRequest('insights', idempotency_key, limits);

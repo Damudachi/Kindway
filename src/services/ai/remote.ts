@@ -169,7 +169,7 @@ export function toReview(stored: unknown): InsightReview | null {
   const refs = (ids: unknown): SourceRef[] => (Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && dates.has(id)).map((id) => ({ kind: 'entry', id, date: dates.get(id)! })) : []);
 
   const review: InsightReview = {
-    period: stored.period === 'month' ? 'month' : 'week',
+    period: stored.period === 'month' ? 'month' : stored.period === 'all' ? 'all' : 'week',
     entryCount: Number(stored.entry_count) || dates.size,
     themes: [],
     patterns: [],
@@ -210,7 +210,7 @@ export function toReview(stored: unknown): InsightReview | null {
   return review;
 }
 
-export async function requestAiReview(invoke: Invoke, period: 'week' | 'month', entryIds: string[], key = newRequestKey()): Promise<AiReviewResult> {
+export async function requestAiReview(invoke: Invoke, period: 'week' | 'month' | 'all', entryIds: string[], key = newRequestKey()): Promise<AiReviewResult> {
   const res = await invoke('generate-insights', { period, entry_ids: entryIds, idempotency_key: key });
   if (res === 'offline') return { status: 'error', error: 'offline' };
   if (res.status === 200 && isObject(res.body)) {
@@ -246,7 +246,7 @@ export function latestReflections(rows: unknown[]): Record<string, Reflection> {
 /** What the user can do with AI outputs already stored on their account. */
 export interface AiOutputsRepo {
   /** The newest stored review for a period, or null. */
-  latestReview(period: 'week' | 'month'): Promise<InsightReview | null>;
+  latestReview(period: 'week' | 'month' | 'all'): Promise<InsightReview | null>;
   /** The newest stored reflection per entry id. Throws a CloudError when it can't be read. */
   reflections(userId: string): Promise<Record<string, Reflection>>;
   deleteReflection(id: string): Promise<void>;

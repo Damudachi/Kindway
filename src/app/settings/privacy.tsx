@@ -61,7 +61,7 @@ export default function Privacy() {
 
       <Section title="When AI sees your writing">
         <Text variant="body">
-          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection, plus up to 5 recent earlier entries if “What reflections can see” is “This entry and recent ones”), one entry with your message and a few earlier replies of that conversation (for a follow-up), or the entries you see listed (for an AI review) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw any of them at any time.
+          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection, plus up to 5 recent earlier entries if “What reflections can see” is “This entry and recent ones”), one entry with your message and a few earlier replies of that conversation (for a follow-up), or the entries you see listed (for an AI review; “All entries” sends only your 25 most recent, up to about 20,000 characters) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw any of them at any time.
         </Text>
         <Text variant="small" style={styles.gapSm}>
           Without that, nothing goes to AI: reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns counts only the tags and marks you added. Follow-up conversations need their own choice; allowing reflections doesn’t allow them. AI processing shows exactly what is sent, what Groq may keep, and lets you delete AI outputs.

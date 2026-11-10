@@ -38,12 +38,15 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
   },
   cross_entry_analysis: {
     title: 'Reviews across entries',
-    when: 'Only when you ask for a review of a period you choose. You see how many entries and which dates are included before anything is sent.',
+    when: 'Only when you ask for a review. You choose “This week”, “Last 30 days” or “All entries”, and you see how many entries and which dates are included before anything is sent.',
     sent: [
       'The text of the entries in that period, with their feeling tags, “one good thing” and “come back to this” marks.',
+      'For “All entries”: not your whole journal, but your most recent entries, up to 25 and about 20,000 characters in all, however old they are.',
       'Compass values, only if “Count my compass links” is on.',
     ],
-    notSent: ['Entries you kept out of analysis, entries outside the period, your email address or your account details.'],
+    notSent: [
+      'Entries you kept out of analysis, entries outside the period you chose, for “All entries” any entries beyond the 25 most recent, your email address or your account details.',
+    ],
   },
 };
 

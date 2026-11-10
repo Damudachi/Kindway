@@ -4,7 +4,7 @@
 -- Run with: npx supabase test db
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(47);
 
 insert into auth.users (id, email, aud, role)
 values
@@ -135,6 +135,10 @@ select is((select count(*)::int from public.entries), 1, 'Deleting AI outputs le
 
 select pg_temp.act_as_anon();
 select throws_ok($$ select public.ai_server_begin_request('00000000-0000-4000-a000-0000000000b1', 'reflection', gen_random_uuid(), 0, 50) $$, '42501', null, 'Signed-out callers cannot start requests');
+
+-- A review of the latest entries (period 'all') is allowed next to 'week' and 'month'.
+select ok((select pg_get_constraintdef(c.oid) from pg_constraint c where c.conname = 'ai_insights_period_check' and c.conrelid = 'public.ai_insights'::regclass) like '%''all''%',
+          'A review can cover the latest entries');
 
 select * from finish();
 rollback;
