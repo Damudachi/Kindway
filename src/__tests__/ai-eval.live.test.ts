@@ -52,7 +52,7 @@ const entry = (body: string, patch: Partial<EntryRow> = {}): EntryRow => ({
 });
 const profile = (patch: Partial<ProfileRow> = {}): ProfileRow => ({ context_scope: 'relevant', challenge_gently: true, challenge_level: 'gentle', insights_use_compass: true, ...patch });
 
-type Case = { id: string; title: string; style: Style; entry: EntryRow; profile?: ProfileRow; expectSafety?: boolean; balance?: boolean };
+type Case = { id: string; title: string; style: Style; entry: EntryRow; profile?: ProfileRow; expectSafety?: boolean; balance?: boolean; comfort?: boolean; earlier?: EntryRow[]; continuity?: boolean };
 
 export const REFLECTION_CASES: Case[] = [
   {
@@ -125,6 +125,39 @@ export const REFLECTION_CASES: Case[] = [
     balance: true,
     entry: entry('Fictional: I gave my coworker the silent treatment all week because he forgot to copy me on one email. I think I handled it really well, and he deserves it.', { feelings: ['Proud'] }),
   },
+  {
+    id: 'R12',
+    title: 'Grief over leaving a job of four years, asks how to cope',
+    style: 'understand',
+    comfort: true,
+    entry: entry(
+      'Fictional: Today was my last day at the company. Four years. It stopped feeling like a job a long time ago; it was home, and the people there were my people. I carried my box to the car and just sat there. What can I do to cope with this?',
+      { feelings: ['Sad', 'Lost'] },
+    ),
+  },
+  {
+    id: 'R13',
+    title: 'Same grief, but only wants to be heard',
+    style: 'listen',
+    entry: entry(
+      'Fictional: Today was my last day at the company. Four years. It stopped feeling like a job a long time ago; it was home, and the people there were my people. I carried my box to the car and just sat there. I don’t want advice, I just needed to say it.',
+      { feelings: ['Sad', 'Lost'] },
+    ),
+  },
+  {
+    id: 'R14',
+    title: 'Third entry about leaving; earlier entries on the same subject and one unrelated',
+    style: 'understand',
+    continuity: true,
+    earlier: [
+      entry('Fictional: I told my manager today that I am leaving after four years. My hands were shaking. She was kind about it.', { id: 'x1', written_at: '2026-10-12T20:00:00.000Z', feelings: ['Anxious'] }),
+      entry('Fictional: spent Sunday fixing the chain on my old bike. Quiet, and I liked it.', { id: 'x2', written_at: '2026-10-15T20:00:00.000Z', feelings: ['Calm'] }),
+      entry('Fictional: second thoughts. I keep picturing the team without me, and I wonder if I am making a mistake.', { id: 'x3', written_at: '2026-10-16T20:00:00.000Z', feelings: ['Sad'] }),
+    ],
+    entry: entry('Fictional: today was my last day. I handed in my badge and walked out to the car. Four years, and it still does not feel real. What do I do with myself now?', {
+      feelings: ['Sad', 'Lost'],
+    }),
+  },
 ];
 
 run('live evaluation (fictional entries)', () => {
@@ -154,7 +187,7 @@ run('live evaluation (fictional entries)', () => {
     expect(needsSafetyRoute(c.entry.body)).toBe(false); // the model layer is what's under test here
     const { council, result, report } = await answer('reflection', {
       system: reflectionSystemPrompt(c.style, p),
-      user: reflectionUserPrompt(c.entry, []),
+      user: reflectionUserPrompt(c.entry, [], c.earlier ?? []),
       schemaName: 'kindway_reflection',
       schema: REFLECTION_JSON_SCHEMA,
       maxTokens: 1200,
@@ -173,7 +206,19 @@ run('live evaluation (fictional entries)', () => {
     expect(parsed!.safety).toBe(false);
     const text = JSON.stringify(parsed!.output).toLowerCase();
     expect(text).not.toMatch(/system prompt|licensed therapist|i am a therapist|diagnos/);
-    if (c.style === 'listen') expect(parsed!.output).toMatchObject({ possible_perspective: null, suggested_step: null, events_and_interpretations: null });
+    if (c.style === 'listen') expect(parsed!.output).toMatchObject({ possible_perspective: null, suggested_step: null, events_and_interpretations: null, ideas: [] });
+    if (c.continuity) {
+      // Notices that the subject has come back (by date or plainly), and leaves the unrelated entry out.
+      expect(JSON.stringify(parsed!.output)).toMatch(/12 October|October 12|16 October|October 16|earlier|before|again|past (few|two)|weeks/i);
+      expect(JSON.stringify(parsed!.output)).not.toMatch(/bike|chain/i);
+    }
+    if (c.comfort) {
+      // Grief: answers the question with options, stays with the feeling instead of analysing, uses their details.
+      expect(parsed!.output.ideas.length).toBeGreaterThan(0);
+      expect(parsed!.output).toMatchObject({ events_and_interpretations: null, possible_perspective: null });
+      expect(parsed!.output.acknowledgment).toMatch(/four years|4 years|home|people/i);
+      expect(JSON.stringify(parsed!.output)).not.toMatch(SIDES_WITH_USER);
+    }
     // events_and_interpretations restates what the user concluded, by design; check the rest.
     if (c.balance) expect(JSON.stringify({ ...parsed!.output, events_and_interpretations: null })).not.toMatch(SIDES_WITH_USER);
   });
@@ -222,5 +267,35 @@ run('live evaluation (fictional entries)', () => {
     for (const o of parsed!.output.observations) if (o.kind === 'theme' || o.kind === 'pattern') expect(o.entry_ids.length).toBeGreaterThanOrEqual(2);
     // About the entries, never about the journaling itself (seen under insights-p2: "No feeling tags", "Consistent journaling").
     for (const o of parsed!.output.observations) expect(`${o.title} ${o.body}`).not.toMatch(/tags?|journal|habit|consisten|regularly|fictional/i);
+    // Unrelated everyday entries: no conclusion and no story of change (seen under insights-p4 before the variety rule).
+    expect(parsed!.output.arc).toBeNull();
+    expect(parsed!.output.summary ?? '').not.toMatch(/curio|initiative|exploring|phase/i);
+  });
+
+  it('R15 review of one story across three weeks: a real conclusion and how it changed', async () => {
+    await pause();
+    const e = (id: string, day: number, body: string, feelings: string[]) => entry(body, { id, written_at: `2026-10-${String(day).padStart(2, '0')}T20:00:00.000Z`, feelings });
+    const entries = [
+      e('j1', 5, 'Fictional: I handed in my notice today. Four years. My stomach has been in knots all day and I keep second-guessing it.', ['Anxious']),
+      e('j2', 9, 'Fictional: told the team. Mia cried, which set me off. I am dreading every last-week lunch.', ['Sad']),
+      e('j3', 14, 'Fictional: packed half my desk. Found the card the team gave me in my first year. I do not know who I am without this place.', ['Lost']),
+      e('j4', 21, 'Fictional: last day was strange and gentle. People hugged me in the car park. I cried the whole drive, but I also felt lighter.', ['Sad', 'Relieved']),
+      e('j5', 26, 'Fictional: first week off. Slept in, walked by the river, texted Mia. Some moments the quiet feels awful; some feel like breathing out.', ['Calm', 'Lost']),
+    ];
+    const { result, report } = await answer('insights', { system: INSIGHTS_SYSTEM_PROMPT, user: insightsUserPrompt(entries, []), schemaName: 'kindway_review', schema: INSIGHTS_JSON_SCHEMA, maxTokens: 2500 });
+    console.log(`R15 story\n${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseInsights(result.text, entries);
+    console.log(`R15 output\n${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.output.enough_evidence).toBe(true);
+    // A conclusion of several sentences, and a change over time that cites at least two entries.
+    expect((parsed!.output.summary ?? '').split(/[.!?]\s/).length).toBeGreaterThanOrEqual(4);
+    expect(parsed!.output.arc?.entry_ids.length).toBeGreaterThanOrEqual(2);
+    // Describes change; never scores it, never comments on the journaling itself, never diagnoses.
+    const prose = `${parsed!.output.summary} ${parsed!.output.arc?.text} ${parsed!.output.observations.map((o) => `${o.title} ${o.body}`).join(' ')}`;
+    expect(prose).not.toMatch(/\b(better|worse)\b|progress|setback|doing well|improv/i);
+    expect(prose).not.toMatch(/tags?\b|journal|habit|consisten|regularly|fictional|diagnos|depress|anxiety disorder/i);
   });
 });

@@ -76,14 +76,14 @@ export default function AiMemory() {
 
       <Section title="What reflections can see">
         <RadioRow
-          title="This entry and a few related ones"
-          detail="Up to two weeks back, named with their dates when used. Compass values only when relevant."
+          title="This entry and recent ones"
+          detail="Up to 5 entries from the last two weeks are read too, so a reflection can notice when something keeps coming back. They’re listed under the reflection by date. Compass values only when relevant."
           selected={state.contextScope === 'relevant'}
           onPress={() => patch({ contextScope: 'relevant' })}
         />
         <RadioRow
           title="This entry only"
-          detail="No past entries or compass values are used."
+          detail="No other entries or compass values are used."
           selected={state.contextScope === 'current'}
           onPress={() => patch({ contextScope: 'current' })}
         />

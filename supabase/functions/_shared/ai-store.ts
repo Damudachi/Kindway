@@ -59,6 +59,11 @@ export interface AiStore {
   beginRequest(kind: RequestKind, key: string, limits: { cooldownSeconds: number; dailyLimit: number }): Promise<BeginResult>;
   finishRequest(requestId: string, status: 'succeeded' | 'failed', code?: string): Promise<void>;
   entries(ids: string[]): Promise<EntryRow[]>;
+  /**
+   * The caller's entries written between `since` and `before` (ISO times), newest first, other
+   * than `excludeId`. A cheap read only: what may actually be sent is decided by the handler.
+   */
+  recentEntries(q: { since: string; before: string; excludeId: string; limit: number }): Promise<EntryRow[]>;
   profile(): Promise<ProfileRow | null>;
   compassLinks(entryIds: string[]): Promise<CompassLink[]>;
   reflectionForRequest(requestId: string): Promise<StoredReflection | null>;
@@ -133,6 +138,22 @@ export function supabaseAiStore(caller: Client, server: Client, userId: string):
     async entries(ids) {
       if (ids.length === 0) return [];
       return (await rows<EntryRow[]>(caller.from('entries').select(ENTRY_COLUMNS).in('id', ids))) ?? [];
+    },
+
+    async recentEntries({ since, before, excludeId, limit }) {
+      return (
+        (await rows<EntryRow[]>(
+          caller
+            .from('entries')
+            .select(ENTRY_COLUMNS)
+            .gte('written_at', since)
+            .lt('written_at', before)
+            .neq('id', excludeId)
+            .eq('exclude_from_analysis', false)
+            .order('written_at', { ascending: false })
+            .limit(limit),
+        )) ?? []
+      );
     },
 
     async profile() {

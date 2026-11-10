@@ -62,8 +62,10 @@ export type InsightReview = {
    * `ai`: written by the real AI service from the entries listed as sources.
    */
   basis: 'tags' | 'sample-fixture' | 'ai';
-  /** AI reviews only. */
+  /** AI reviews only: the overall conclusion across the entries. */
   summary?: string;
+  /** AI reviews only: how things changed across the dates, with the entries that show it. */
+  arc?: { text: string; sources: SourceRef[] };
   enoughEvidence?: boolean;
   ai?: { id: string; provider: string; model: string; createdAt: string };
 };

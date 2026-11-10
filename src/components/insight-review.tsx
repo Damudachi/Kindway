@@ -39,6 +39,16 @@ export function InsightReviewView({ review, resolve, onSaveStep }: Props) {
   const styles = useStyles();
   return (
     <View style={styles.block}>
+      {review.arc && live(review.arc.sources, resolve) && (
+        <View style={styles.section}>
+          <SectionTitle pencil>How things have moved</SectionTitle>
+          <Text variant="pencil">{review.arc.text}</Text>
+          <Text variant="label" style={styles.evidenceLabel}>
+            From
+          </Text>
+          <Sources refs={review.arc.sources} resolve={resolve} />
+        </View>
+      )}
       {SECTIONS.map((s) => (
         // The default "none" texts describe tag counts; an AI review needs a plainer one.
         <InsightSection key={s.key} title={s.title} none={review.basis === 'ai' ? 'Nothing here this time.' : s.none} insights={review[s.key]} resolve={resolve} />

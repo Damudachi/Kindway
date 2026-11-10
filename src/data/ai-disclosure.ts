@@ -16,10 +16,13 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
     when: 'Only when you ask for a reflection on a specific entry.',
     sent: [
       'The text of that entry, its feeling tags and its “one good thing”.',
+      'If “What reflections can see” is “This entry and recent ones”: the dates, feeling tags and text of up to 5 of your most recent entries from the 14 days before that entry, each cut to its first 600 characters. Entries you kept out of analysis are never included. Not sent when it is set to “This entry only”.',
       'Your support style and challenge settings for that reflection.',
       'For each compass value you linked to that entry and marked “AI may use this”: its name and your note about it (up to the first 400 characters). Not sent when “What reflections can see” is “This entry only”.',
     ],
-    notSent: ['Your other entries, compass values you didn’t link to that entry or didn’t mark “AI may use this”, your email address or your account details.'],
+    notSent: [
+      'Older entries, or more than 5 earlier entries, entries you kept out of analysis, compass values you didn’t link to that entry or didn’t mark “AI may use this”, your email address or your account details.',
+    ],
   },
   follow_up: {
     title: 'Follow-up conversations',

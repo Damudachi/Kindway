@@ -61,6 +61,10 @@ describe('entry titles', () => {
     };
     expect(toReflection(stored, BODY)).toMatchObject({ title: 'Work, family and no sleep', otherTopics: ['your sister’s move', 'sleep'] });
     expect(toReflection({ ...stored, output: { acknowledgment: 'Fictional.' } }, BODY)).not.toHaveProperty('otherTopics');
+    expect(toReflection({ ...stored, output: { acknowledgment: 'Fictional.', ideas: [' Call a friend ', '', 3] } }, BODY)).toMatchObject({ ideas: ['Call a friend'] });
+    expect(toReflection({ ...stored, output: { acknowledgment: 'Fictional.', ideas: [] } }, BODY)).not.toHaveProperty('ideas');
+    expect(toReflection({ ...stored, output: { acknowledgment: 'Fictional.', earlier_entry_ids: ['a', 'b'] } }, BODY)).toMatchObject({ related: ['a', 'b'] });
+    expect(toReflection({ ...stored, output: { acknowledgment: 'Fictional.', earlier_entry_ids: [] } }, BODY)).not.toHaveProperty('related');
   });
 });
 

@@ -61,9 +61,10 @@ describe('reflection consent after the compass disclosure changed', () => {
   });
 
   it('a grant of the earlier wording is outdated and has to be given again', () => {
-    expect(CURRENT_TERMS.consentVersion.entry_reflection).toBe('2');
+    expect(CURRENT_TERMS.consentVersion.entry_reflection).toBe('3');
     expect(consentStatus([record('1')], 'entry_reflection')).toBe('outdated');
-    expect(consentStatus([record('2')], 'entry_reflection')).toBe('active');
+    expect(consentStatus([record('2')], 'entry_reflection')).toBe('outdated');
+    expect(consentStatus([record('3')], 'entry_reflection')).toBe('active');
     // Follow-up or review consent never stands in for it.
     expect(consentStatus([{ ...record('1'), scope: 'follow_up' }], 'entry_reflection')).toBe('none');
   });

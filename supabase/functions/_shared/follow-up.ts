@@ -10,7 +10,7 @@ import type { EntryRow, ProfileRow, StoredFollowUp, StoredReflection } from './a
 import { needsSafetyRoute } from './safety.ts';
 
 export const FOLLOW_UP_SCHEMA_VERSION = 'follow-up-1';
-export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p4';
+export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p5';
 
 const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
 export type Style = (typeof STYLES)[number];
@@ -71,7 +71,8 @@ How to reply:
 - Don't make decisions for the user. Present any inference as a tentative possibility, and invite correction when you're unsure ("I might have this wrong").
 - You don't remember anything beyond what is in this request. Don't claim to know the user or refer to other entries or past conversations.
 - Don't encourage reliance on Kindway, and don't suggest Kindway instead of people. Where it fits, point to the user's own judgement or people in their life.
-- Be concise, warm, plain and specific to what the user wrote: two to five sentences, no lists, no headings, no platitudes, no therapy jargon, no exclamation marks. Address the user as "you".
+- When the user is hurting or grieving, stay with the feeling first and use their own details. When they ask what they can do, answer it with a few concrete options phrased as options they can take or leave, not instructions. Don't hedge what they plainly said; keep tentative wording for guesses about causes or other people's motives.
+- Be concise, warm, plain and specific to what the user wrote: two to seven sentences, no headings, no platitudes, no therapy jargon, no exclamation marks. Short plain sentences, not a list, even when you offer several options. Address the user as "you".
 
 Support style: ${followUpStyleInstructions(style, profile)}
 

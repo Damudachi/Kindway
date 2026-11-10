@@ -8,7 +8,12 @@ import type { CompassLink, EntryRow, StoredInsight } from './ai-store.ts';
 import { needsSafetyRoute } from './safety.ts';
 
 export const INSIGHTS_SCHEMA_VERSION = 'insights-1';
-export const INSIGHTS_PROMPT_VERSION = 'insights-p3';
+export const INSIGHTS_PROMPT_VERSION = 'insights-p4';
+
+/** Lengths: the overall conclusion, one observation, and the "how things changed" part. */
+const MAX_SUMMARY = 1500;
+const MAX_BODY = 900;
+const MAX_ARC = 900;
 
 const PERIOD_DAYS = { week: 7, month: 30 } as const;
 type Period = keyof typeof PERIOD_DAYS;
@@ -17,10 +22,14 @@ type Kind = (typeof KINDS)[number];
 
 export type Observation = { kind: Kind; title: string; body: string; grounding: 'observed' | 'interpretation'; entry_ids: string[] };
 export type NextStep = { text: string; why: string; entry_ids: string[] };
+/** How things changed across the dates, with the entries that show the change (at least two). */
+export type Arc = { text: string; entry_ids: string[] };
 export type InsightsOutput = {
   schema_version: typeof INSIGHTS_SCHEMA_VERSION;
   enough_evidence: boolean;
+  /** The overall conclusion: what seems to be going on across the entries as a whole. */
   summary: string | null;
+  arc: Arc | null;
   observations: Observation[];
   next_steps: NextStep[];
 };
@@ -30,10 +39,16 @@ const refs = { type: 'array', items: { type: 'string' } };
 export const INSIGHTS_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['enough_evidence', 'summary', 'observations', 'next_steps', 'safety_concern'],
+  required: ['enough_evidence', 'summary', 'arc', 'observations', 'next_steps', 'safety_concern'],
   properties: {
     enough_evidence: { type: 'boolean' },
     summary: { type: ['string', 'null'] },
+    arc: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      required: ['text', 'entry_refs'],
+      properties: { text: { type: 'string' }, entry_refs: refs },
+    },
     observations: {
       type: 'array',
       items: {
@@ -74,8 +89,10 @@ How to review:
 - Don't state how often something happens unless you can count it in these entries. Never diagnose, name a disorder, suggest medication or treatment, or make confident claims about the user's personality or other people's motives.
 - Don't force a negative reading. Include strengths and efforts where the entries show them. Not every painful feeling is a distortion; when entries describe real mistreatment, loss or practical problems, treat them as real. Entries are the user's own account: where they describe conflicts with others, don't rule on who was right or assume others' motives. Don't flatter: a strength needs evidence in the entries, not praise.
 - kind: "theme" is a recurring topic; "pattern" is things that tend to go together; "strength" is effort, coping or something going well; "concern" is something unresolved the user may want to come back to, stated plainly without alarm or diagnosis.
-- At most six observations. title is a few words; body is at most two sentences, specific to the entries, plain and warm. No platitudes or therapy jargon. Address the user as "you".
-- summary: one to three gentle sentences, or null if there's not enough to say.
+- At most six observations. title is a few words; body is two to four sentences, specific to the entries, plain and warm, and may quote a short phrase the user wrote (in quotation marks) to make the point concrete. No platitudes or therapy jargon. Address the user as "you".
+- Variety is not a pattern. Entries about unrelated everyday things (a repainted door, a recipe, a documentary) share nothing, and doing different things is not a trait: don't turn it into "curiosity", "initiative" or "a phase of exploring". A theme, a conclusion or an arc needs the entries to be about the same matter, feeling or situation. When they aren't, set enough_evidence to false, summary to null, arc to null and return no observations.
+- summary: the overall conclusion, four to seven sentences, or null if there's not enough to say. Say what seems to be going on across these entries as a whole, as a short account a person would recognise rather than a list of the observations: what is weighing on them, what is holding them up, and how the pieces connect. Everything in it must be supported by the observations or the entries; word anything that is a reading rather than something written tentatively. Be plain that something is hard when it is. No advice here (that belongs in next_steps).
+- arc: how things changed across the dates, two to four sentences with the entry_refs of the entries that show the change (at least two, from different dates), or null. Only when the entries really show movement, for example dread easing into relief, or a worry that grew; don't build a trajectory from a handful of unrelated entries. Describe the change, never score it: no better or worse, no progress or setbacks, no "you are doing well".
 - next_steps: zero, one or two small, optional, practical ideas, never pressure. Rest or leaving things be is also fine. Each cites the entries it comes from.
 - You don't remember anything beyond these entries.
 - safety_concern: true if any entry suggests the user may be at risk of harming themselves or someone else, or is in danger; Kindway then shows reviewed support information instead of a review. Otherwise false.`;
@@ -146,7 +163,7 @@ export function parseInsights(text: string, submitted: EntryRow[]): { output: In
     if (!isObject(o) || observations.length >= MAX_OBSERVATIONS) continue;
     const kind = KINDS.find((k) => k === o.kind);
     const title = text_(o.title, 120);
-    const body = text_(o.body, 600);
+    const body = text_(o.body, MAX_BODY);
     const grounding = o.grounding === 'observed' || o.grounding === 'interpretation' ? o.grounding : null;
     const entry_ids = resolve(o.entry_refs);
     if (kind && title && body && grounding && entry_ids.length > 0) observations.push({ kind, title, body, grounding, entry_ids });
@@ -159,7 +176,15 @@ export function parseInsights(text: string, submitted: EntryRow[]): { output: In
     const entry_ids = resolve(s.entry_refs);
     if (t && why && entry_ids.length > 0) next_steps.push({ text: t, why, entry_ids });
   }
-  const summary = typeof raw.summary === 'string' ? text_(raw.summary, 800) : null;
+  const summary = typeof raw.summary === 'string' ? text_(raw.summary, MAX_SUMMARY) : null;
+  const enough_evidence = raw.enough_evidence && observations.length > 0;
+  // A change over time needs at least two real entries to stand on, and some evidence overall.
+  let arc: Arc | null = null;
+  if (enough_evidence && isObject(raw.arc)) {
+    const text = text_(raw.arc.text, MAX_ARC);
+    const entry_ids = resolve(raw.arc.entry_refs);
+    if (text && entry_ids.length >= 2) arc = { text, entry_ids };
+  }
 
   return {
     safety: raw.safety_concern,
@@ -167,8 +192,9 @@ export function parseInsights(text: string, submitted: EntryRow[]): { output: In
     output: {
       schema_version: INSIGHTS_SCHEMA_VERSION,
       // Nothing left to stand on means not enough evidence, whatever the model said.
-      enough_evidence: raw.enough_evidence && observations.length > 0,
+      enough_evidence,
       summary,
+      arc,
       observations,
       next_steps,
     },

@@ -6,6 +6,7 @@ import { EveningGlow } from '@/components/brand';
 import { Button, IconButton } from '@/components/button';
 import { Card, CardLink } from '@/components/card';
 import { Chip, ChipRow } from '@/components/chip';
+import { LookBackCard, ThreadCard } from '@/components/come-back-cards';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { ReminderOffer } from '@/components/reminder-offer';
@@ -17,6 +18,7 @@ import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices'
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
 import { usePullToRefresh, useSync } from '@/state/cloud-sync';
+import { lookBackFor, threadFor } from '@/state/come-back';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
@@ -36,6 +38,9 @@ export default function Today() {
   const [signInLater, setSignInLater] = useState(false);
   const [focused, setFocused] = useState(false);
   const [stepOpen, setStepOpen] = useState(false);
+  // "Not now" on a gentle suggestion hides it until Kindway is opened again; nothing is remembered or counted.
+  const [threadLater, setThreadLater] = useState(false);
+  const [lookBackLater, setLookBackLater] = useState(false);
   // The step blaze fills in lichen right after it's marked done.
   const [stepPainting, setStepPainting] = useState(false);
   useFocusEffect(
@@ -63,10 +68,13 @@ export default function Today() {
   };
   const hasDraft = state.draft.text.trim().length > 0 && !state.draft.editingId;
 
-  const usePrompt = () => {
-    if (!hasDraft) dispatch({ type: 'draft', patch: { text: `${prompt}\n\n` } });
+  const startWith = (text: string) => {
+    if (!hasDraft) dispatch({ type: 'draft', patch: { text: `${text}\n\n` } });
     router.push('/write');
   };
+  const thread = threadLater ? null : threadFor(entries, today);
+  // Not an entry the trail already shows, so the same one never appears twice.
+  const lookBack = lookBackLater ? null : lookBackFor(entries.filter((e) => !todays.includes(e) && !earlier.includes(e)), today);
 
   return (
     <Screen
@@ -138,8 +146,11 @@ export default function Today() {
       />
       <ChipRow>
         <Chip kind="assist" icon="microphone-outline" label="Speak" onPress={() => router.push('/voice')} />
-        <Chip kind="assist" icon="lightbulb-on-outline" label={`“${prompt}”`} onPress={usePrompt} />
+        <Chip kind="assist" icon="text-short" label="Just one line" onPress={() => router.push('/write?quick=1')} />
+        <Chip kind="assist" icon="lightbulb-on-outline" label={`“${prompt}”`} onPress={() => startWith(prompt)} />
       </ChipRow>
+
+      {thread && <ThreadCard thread={thread} onUse={() => startWith(thread.prompt)} onLater={() => setThreadLater(true)} />}
 
       <Card style={styles.section}>
         <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
@@ -251,6 +262,8 @@ export default function Today() {
           <CardLink label="Look back across your entries" onPress={() => router.navigate('/patterns')} />
         </View>
       </Card>
+
+      {lookBack && <LookBackCard lookBack={lookBack} onOpen={() => router.push(`/entry/${lookBack.entry.id}`)} onLater={() => setLookBackLater(true)} />}
 
       <Dialog
         visible={state.demo.sessionExpired || (sync?.status === 'signed-out' && !signInLater)}

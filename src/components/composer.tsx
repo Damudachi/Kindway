@@ -22,12 +22,14 @@ import { motion, radius, space } from '@/theme/tokens';
 type Props = {
   /** First entry during onboarding uses warmer copy and its own exit routes. */
   first?: boolean;
+  /** "Just one line": the page and the feelings only, for a low-energy day. */
+  quick?: boolean;
   onSaved: (id: string, reflected: boolean) => void;
   /** Onboarding only: finish without writing anything. */
   onSkip?: () => void;
 };
 
-export function Composer({ first, onSaved, onSkip }: Props) {
+export function Composer({ first, quick, onSaved, onSkip }: Props) {
   const styles = useStyles();
   const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
@@ -111,7 +113,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
       top={{
         back: true,
         small: true,
-        title: editing ? 'Edit entry' : first ? 'Your first entry' : "Tonight's entry",
+        title: editing ? 'Edit entry' : first ? 'Your first entry' : quick ? 'One line' : "Tonight's entry",
         actions:
           !empty || editing ? (
             <IconButton icon="trash-can-outline" label="Discard draft" onPress={() => setConfirmDiscard(true)} />
@@ -123,7 +125,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
             <>
               <Button label={mode === 'ai' ? 'Save & reflect with AI' : 'Save & reflect'} trailingIcon="arrow-right" disabled={empty} onPress={() => doSave(true)} />
               <Button variant="secondary" label="Save without AI" disabled={empty} onPress={() => doSave(false)} />
-              {mode === 'ai' && <Text variant="small">Reflecting sends this entry, its tags and good thing to GroqCloud. Saving without AI sends nothing.</Text>}
+              {mode === 'ai' && <Text variant="small">{state.contextScope === 'relevant' ? 'Reflecting sends this entry, its tags and good thing, plus up to 5 recent entries from the last two weeks, to GroqCloud. Saving without AI sends nothing.' : 'Reflecting sends this entry, its tags and good thing to GroqCloud. Saving without AI sends nothing.'}</Text>}
             </>
           ) : (
             <Button label={editing ? 'Save changes' : 'Save entry'} disabled={empty} onPress={() => doSave(false)} />
@@ -133,10 +135,10 @@ export function Composer({ first, onSaved, onSkip }: Props) {
       }>
       <Animated.View style={recede}>
         <Text variant="headline" accessibilityRole="header">
-          {first ? "What's been on your mind today?" : "What's on your mind?"}
+          {first ? "What's been on your mind today?" : quick ? 'One line is enough.' : "What's on your mind?"}
         </Text>
         <Text variant="bodyMuted" style={styles.lede}>
-          Start anywhere. It doesn’t have to be organized or make sense yet.
+          {quick ? 'A few words keep today in your journal. You can add more later.' : 'Start anywhere. It doesn’t have to be organized or make sense yet.'}
         </Text>
       </Animated.View>
 
@@ -171,16 +173,18 @@ export function Composer({ first, onSaved, onSkip }: Props) {
         {empty ? 'No minimum length. No required questions.' : 'Draft saved on this device, even if you close the app'}
       </Text>
 
-      <Animated.View style={recede}>
-        <Text variant="label" style={styles.helpLabel}>
-          A little help getting started
-        </Text>
-        <ChipRow>
-          {PROMPTS.map((p) => (
-            <Chip key={p.id} kind="assist" icon="plus" label={p.label} onPress={() => insertPrompt(p.insert)} />
-          ))}
-        </ChipRow>
-      </Animated.View>
+      {!quick && (
+        <Animated.View style={recede}>
+          <Text variant="label" style={styles.helpLabel}>
+            A little help getting started
+          </Text>
+          <ChipRow>
+            {PROMPTS.map((p) => (
+              <Chip key={p.id} kind="assist" icon="plus" label={p.label} onPress={() => insertPrompt(p.insert)} />
+            ))}
+          </ChipRow>
+        </Animated.View>
+      )}
 
       <Animated.View style={recede}>
         <Text variant="label" style={styles.groupLabel}>
@@ -192,7 +196,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
           ))}
         </ChipRow>
 
-        {state.compass.length > 0 && (
+        {!quick && state.compass.length > 0 && (
           <>
             <Text variant="label" style={styles.groupLabel}>
               Connect to your compass, if it fits
@@ -205,7 +209,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
           </>
         )}
 
-        {showGratitude ? (
+        {quick ? null : showGratitude ? (
           <View style={styles.gratitude}>
             <Field
               label="One good thing (optional)"
@@ -220,7 +224,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
           </ChipRow>
         )}
 
-        {canReflect && (
+        {canReflect && !quick && (
           <>
             <Text variant="label" style={styles.groupLabel}>
               How should Kindway reflect this time?
@@ -236,7 +240,7 @@ export function Composer({ first, onSaved, onSkip }: Props) {
             {mode === 'simulated' && <AiUnavailableNote scope="entry_reflection" />}
           </>
         )}
-        {!canReflect && !editing && (
+        {!canReflect && !editing && !quick && (
           <View style={styles.notice}>
             <Notice title="Journal-only mode">
               Your entry stays in your journal. Reflection previews are off until you turn them on in AI & memory.

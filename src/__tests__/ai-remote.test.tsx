@@ -103,6 +103,20 @@ describe('remote AI client', () => {
     expect(review.strengths[0].grounding).toBe('observed');
   });
 
+  it('a review carries the “how things changed” part with its sources, only those that were sent', () => {
+    const withArc = (arc: unknown) => toReview({ ...storedInsight, output: { ...storedInsight.output, arc } })!;
+    expect(withArc({ text: 'From tired to calmer.', entry_ids: ['w1', 'w3', 'not-sent'] }).arc).toEqual({
+      text: 'From tired to calmer.',
+      sources: [
+        { kind: 'entry', id: 'w1', date: '2026-10-19T20:00:00.000Z' },
+        { kind: 'entry', id: 'w3', date: '2026-10-19T20:00:00.000Z' },
+      ],
+    });
+    expect(withArc({ text: 'x', entry_ids: ['not-sent'] })).not.toHaveProperty('arc');
+    expect(withArc(null)).not.toHaveProperty('arc');
+    expect(toReview(storedInsight)).not.toHaveProperty('arc');
+  });
+
   it('a review states the server’s limits when it refuses', async () => {
     expect(await requestAiReview(respond(413, { error: 'too_many_entries', max_entries: 20 }), 'week', ['a'])).toEqual({ status: 'error', error: 'too-many', limit: 20 });
     expect(await requestAiReview(respond(409, { error: 'selection_changed' }), 'week', ['a'])).toEqual({ status: 'error', error: 'selection-changed' });

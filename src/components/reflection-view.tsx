@@ -160,10 +160,10 @@ export function ReflectionView({ entry, onRest }: Props) {
   return (
     <Animated.View entering={reduce ? undefined : FadeIn.duration(360)} style={styles.wrap}>
       {isAi ? (
-        <View style={styles.simulated} accessible accessibilityLabel={`Written by AI, ${r.ai?.model ?? 'an AI model'} on GroqCloud, from this entry. Not written by you or a person, and it can be wrong.`}>
+        <View style={styles.simulated} accessible accessibilityLabel={`Written by AI, ${r.ai?.model ?? 'an AI model'} on GroqCloud, from this entry${related.length ? ' and earlier entries' : ''}. Not written by you or a person, and it can be wrong.`}>
           <MaterialCommunityIcons name="creation-outline" size={16} color={color.inkMuted} />
           <Text variant="labelSmall" style={styles.flex}>
-            Written by AI ({r.ai?.model ?? 'AI model'} on GroqCloud) from this entry. Not written by you or a person, and it can be wrong.
+            Written by AI ({r.ai?.model ?? 'AI model'} on GroqCloud) from this entry{related.length ? ' and earlier entries' : ''}. Not written by you or a person, and it can be wrong.
           </Text>
         </View>
       ) : (
@@ -223,12 +223,26 @@ export function ReflectionView({ entry, onRest }: Props) {
 
       {related.length > 0 && (
         <Animated.View entering={enter(4)} style={styles.part}>
-          <Text variant="label">Other entries with a feeling tag in common</Text>
+          <Text variant="label">{isAi ? 'Earlier entries this reflection read' : 'Other entries with a feeling tag in common'}</Text>
           <ChipRow>
             {related.map((e) => (
               <Chip key={e.id} kind="assist" icon="notebook-outline" label={shortDate(e.date)} onPress={() => router.push(`/entry/${e.id}`)} />
             ))}
           </ChipRow>
+        </Animated.View>
+      )}
+
+      {!!r.ideas?.length && (
+        <Animated.View entering={enter(5)} style={styles.part}>
+          <SectionTitle icon="lightbulb-outline" pencil>
+            A few things that might help
+          </SectionTitle>
+          <Text variant="small">Take what fits and leave the rest.</Text>
+          {r.ideas.map((idea) => (
+            <Text key={idea} variant="pencil">
+              {`•  ${idea}`}
+            </Text>
+          ))}
         </Animated.View>
       )}
 

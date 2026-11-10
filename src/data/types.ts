@@ -28,10 +28,12 @@ export type Reflection = {
   perspective?: string;
   /** A compass value the user linked to this entry; they can mark it not relevant. */
   longGame?: { value: string; text: string };
-  /** Earlier entries with a feeling tag in common, by id, so the user can check them. */
+  /** Earlier entries, by id, so the user can check them: with a feeling tag in common (simulated), or the ones the AI read. */
   related?: string[];
   /** An optional practical next step. */
   nextStep?: string;
+  /** AI only: a few concrete options, when the entry asked for help. */
+  ideas?: string[];
   /** An optional reflection question. */
   question?: string;
   /** AI only: a short title for the entry, used unless the user renamed it. */

@@ -76,8 +76,10 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
     ...(str(o.possible_perspective) && { perspective: str(o.possible_perspective) }),
     ...(compass && { longGame: { value: String(compass.value), text: String(compass.text) } }),
     ...(str(o.suggested_step) && { nextStep: str(o.suggested_step) }),
+    ...(Array.isArray(o.ideas) && o.ideas.some(str) && { ideas: o.ideas.filter(str).map((t: string) => t.trim()) }),
     ...(str(o.reflection_question) && { question: str(o.reflection_question) }),
     ...(str(o.title) && { title: str(o.title)!.trim() }),
+    ...(Array.isArray(o.earlier_entry_ids) && o.earlier_entry_ids.some(str) && { related: o.earlier_entry_ids.filter(str) }),
     ...(Array.isArray(o.other_topics) && o.other_topics.some(str) && { otherTopics: o.other_topics.filter(str).map((t: string) => t.trim()) }),
     basedOn,
   };
@@ -179,6 +181,10 @@ export function toReview(stored: unknown): InsightReview | null {
     enoughEvidence: o.enough_evidence === true,
     ai: { id: stored.id, provider: String(stored.provider), model: String(stored.model), createdAt: String(stored.created_at) },
   };
+  if (isObject(o.arc) && str(o.arc.text)) {
+    const sources = refs(o.arc.entry_ids);
+    if (sources.length > 0) review.arc = { text: String(o.arc.text), sources };
+  }
   (Array.isArray(o.observations) ? o.observations : []).forEach((ob, i) => {
     if (!isObject(ob)) return;
     const section = SECTION[ob.kind as InsightKind];
