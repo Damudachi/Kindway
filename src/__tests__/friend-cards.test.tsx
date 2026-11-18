@@ -1,4 +1,4 @@
-import { Slot } from 'expo-router';
+import { router, Slot } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
@@ -81,7 +81,21 @@ describe('Today: Checking in', () => {
     expect(await screen.findByText('How did the exam go?', {}, wait)).toBeOnTheScreen();
     expect(screen).toHavePathname('/write');
     expect(screen.getByLabelText('Journal entry')).toBeOnTheScreen();
-    expect(screen.getByText('dismissed:e1:0')).toBeOnTheScreen();
+    // Nothing is written yet, so nothing is dismissed.
+    expect(screen.getByText('dismissed:')).toBeOnTheScreen();
+  });
+
+  it('backing out of the page keeps the check-in; saving the entry dismisses it', async () => {
+    await open({ entries: [exam()] });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Write about this' }, wait));
+    await screen.findByLabelText('Journal entry', {}, wait);
+    await act(async () => router.back());
+    expect(await screen.findByText('Checking in', {}, wait)).toBeOnTheScreen();
+    expect(screen.getByText('dismissed:')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Write about this' }));
+    await act(async () => fireEvent.changeText(await screen.findByLabelText('Journal entry', {}, wait), 'It went fine.'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Save entry' }));
+    expect(await screen.findByText('dismissed:e1:0', {}, wait)).toBeOnTheScreen();
   });
 
   it('is not shown before its date', async () => {
@@ -147,6 +161,21 @@ describe('the composer with a topic', () => {
     expect(screen.queryByText('Hello?')).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
     expect(screen.getByText('topics:Sleep|open||unshown')).toBeOnTheScreen();
+  });
+
+  it('does not attach a topic, prompt or check-in to an unrelated draft already on the page', async () => {
+    await open({
+      entries: [reflected('e1', 2, { checkIns: [{ question: 'How did the exam go?', on: daysFromToday(0) }] })],
+      topics: [topic('p1', 'Sleep')],
+      draft: { ...initialState.draft, text: 'Something else I was writing.' },
+    });
+    await fireEvent.press(await screen.findByRole('button', { name: 'Write about this' }, wait));
+    expect(await screen.findByDisplayValue('Something else I was writing.', {}, wait)).toBeOnTheScreen();
+    expect(screen.queryByText('How did the exam go?')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Save entry' }));
+    await screen.findByText(/^entries:2$/, {}, wait);
+    expect(screen.getByText('topics:Sleep|open||unshown')).toBeOnTheScreen();
+    expect(screen.getByText('dismissed:')).toBeOnTheScreen();
   });
 
   it('does not link a topic that is resolved', async () => {

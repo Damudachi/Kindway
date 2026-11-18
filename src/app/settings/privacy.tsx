@@ -39,7 +39,7 @@ export default function Privacy() {
       <Section first title="Where your entries are stored">
         <Text variant="body">
           {mode === 'cloud-sync'
-            ? `On this device, and in a cloud copy for ${user?.email}. Cloud sync is on, so entries, compass areas, your small step, preferences and insight feedback are sent to Kindway’s database, hosted by Supabase.`
+            ? `On this device, and in a cloud copy for ${user?.email}. Cloud sync is on, so entries, compass areas, your small step, topics and the entries linked to them, kept words, trail milestones, preferences and insight feedback are sent to Kindway’s database, hosted by Supabase.`
             : 'Only on this device. Nothing is backed up or synced unless you sign in and choose to turn cloud sync on.'}
         </Text>
         <Text variant="small" style={styles.gapSm}>
@@ -61,7 +61,7 @@ export default function Privacy() {
 
       <Section title="When AI sees your writing">
         <Text variant="body">
-          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection, plus its date, and up to 5 recent earlier entries and the names of your open topics if “What reflections can see” is “This entry and recent ones”), one entry with your message and a few earlier replies of that conversation (for a follow-up), or the entries you see listed (for an AI review; “All entries” sends only your 25 most recent, up to about 20,000 characters) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw any of them at any time.
+          Only when you ask, and only if you allowed it. With an account, cloud backup on and the matching choice allowed, Kindway’s server sends one entry (for a reflection, plus its date, and up to 5 recent earlier entries and the names of your open topics if “What reflections can see” is “This entry and recent ones”), one entry with your message and a few earlier replies of that conversation (for a follow-up), your message with the topic’s name, up to 8 entries linked to it from the last 90 days (each cut to its first 600 characters) and a few earlier replies of that conversation (for a conversation about a topic, which needs the same choice as reviews across entries), or the entries you see listed (for an AI review; “All entries” sends only your 25 most recent, up to about 20,000 characters) to GroqCloud. Each request is checked against your choices on the server, and you can withdraw any of them at any time.
         </Text>
         <Text variant="small" style={styles.gapSm}>
           Without that, nothing goes to AI: reflection previews and follow-up replies are pre-written text chosen on this device, and Patterns counts only the tags and marks you added. Follow-up conversations need their own choice; allowing reflections doesn’t allow them. AI processing shows exactly what is sent, what Groq may keep, and lets you delete AI outputs.

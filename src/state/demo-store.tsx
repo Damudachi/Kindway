@@ -61,7 +61,7 @@ export type DemoState = {
   /** Check-ins the user dismissed, by key. Device only. */
   dismissedCheckIns: string[];
   /** The save the trail's lighting moment is for; `milestone` is set when it crossed one. Not saved. */
-  trailMoment?: { entryId: string; count: number; milestone?: Milestone };
+  trailMoment?: { entryId: string; count: number; milestone?: Milestone; at: number };
   /** Entry whose blaze should play the paint animation once. Not saved. */
   justPainted?: string;
   /** Reviewer switches for simulated conditions. Not saved. */
@@ -163,7 +163,7 @@ export function reducer(state: DemoState, action: Action): DemoState {
         entries,
         draft: emptyDraft,
         justPainted: action.entry.id,
-        trailMoment: { entryId: action.entry.id, count, milestone: fresh[fresh.length - 1] },
+        trailMoment: { entryId: action.entry.id, count, milestone: fresh[fresh.length - 1], at: Date.now() },
         trailUnlocks: fresh.length ? [...state.trailUnlocks, ...fresh] : state.trailUnlocks,
       };
     }

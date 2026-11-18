@@ -415,6 +415,14 @@ describe('privacy beta notice', () => {
   });
 });
 
+describe('privacy: topics and the friend features', () => {
+  it('says what AI sees in a topic conversation', async () => {
+    await renderRouter({ 'settings/privacy': withProviders(Privacy) }, { initialUrl: '/settings/privacy' });
+    expect(screen.getByText(/for a conversation about a topic/)).toBeOnTheScreen();
+    expect(screen.getByText(/up to 8 entries linked to it from the last 90 days/)).toBeOnTheScreen();
+  });
+});
+
 describe('privacy export failure', () => {
   it('says so and leaves the journal alone when sharing fails', async () => {
     jest.mocked(shareJournal).mockRejectedValueOnce(new Error('no share sheet'));

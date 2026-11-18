@@ -311,7 +311,14 @@ export const changeCount = (c: Changes) =>
  */
 export function mergeSnapshots(base: CloudSnapshot, local: CloudSnapshot, remote: CloudSnapshot): CloudSnapshot {
   const out = emptySnapshot();
-  const profile = !same(base.profile, local.profile) ? local.profile : (remote.profile ?? local.profile);
+  // Settings and unlocks are judged apart: a base saved before unlocks existed, or a new unlock,
+  // must not make this device's whole profile look changed and overwrite another device's settings.
+  const settings = (p: ProfileRow | null) => {
+    if (!p) return null;
+    const { trail_unlocks: _unlocks, ...rest } = p;
+    return rest;
+  };
+  const profile = !same(settings(base.profile), settings(local.profile)) ? local.profile : (remote.profile ?? local.profile);
   // Unlocks only ever grow, so whichever side wins the other fields, neither side's unlocks are dropped.
   out.profile = profile && { ...profile, trail_unlocks: sortedUnlocks([...(local.profile?.trail_unlocks ?? []), ...(remote.profile?.trail_unlocks ?? [])]) };
   for (const kind of Object.keys(TABLES) as Kind[]) {
@@ -449,5 +456,7 @@ export function counts(snap: CloudSnapshot) {
     entries: Object.keys(snap.entries).length,
     compass: Object.keys(snap.compass).length,
     actions: Object.keys(snap.tomorrow).length,
+    topics: Object.keys(snap.topics).length,
+    kept: Object.keys(snap.kept).length,
   };
 }

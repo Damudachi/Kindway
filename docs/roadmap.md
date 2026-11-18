@@ -131,5 +131,5 @@ Ship order (the controller does these with the owner's OK):
 
 1. Run pgTAP with Docker running: `npx supabase test db`.
 2. Push the migrations `20261116120000_profile_trail_unlocks.sql` and `20261116130000_topics_kept_words.sql`: `npx supabase db push`.
-3. Deploy the functions: `npx supabase functions deploy generate-reflection generate-follow-up generate-topic-talk`.
+3. Deploy all four AI functions together: `npx supabase functions deploy generate-reflection generate-insights generate-follow-up generate-topic-talk`. Each one bundles the shared consent terms (`_shared/ai-consent.ts`) at deploy, so a function left on the old build would still ask for the old review consent while the new one revokes it, and every AI review would fail.
 4. Make a new EAS build (runtime 1.3.0). The consent versions go to `entry_reflection` 4 and `cross_entry_analysis` 3, so signed-in users are asked to agree again. Old builds lose AI until they are updated, because the server now requires the new versions.

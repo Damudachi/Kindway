@@ -1,5 +1,5 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { EveningGlow } from '@/components/brand';
@@ -31,6 +31,9 @@ import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
 
+/** How long after a save the lighting moment may still play when Today comes into view. */
+const MOMENT_FRESH_MS = 10_000;
+
 export default function Today() {
   const styles = useStyles();
   const { color, tint } = useTheme();
@@ -42,7 +45,9 @@ export default function Today() {
   const refresh = usePullToRefresh();
   const [backupLater, setBackupLater] = useState(false);
   const [signInLater, setSignInLater] = useState(false);
-  const [focused, setFocused] = useState(false);
+  // When Today last came into view; null while it isn't.
+  const [focusedAt, setFocusedAt] = useState<number | null>(null);
+  const focused = focusedAt !== null;
   const [stepOpen, setStepOpen] = useState(false);
   // "Not now" on a gentle suggestion hides it until Kindway is opened again; nothing is remembered or counted.
   const [threadLater, setThreadLater] = useState(false);
@@ -51,8 +56,8 @@ export default function Today() {
   const [stepPainting, setStepPainting] = useState(false);
   useFocusEffect(
     useCallback(() => {
-      setFocused(true);
-      return () => setFocused(false);
+      setFocusedAt(Date.now());
+      return () => setFocusedAt(null);
     }, []),
   );
 
@@ -85,13 +90,18 @@ export default function Today() {
   const thread = checkIn || threadLater ? null : threadFor(entries, today);
   const quiet = checkIn || thread ? undefined : quietTopics(state.topics, entries, today)[0];
   const ongoing = openTopics({ topics: state.topics, entries });
-  const askAbout = (prompt: string, topicId?: string) => router.push({ pathname: '/write', params: topicId ? { prompt, topic: topicId } : { prompt } });
+  const askAbout = (prompt: string, extra: { topic?: string; checkIn?: string } = {}) => router.push({ pathname: '/write', params: { prompt, ...extra } });
   // Not an entry the trail already shows, so the same one never appears twice.
   const lookBack = lookBackLater ? null : lookBackFor(entries.filter((e) => !todays.includes(e) && !earlier.includes(e)), today);
 
   // With no reflection to wait for, the lighting moment plays here, where the blaze already paints.
   const moment = state.trailMoment;
-  const lighting = focused && !!moment && state.entries.find((e) => e.id === moment.entryId)?.reflectionStatus === 'none';
+  // A save made somewhere else (Journal, Patterns) is not replayed whenever Today is next opened.
+  const stale = !!moment && focusedAt !== null && focusedAt - moment.at > MOMENT_FRESH_MS;
+  useEffect(() => {
+    if (stale) dispatch({ type: 'clearTrailMoment' });
+  }, [stale, dispatch]);
+  const lighting = focused && !stale && !!moment && state.entries.find((e) => e.id === moment.entryId)?.reflectionStatus === 'none';
 
   return (
     <>
@@ -173,8 +183,8 @@ export default function Today() {
         <CheckInCard
           question={checkIn.question}
           onWrite={() => {
-            dispatch({ type: 'dismissCheckIn', key: checkIn.key });
-            askAbout(checkIn.question);
+            // Dismissed when the entry is saved, so backing out of the page doesn't lose it.
+            askAbout(checkIn.question, { checkIn: checkIn.key });
           }}
           onLater={() => dispatch({ type: 'dismissCheckIn', key: checkIn.key })}
         />
@@ -184,7 +194,7 @@ export default function Today() {
           question={topicCheckInQuestion(quiet.name)}
           onWrite={() => {
             dispatch({ type: 'updateTopic', id: quiet.id, patch: { checkInShownAt: today.toISOString() } });
-            askAbout(topicCheckInQuestion(quiet.name), quiet.id);
+            askAbout(topicCheckInQuestion(quiet.name), { topic: quiet.id });
           }}
           onLater={() => dispatch({ type: 'updateTopic', id: quiet.id, patch: { checkInShownAt: today.toISOString() } })}
         />

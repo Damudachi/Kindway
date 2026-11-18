@@ -119,6 +119,34 @@ describe('trail unlocks', () => {
     expect(mergeSnapshots(base, unchangedHere, remote).profile?.trail_unlocks).toEqual([7, 30]);
   });
 
+  it('an old sync base without unlocks does not make this device overwrite another device’s settings', () => {
+    const base = toCloud(journal());
+    const { trail_unlocks: _gone, ...oldProfile } = base.profile!;
+    const oldBase = { ...base, profile: oldProfile } as unknown as ReturnType<typeof toCloud>;
+    const local = toCloud(journal({ trailUnlocks: [7] }));
+    const remote = toCloud(journal({ contextScope: 'current', aiConsent: 'journal-only', trailUnlocks: [30] }));
+    const merged = mergeSnapshots(oldBase, local, remote);
+    expect(merged.profile?.context_scope).toBe(remote.profile?.context_scope);
+    expect(merged.profile?.reflection_previews).toBe(remote.profile?.reflection_previews);
+    expect(merged.profile?.trail_unlocks).toEqual([7, 30]);
+  });
+
+  it('a new unlock here alone does not overwrite settings changed elsewhere', () => {
+    const base = toCloud(journal());
+    const local = toCloud(journal({ trailUnlocks: [7] }));
+    const remote = toCloud(journal({ supportStyle: 'honest' }));
+    const merged = mergeSnapshots(base, local, remote);
+    expect(merged.profile?.support_style).toBe('honest');
+    expect(merged.profile?.trail_unlocks).toEqual([7]);
+  });
+
+  it('a settings change here still wins over the cloud', () => {
+    const base = toCloud(journal());
+    const merged = mergeSnapshots(base, toCloud(journal({ supportStyle: 'honest' })), toCloud(journal({ trailUnlocks: [30] })));
+    expect(merged.profile?.support_style).toBe('honest');
+    expect(merged.profile?.trail_unlocks).toEqual([30]);
+  });
+
   it('unlocks reached on another device are not lost when this one pulls', () => {
     const merged = mergeSnapshots(toCloud(journal()), toCloud(journal({ trailUnlocks: [100] })), toCloud(journal({ trailUnlocks: [7, 365] })));
     expect(applyCloud(journal({ trailUnlocks: [100] }), merged).trailUnlocks).toEqual([7, 100, 365]);
@@ -130,7 +158,7 @@ describe('moving a local-only journal into an account', () => {
     const cloud = fakeCloud();
     const state = journal();
     const plan = planMigration(state, emptySnapshot());
-    expect(plan.adding).toEqual({ entries: 2, compass: 1, actions: 1 });
+    expect(plan.adding).toEqual({ entries: 2, compass: 1, actions: 1, topics: 0, kept: 0 });
     const after = await runMigration(cloud.repo, 'A', plan, emptySnapshot());
     expect(Object.keys(after.entries).sort()).toEqual(['n1', 'n2']);
     expect(cloud.consented.has('A')).toBe(true);
@@ -307,6 +335,8 @@ describe('topics and kept words', () => {
     const cloud = fakeCloud();
     const state = withTopics();
     const plan = planMigration(state, emptySnapshot());
+    expect(plan.local).toMatchObject({ topics: 2, kept: 3 });
+    expect(plan.adding).toMatchObject({ topics: 2, kept: 3 });
     const after = await runMigration(cloud.repo, 'A', plan, emptySnapshot());
     expect(Object.keys(after.topics).sort()).toEqual(['p1', 'p2']);
     expect(Object.keys(after.topicLinks).sort()).toEqual(['p1|n1', 'p1|n2']);

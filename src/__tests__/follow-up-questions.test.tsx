@@ -126,6 +126,15 @@ describe('asked questions in the conversation', () => {
     expect(screen.getAllByLabelText(`Kindway asked: ${QUESTIONS[1]}`)).toHaveLength(1);
   });
 
+  it('leaving and coming back to a chat that ends with the question still sends the answer as asked', async () => {
+    const asked: ChatMessage = { id: 'q1', from: 'kindway', text: QUESTIONS[1], source: 'ai', asked: true };
+    const invoke = await open(journal({}, [asked]), '/entry/e1/talk');
+    expect(await screen.findByLabelText(`Kindway asked: ${QUESTIONS[1]}`, {}, wait)).toBeOnTheScreen();
+    await typeAndSend('Fictional: back again');
+    expect(await screen.findByText('Fictional AI answer.', {}, wait)).toBeOnTheScreen();
+    expect(bodyOf(invoke, 0)).toMatchObject({ asked: QUESTIONS[1] });
+  });
+
   it('ignores an ask that is out of range or not a number', async () => {
     await open(journal(), '/entry/e1/talk?ask=7');
     expect(await screen.findByLabelText('Follow-up message', {}, wait)).toBeOnTheScreen();

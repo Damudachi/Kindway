@@ -33,7 +33,7 @@ export function planMigration(localState: DemoState, cloud: CloudSnapshot): Migr
   const local = toCloud(localState);
   const result: CloudSnapshot = structuredClone(cloud);
   const copies: Record<string, string> = {};
-  const adding = { entries: 0, compass: 0, actions: 0 };
+  const adding = { entries: 0, compass: 0, actions: 0, topics: 0, kept: 0 };
 
   for (const [id, row] of Object.entries(local.compass)) {
     if (result.compass[id]) continue;
@@ -64,7 +64,11 @@ export function planMigration(localState: DemoState, cloud: CloudSnapshot): Migr
   }
 
   // The account keeps a topic with the same id; this device's links and kept words still come along.
-  for (const [id, row] of Object.entries(local.topics)) if (!result.topics[id]) result.topics[id] = row;
+  for (const [id, row] of Object.entries(local.topics)) {
+    if (result.topics[id]) continue;
+    result.topics[id] = row;
+    adding.topics++;
+  }
   for (const link of Object.values(local.topicLinks)) {
     const l = { topic_id: link.topic_id, entry_id: mapped(link.entry_id) };
     result.topicLinks[topicLinkKey(l)] = l;
@@ -72,6 +76,7 @@ export function planMigration(localState: DemoState, cloud: CloudSnapshot): Migr
   for (const [id, row] of Object.entries(local.kept)) {
     if (result.kept[id]) continue;
     result.kept[id] = { ...row, source_entry_id: row.source_entry_id ? mapped(row.source_entry_id) : null };
+    adding.kept++;
   }
 
   const keepsAccountStep = Object.keys(cloud.tomorrow).length > 0;

@@ -43,20 +43,20 @@ describe('trail state', () => {
     expect(s.trailUnlocks).toEqual([7, 30]);
   });
   it('trailUnlocks survives the snapshot round-trip; trailMoment does not', () => {
-    const s = { ...initialState, trailUnlocks: [7, 30], trailMoment: { entryId: 'a', count: 31 } };
+    const s = { ...initialState, trailUnlocks: [7, 30], trailMoment: { entryId: 'a', count: 31, at: 0 } };
     const restored = fromSnapshot(JSON.parse(JSON.stringify(toSnapshot(s))));
     expect(restored.trailUnlocks).toEqual([7, 30]);
     expect(restored.trailMoment).toBeUndefined();
   });
   it('saving a first entry sets a moment with no milestone', () => {
     const s = reducer(initialState, { type: 'saveEntry', entry: entry('a', 0) });
-    expect(s.trailMoment).toEqual({ entryId: 'a', count: 1, milestone: undefined });
+    expect(s.trailMoment).toEqual({ entryId: 'a', count: 1, milestone: undefined, at: expect.any(Number) });
     expect(s.trailUnlocks).toEqual([]);
   });
   it('crossing a milestone records the highest and unlocks all crossed', () => {
     const entries = Array.from({ length: 6 }, (_, i) => entry(`e${i}`, i + 1));
     const s = reducer({ ...initialState, entries }, { type: 'saveEntry', entry: entry('n', 0) });
-    expect(s.trailMoment).toEqual({ entryId: 'n', count: 7, milestone: 7 });
+    expect(s.trailMoment).toEqual({ entryId: 'n', count: 7, milestone: 7, at: expect.any(Number) });
     expect(s.trailUnlocks).toEqual([7]);
     const many = Array.from({ length: 49 }, (_, i) => entry(`m${i}`, i + 1));
     const t = reducer({ ...initialState, entries: many }, { type: 'saveEntry', entry: entry('n', 0) });

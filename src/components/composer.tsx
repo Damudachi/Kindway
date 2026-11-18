@@ -29,16 +29,24 @@ type Props = {
   prompt?: string;
   /** A saved open topic a new entry is linked to when it's saved. */
   topicId?: string;
+  /** The Today check-in this entry answers; it's dismissed only once the entry is actually saved. */
+  checkInKey?: string;
   onSaved: (id: string, reflected: boolean) => void;
   /** Onboarding only: finish without writing anything. */
   onSkip?: () => void;
 };
 
-export function Composer({ first, quick, prompt, topicId, onSaved, onSkip }: Props) {
+export function Composer({ first, quick, prompt: promptProp, topicId: topicProp, checkInKey: checkInProp, onSaved, onSkip }: Props) {
   const styles = useStyles();
   const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
   const { draft } = state;
+  // A draft already on the page is about something else, so a question, topic or check-in
+  // that arrives with the screen must not attach to it.
+  const [hadDraft] = useState(() => draft.text.trim().length > 0 && !draft.editingId);
+  const prompt = hadDraft ? undefined : promptProp;
+  const topicId = hadDraft ? undefined : topicProp;
+  const checkInKey = hadDraft ? undefined : checkInProp;
   const save = useSaveDraft();
   const mode = useReflectionMode();
   const input = useRef<TextInputInstance>(null);
@@ -110,6 +118,7 @@ export function Composer({ first, quick, prompt, topicId, onSaved, onSkip }: Pro
     saving.current = true;
     const id = save({ reflect });
     if (id && topicId && !editing && state.topics.some((t) => t.id === topicId && t.status === 'open')) dispatch({ type: 'linkTopic', topicId, entryId: id });
+    if (id && checkInKey && !editing) dispatch({ type: 'dismissCheckIn', key: checkInKey });
     if (id) onSaved(id, reflect && canReflect);
     else saving.current = false;
   };

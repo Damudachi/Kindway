@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import { act, renderRouter, screen, fireEvent } from 'expo-router/testing-library';
+import { act, renderRouter, screen, fireEvent, waitFor } from 'expo-router/testing-library';
 import { render } from '@testing-library/react-native';
 import * as Reanimated from 'react-native-reanimated';
 
@@ -114,7 +114,7 @@ const withMoment = (status: 'loading' | 'none' | 'ready', patch: Partial<DemoSta
   ...initialState,
   onboarded: true,
   entries: [entry('e1', 0, { reflectionStatus: status })],
-  trailMoment: { entryId: 'e1', count: 5 },
+  trailMoment: { entryId: 'e1', count: 5, at: Date.now() },
   ...patch,
 });
 
@@ -146,7 +146,7 @@ describe('on the entry screen', () => {
   });
 
   it('does not show another entry’s moment', async () => {
-    await open(withMoment('loading', { trailMoment: { entryId: 'other', count: 5 } }), { 'entry/[id]/index': EntryDetail }, '/entry/e1');
+    await open(withMoment('loading', { trailMoment: { entryId: 'other', count: 5, at: Date.now() } }), { 'entry/[id]/index': EntryDetail }, '/entry/e1');
     await screen.findByText('Reflection');
     expect(screen.queryByText('5 days on your way.')).toBeNull();
   });
@@ -161,6 +161,13 @@ describe('on Today', () => {
     await fireEvent.press(screen.getByLabelText('Skip'));
     expect(store.state.trailMoment).toBeUndefined();
     expect(screen.queryByText('5 days on your way.')).toBeNull();
+  });
+
+  it('does not replay a moment from a save made a while ago somewhere else', async () => {
+    await open(withMoment('none', { trailMoment: { entryId: 'e1', count: 5, at: Date.now() - 60_000 } }), { today: Today }, '/today');
+    await screen.findByText('Your trail');
+    expect(screen.queryByText('5 days on your way.')).toBeNull();
+    await waitFor(() => expect(store.state.trailMoment).toBeUndefined());
   });
 
   it('stays out of the way when a reflection was requested', async () => {

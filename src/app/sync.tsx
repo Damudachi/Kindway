@@ -134,7 +134,7 @@ export default function Sync() {
 
   if (step.kind === 'verified') {
     const { after, plan } = step;
-    const hasLocal = plan.local.entries + plan.local.compass + plan.local.actions > 0;
+    const hasLocal = plan.local.entries + plan.local.compass + plan.local.actions + plan.local.topics + plan.local.kept > 0;
     return (
       <Screen
         top={{ title: 'Cloud backup' }}
@@ -152,8 +152,8 @@ export default function Sync() {
           Your journal is in your account.
         </Text>
         <Text variant="bodyMuted" style={styles.lede}>
-          We read it back from the cloud and checked it: {plural(Object.keys(after.entries).length, 'entry', 'entries')}, {plural(Object.keys(after.compass).length, 'compass area')} and{' '}
-          {plural(Object.keys(after.tomorrow).length, 'small step')} are saved to {user?.email}.
+          We read it back from the cloud and checked it: {plural(Object.keys(after.entries).length, 'entry', 'entries')}, {plural(Object.keys(after.compass).length, 'compass area')},{' '}
+          {plural(Object.keys(after.tomorrow).length, 'small step')}, {plural(Object.keys(after.topics).length, 'topic')} and {plural(Object.keys(after.kept).length, 'kept word')} are saved to {user?.email}.
         </Text>
         {hasLocal && (
           <Text variant="body">
@@ -167,7 +167,7 @@ export default function Sync() {
   const { plan, cloud } = step;
   const blocked = plan.compassOverflow.length > 0;
   const uploading = step.kind === 'uploading';
-  const adding = plan.adding.entries + plan.adding.compass + plan.adding.actions;
+  const adding = plan.adding.entries + plan.adding.compass + plan.adding.actions + plan.adding.topics + plan.adding.kept;
   return (
     <Screen
       top={{ back: true, title: 'Cloud backup' }}
@@ -200,11 +200,11 @@ export default function Sync() {
           Turning this on sends the journal below to Kindway’s cloud database (hosted by Supabase), where only your account can read it. After that, new entries and changes sync automatically.
         </Text>
         <View style={styles.counts}>
-          <Text variant="body">On this device: {plural(plan.local.entries, 'entry', 'entries')}, {plural(plan.local.compass, 'compass area')}, {plural(plan.local.actions, 'small step')}.</Text>
-          <Text variant="body">Already in your account: {plural(plan.cloud.entries, 'entry', 'entries')}, {plural(plan.cloud.compass, 'compass area')}, {plural(plan.cloud.actions, 'small step')}.</Text>
+          <Text variant="body">On this device: {plural(plan.local.entries, 'entry', 'entries')}, {plural(plan.local.compass, 'compass area')}, {plural(plan.local.actions, 'small step')}, {plural(plan.local.topics, 'topic')}, {plural(plan.local.kept, 'kept word')}.</Text>
+          <Text variant="body">Already in your account: {plural(plan.cloud.entries, 'entry', 'entries')}, {plural(plan.cloud.compass, 'compass area')}, {plural(plan.cloud.actions, 'small step')}, {plural(plan.cloud.topics, 'topic')}, {plural(plan.cloud.kept, 'kept word')}.</Text>
           {adding > 0 && (
             <Text variant="body">
-              Will be added: {plural(plan.adding.entries, 'entry', 'entries')}, {plural(plan.adding.compass, 'compass area')}, {plural(plan.adding.actions, 'small step')}.
+              Will be added: {plural(plan.adding.entries, 'entry', 'entries')}, {plural(plan.adding.compass, 'compass area')}, {plural(plan.adding.actions, 'small step')}, {plural(plan.adding.topics, 'topic')}, {plural(plan.adding.kept, 'kept word')}.
             </Text>
           )}
         </View>

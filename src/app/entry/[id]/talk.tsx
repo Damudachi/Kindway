@@ -71,7 +71,11 @@ export default function Talk() {
   const bottom = useBottomInset(insets.bottom);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   // The question Kindway asked that the next message answers; kept until a message is really sent.
-  const [pendingAsk, setPendingAsk] = useState<string | undefined>();
+  // Coming back to a chat that ends with Kindway's question picks it up again.
+  const [pendingAsk, setPendingAsk] = useState<string | undefined>(() => {
+    const last = messages[messages.length - 1];
+    return last?.asked ? last.text : undefined;
+  });
   // Bumped when the conversation is cleared, so a late failure can't bring back a question that is gone.
   const cleared = useRef(0);
   const arrivedAsk = useRef<string | undefined>(undefined);
