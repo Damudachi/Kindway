@@ -7,6 +7,7 @@ import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { FollowUpConsentDialog } from '@/components/follow-up-consent-dialog';
+import { KeepButton } from '@/components/keep-button';
 import { Notice } from '@/components/notice';
 import { keyboardBehavior, TopBar, useBottomInset } from '@/components/screen';
 import { Illustration } from '@/components/illustrations';
@@ -196,9 +197,12 @@ export default function Talk() {
               {item.text}
             </Text>
             {item.from === 'kindway' && (
-              <Text variant="labelSmall" style={styles.source}>
-                {item.asked ? 'Kindway asked' : item.source === 'ai' ? 'Written by AI' : 'Simulated reply'}
-              </Text>
+              <View style={styles.sourceRow}>
+                <Text variant="labelSmall" style={styles.source}>
+                  {item.asked ? 'Kindway asked' : item.source === 'ai' ? 'Written by AI' : 'Simulated reply'}
+                </Text>
+                {item.source === 'ai' && item.ai && !item.asked && <KeepButton text={item.text} source={{ kind: 'follow_up', entryId: id }} />}
+              </View>
             )}
             {item.step && <StepOffer step={item.step} entryId={id} />}
           </View>
@@ -304,7 +308,8 @@ const useStyles = makeStyles((color, type) => ({
   me: { alignSelf: 'flex-end', backgroundColor: color.trailContainer, borderBottomRightRadius: 4 },
   them: { alignSelf: 'flex-start', backgroundColor: color.raised, borderWidth: 1, borderColor: color.sand, borderBottomLeftRadius: 4 },
   themText: { fontSize: 17, lineHeight: 26 },
-  source: { marginTop: space.xxs, color: color.inkMuted },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.xs, marginTop: space.xxs },
+  source: { color: color.inkMuted, flexShrink: 1 },
   step: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.sand, gap: space.xxs },
   footer: { gap: space.xs, marginTop: space.sm },
   composer: {

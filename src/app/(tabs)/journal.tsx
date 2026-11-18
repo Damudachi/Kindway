@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { Button, IconButton } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { Field, Segmented } from '@/components/controls';
+import { KeptList } from '@/components/kept-list';
 import { StateView } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -57,8 +58,7 @@ export default function Journal() {
       </View>
 
       {view === 'topics' && <TopicsList />}
-      {/* C4 replaces this with the kept words. */}
-      {view === 'kept' && <Text variant="bodyMuted">Words you keep will appear here.</Text>}
+      {view === 'kept' && <KeptList />}
       {view === 'entries' && (
         <>
           {entries.length === 0 ? (

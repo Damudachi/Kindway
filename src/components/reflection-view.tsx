@@ -8,7 +8,9 @@ import { AiUnavailableNote } from '@/components/ai-unavailable';
 import { Button } from '@/components/button';
 import { Chip, ChipRow } from '@/components/chip';
 import { useSnackbar } from '@/components/feedback';
+import { HelpedBefore } from '@/components/helped-before';
 import { SectionTitle } from '@/components/illustrations';
+import { KeepButton } from '@/components/keep-button';
 import { Notice } from '@/components/notice';
 import { Text } from '@/components/text';
 import { shortDate } from '@/data/dates';
@@ -135,6 +137,9 @@ export function ReflectionView({ entry, onRest }: Props) {
   // A real AI reflection can be asked for again (a new request); simulated ones cycle pre-written text.
   const perspectives = isAi ? (real.reflections ? 2 : 0) : perspectiveCount(r.style, entry.feelings);
 
+  /** The heart beside a piece of AI-written text; simulated text can't be kept. */
+  const keep = (text: string) => (isAi ? <KeepButton text={text} source={{ kind: 'reflection', entryId: entry.id }} /> : null);
+
   const setFeedback = (feedback: ReflectionFeedback | undefined) =>
     dispatch({ type: 'updateEntry', id: entry.id, patch: { reflection: { ...r, feedback } } });
 
@@ -187,7 +192,12 @@ export function ReflectionView({ entry, onRest }: Props) {
       {edited && <Button variant="secondary" label="Reflect on this version" icon="refresh" onPress={() => request(entry, r.style)} />}
 
       <Animated.View entering={enter(0)}>
-        <Text variant="entry">{r.acknowledge}</Text>
+        <View style={styles.keepRow}>
+          <Text variant="entry" style={styles.flex}>
+            {r.acknowledge}
+          </Text>
+          {keep(r.acknowledge)}
+        </View>
       </Animated.View>
 
       {r.clarify && (
@@ -195,7 +205,12 @@ export function ReflectionView({ entry, onRest }: Props) {
           <SectionTitle icon="text-search" pencil>
             What happened, and what you concluded
           </SectionTitle>
-          <Text variant={inked ? 'body' : 'pencil'}>{r.clarify}</Text>
+          <View style={styles.keepRow}>
+            <Text variant={inked ? 'body' : 'pencil'} style={styles.flex}>
+              {r.clarify}
+            </Text>
+            {keep(r.clarify)}
+          </View>
         </Animated.View>
       )}
 
@@ -204,7 +219,12 @@ export function ReflectionView({ entry, onRest }: Props) {
           <SectionTitle icon="eye-outline" pencil>
             One possible way to see it
           </SectionTitle>
-          <Text variant={inked ? 'body' : 'pencil'}>{r.perspective}</Text>
+          <View style={styles.keepRow}>
+            <Text variant={inked ? 'body' : 'pencil'} style={styles.flex}>
+              {r.perspective}
+            </Text>
+            {keep(r.perspective)}
+          </View>
           {perspectives > 1 && <Button variant="text" label={isAi ? 'Ask AI for another perspective' : 'Try another perspective'} icon="sync" onPress={() => another(entry)} />}
         </Animated.View>
       )}
@@ -239,9 +259,12 @@ export function ReflectionView({ entry, onRest }: Props) {
           </SectionTitle>
           <Text variant="small">Take what fits and leave the rest.</Text>
           {r.ideas.map((idea) => (
-            <Text key={idea} variant="pencil">
-              {`•  ${idea}`}
-            </Text>
+            <View key={idea} style={styles.keepRow}>
+              <Text variant="pencil" style={styles.flex}>
+                {`•  ${idea}`}
+              </Text>
+              {keep(idea)}
+            </View>
           ))}
         </Animated.View>
       )}
@@ -251,7 +274,12 @@ export function ReflectionView({ entry, onRest }: Props) {
           <SectionTitle icon="stairs-up" pencil>
             If you want a next step
           </SectionTitle>
-          <Text variant="pencil">{nextStep}</Text>
+          <View style={styles.keepRow}>
+            <Text variant="pencil" style={styles.flex}>
+              {nextStep}
+            </Text>
+            {keep(nextStep)}
+          </View>
           {stepSaved ? (
             <Text variant="small" accessibilityLiveRegion="polite">
               Saved to Tomorrow Bridge. You can change it or let it go on Today.
@@ -335,6 +363,8 @@ export function ReflectionView({ entry, onRest }: Props) {
         <Button variant="text" label="Let this sit for tonight" onPress={onRest} />
       </View>
 
+      <HelpedBefore entry={entry} />
+
       <View style={styles.about}>
         <Pressable
           accessibilityRole="button"
@@ -369,6 +399,7 @@ const useStyles = makeStyles((color) => ({
   wrap: { gap: space.md, paddingVertical: space.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, alignItems: 'center' },
   part: { gap: space.xxs },
+  keepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xxs },
   flex: { flex: 1 },
   simulated: { flexDirection: 'row', gap: space.xs, alignItems: 'flex-start' },
   compass: { backgroundColor: color.trailContainer, borderRadius: radius.md, padding: space.md, gap: space.xxs },
