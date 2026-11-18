@@ -9,7 +9,7 @@ import { serveAi, type Deps, type LogFields } from '../../supabase/functions/_sh
 import { groqProvider, type AiProvider, type CompletionRequest, type CompletionResult, type Usage } from '../../supabase/functions/_shared/ai-provider';
 import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase/functions/_shared/ai-consent';
 import { supabaseAiStore, type AiStore, type BeginResult, type CompassLink, type EntryRow, type ProfileRow, type StoredFollowUp, type StoredInsight, type StoredReflection } from '../../supabase/functions/_shared/ai-store';
-import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
+import { FOLLOW_UP_JSON_SCHEMA, followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { handleInsights, INSIGHTS_JSON_SCHEMA, INSIGHTS_SYSTEM_PROMPT, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
 import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, REFLECTION_PROMPT_VERSION, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
@@ -971,7 +971,7 @@ describe('generate-follow-up', () => {
     const res = await run(ask());
     expect(res.body).toMatchObject({ status: 'ready', follow_up: { id: 'fu-6', entry_id: 'e1', provider: 'groq', model: 'openai/gpt-oss-120b', output: { reply: expect.stringContaining('Fictional reply') } } });
     expect(JSON.stringify(res.body)).not.toContain('was I wrong to stay late');
-    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p5' });
+    expect(store.savedFollowUps.at(-1)).toMatchObject({ request_id: 'req-1', message: 'Fictional: was I wrong to stay late?', schema_version: 'follow-up-1', prompt_version: 'follow-up-p6' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
   });
 
@@ -1083,6 +1083,85 @@ describe('generate-follow-up', () => {
     expect(parseFollowUp(answer({ suggested_step: step }), 'listen')?.output.suggested_step).toBeNull();
     expect(parseFollowUp(answer({ suggested_step: 'x'.repeat(121) }), 'forward')?.output).toMatchObject({ suggested_step: null });
     expect(parseFollowUp(answer({ suggested_step: null }), 'forward')?.output.suggested_step).toBeNull();
+  });
+
+  describe('follow-up questions and asked', () => {
+    const Q = ['Fictional: what part of the deadline stung most?', 'Fictional: who could you talk to about it?'];
+    const withQuestions = (qs: string[], n = 9) => ({ ...storedReflection(ID(n)), output: { acknowledgment: 'Fictional ack.', follow_up_questions: qs } });
+    const turnWith = (n: number, qs: string[]) => ({ ...turn(n), output: { schema_version: 'follow-up-1', reply: `Fictional earlier reply ${n}`, follow_up_questions: qs } });
+
+    it('parseFollowUp keeps at most 2 questions, trimmed and de-duplicated, and drops ones over 120 characters', () => {
+      const out = parseFollowUp(answer({ follow_up_questions: ['  One?  ', 'one?', 'x'.repeat(121), 'Two?', 'Three?', 7] }), 'understand')?.output;
+      expect(out?.follow_up_questions).toEqual(['One?', 'Two?']);
+      expect(parseFollowUp(answer(), 'understand')?.output.follow_up_questions).toEqual([]);
+    });
+
+    it('keeps the questions under “Just listen”, while the step stays null', () => {
+      const out = parseFollowUp(answer({ follow_up_questions: ['Fictional: what else is on your mind?'], suggested_step: 'Fictional step: rest' }), 'listen')?.output;
+      expect(out?.follow_up_questions).toEqual(['Fictional: what else is on your mind?']);
+      expect(out?.suggested_step).toBeNull();
+    });
+
+    it('the schema requires follow_up_questions and the prompt describes them and <asked>', () => {
+      expect(FOLLOW_UP_JSON_SCHEMA.required).toContain('follow_up_questions');
+      expect(FOLLOW_UP_JSON_SCHEMA.properties.follow_up_questions).toEqual({ type: 'array', items: { type: 'string' } });
+      const system = followUpSystemPrompt('understand', null);
+      expect(system).toContain('follow_up_questions');
+      expect(system).toContain('If <asked> is present, the user is answering that question.');
+    });
+
+    it('an answer to one of the reflection’s questions goes through, with the fenced question before <message>', async () => {
+      const { run, provider } = setup({ reflections: [withQuestions(Q)] });
+      const res = await run(ask({ reflection_id: ID(9), asked: ` ${Q[0]} ` }));
+      expect(res.status).toBe(200);
+      const user = provider.calls[0].user;
+      expect(user).toContain(`<asked>\nKindway asked: ${Q[0]}\n</asked>`);
+      expect(user.indexOf('<asked>')).toBeLessThan(user.indexOf('<message>'));
+      expect(user).toContain(Q[1]);
+    });
+
+    it('an old reflection with only reflection_question still shows its question in the prompt', async () => {
+      const old = { ...storedReflection(ID(9)), output: { acknowledgment: 'Fictional ack.', reflection_question: 'Fictional old question?' } };
+      const { run, provider } = setup({ reflections: [old] });
+      expect((await run(ask({ reflection_id: ID(9) }))).status).toBe(200);
+      expect(provider.calls[0].user).toContain('Fictional old question?');
+      expect(provider.calls[0].user).not.toContain('<asked>');
+    });
+
+    it('an answer to the newest loaded turn’s second question goes through', async () => {
+      const { run, provider } = setup({ followUps: [turn(1), turnWith(2, ['Fictional: first?', 'Fictional: second?']), turnWith(3, ['Fictional: newest first?', 'Fictional: newest second?'])] });
+      expect((await run(ask({ context_ids: [ID(1), ID(2), ID(3)], asked: 'Fictional: newest second?' }))).status).toBe(200);
+      expect(provider.calls[0].user).toContain('Kindway asked: Fictional: newest second?');
+      // An older turn’s question is not the one being answered.
+      expect((await run(ask({ context_ids: [ID(1), ID(2), ID(3)], asked: 'Fictional: second?' }))).status).toBe(400);
+    });
+
+    it('an unmatched asked is a 400 that never touches the ledger or the provider', async () => {
+      const { run, store, provider } = setup({ reflections: [withQuestions(Q)] });
+      expect(await run(ask({ reflection_id: ID(9), asked: 'Fictional: something Kindway never said?' }))).toEqual({ status: 400, body: { error: 'invalid_request' } });
+      expect(store.beginRequest).not.toHaveBeenCalled();
+      expect(provider.complete).not.toHaveBeenCalled();
+    });
+
+    it('asked over 200 characters, or not text, is a 400', async () => {
+      const long = 'x'.repeat(201);
+      const { run, provider } = setup({ reflections: [withQuestions([long])] });
+      expect((await run(ask({ reflection_id: ID(9), asked: long }))).status).toBe(400);
+      expect((await run(ask({ reflection_id: ID(9), asked: 5 }))).status).toBe(400);
+      expect((await run(ask({ reflection_id: ID(9), asked: null }))).status).toBe(400);
+      expect(provider.complete).not.toHaveBeenCalled();
+    });
+
+    it('asked with no reflection and no context is a 400', async () => {
+      const { run, provider } = setup();
+      expect((await run(ask({ asked: Q[0] }))).status).toBe(400);
+      expect(provider.complete).not.toHaveBeenCalled();
+    });
+
+    it('asked is an accepted key', async () => {
+      const { run } = setup({ reflections: [withQuestions(Q)] });
+      expect((await run(ask({ reflection_id: ID(9), asked: Q[1] }))).body).not.toEqual({ error: 'invalid_request' });
+    });
   });
 
   it('through the full pipeline: sign-in is required and nothing from the conversation reaches the log', async () => {
