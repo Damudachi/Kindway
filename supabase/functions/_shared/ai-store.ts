@@ -51,6 +51,10 @@ export type StoredInsight = {
 export type StoredFollowUp = { id: string; entry_id: string; created_at: string; style: string; message: string; output: unknown; provider: string; model: string };
 export type NewFollowUp = Omit<StoredFollowUp, 'id' | 'created_at'> & { request_id: string; schema_version: string; prompt_version: string };
 
+/** One completed exchange about a saved topic: the user's message and the validated reply. */
+export type StoredTopicTalk = { id: string; topic_id: string; created_at: string; style: string; message: string; output: unknown; provider: string; model: string };
+export type NewTopicTalk = Omit<StoredTopicTalk, 'id' | 'created_at'> & { request_id: string; schema_version: string; prompt_version: string };
+
 export type NewReflection = Omit<StoredReflection, 'id' | 'created_at'> & { request_id: string; schema_version: string; prompt_version: string; entry_updated_at: string };
 export type NewInsight = Omit<StoredInsight, 'id' | 'created_at' | 'sources'> & { request_id: string; schema_version: string; prompt_version: string };
 
@@ -78,6 +82,17 @@ export interface AiStore {
   followUps(ids: string[]): Promise<StoredFollowUp[]>;
   followUpForRequest(requestId: string): Promise<StoredFollowUp | null>;
   saveFollowUp(row: NewFollowUp): Promise<StoredFollowUp>;
+  /** One of the caller's saved topics, open or resolved. Read under RLS. */
+  topic(id: string): Promise<{ id: string; name: string; status: string } | null>;
+  /**
+   * Entries linked to a topic, written since `since` (ISO), newest first, other than those kept out
+   * of analysis. Read under RLS. A cheap read only: what may actually be sent is decided by the handler.
+   */
+  topicEntries(topicId: string, since: string, limit: number): Promise<EntryRow[]>;
+  /** Stored topic talk exchanges by id (only the caller's exist). */
+  topicTalks(ids: string[]): Promise<StoredTopicTalk[]>;
+  topicTalkForRequest(requestId: string): Promise<StoredTopicTalk | null>;
+  saveTopicTalk(row: NewTopicTalk): Promise<StoredTopicTalk>;
 }
 
 /** Thrown for any database failure. Carries no message from the database. */
@@ -93,6 +108,8 @@ type Client = RpcClient & { from(table: string): any };
 const ENTRY_COLUMNS = 'id, written_at, body_updated_at, body, feelings, gratitude, revisit, exclude_from_analysis';
 const REFLECTION_COLUMNS = 'id, entry_id, created_at, style, output, provider, model';
 const FOLLOW_UP_COLUMNS = 'id, entry_id, created_at, style, message, output, provider, model';
+const isLink = (l: unknown, topicId: string) => typeof l === 'object' && l !== null && (l as { topic_id?: unknown }).topic_id === topicId;
+const TOPIC_TALK_COLUMNS = 'id, topic_id, created_at, style, message, output, provider, model';
 const INSIGHT_COLUMNS = 'id, created_at, period, range_start, range_end, entry_count, output, provider, model';
 
 /**
@@ -215,6 +232,39 @@ export function supabaseAiStore(caller: Client, server: Client, userId: string):
 
     async saveFollowUp(row) {
       const saved = await rows<StoredFollowUp>(server.from('ai_follow_ups').insert({ ...row, user_id: userId }).select(FOLLOW_UP_COLUMNS).single());
+      if (!saved) throw new StoreError();
+      return saved;
+    },
+
+    topic: (id) => rows<{ id: string; name: string; status: string }>(caller.from('topics').select('id, name, status').eq('id', id).maybeSingle()),
+
+    async topicEntries(topicId, since, limit) {
+      // Entries filtered through their link rows (an inner join), so only this topic's entries come back.
+      const found = (await rows<(EntryRow & { topic_entries?: unknown })[]>(
+        caller
+          .from('entries')
+          .select(`${ENTRY_COLUMNS}, topic_entries!inner(topic_id)`)
+          .eq('topic_entries.topic_id', topicId)
+          .gte('written_at', since)
+          .eq('exclude_from_analysis', false)
+          .order('written_at', { ascending: false })
+          .limit(limit),
+      )) ?? [];
+      // Defense in depth: without the `!inner` join the query would return every recent entry, so
+      // keep only rows that really carry a link to this topic.
+      const linked = (e: { topic_entries?: unknown }) => Array.isArray(e.topic_entries) && e.topic_entries.some((l) => isLink(l, topicId));
+      return found.filter(linked).map(({ topic_entries: _link, ...e }) => e);
+    },
+
+    async topicTalks(ids) {
+      if (ids.length === 0) return [];
+      return (await rows<StoredTopicTalk[]>(caller.from('ai_topic_talks').select(TOPIC_TALK_COLUMNS).in('id', ids).order('created_at', { ascending: true }))) ?? [];
+    },
+
+    topicTalkForRequest: (requestId) => rows<StoredTopicTalk>(caller.from('ai_topic_talks').select(TOPIC_TALK_COLUMNS).eq('request_id', requestId).maybeSingle()),
+
+    async saveTopicTalk(row) {
+      const saved = await rows<StoredTopicTalk>(server.from('ai_topic_talks').insert({ ...row, user_id: userId }).select(TOPIC_TALK_COLUMNS).single());
       if (!saved) throw new StoreError();
       return saved;
     },

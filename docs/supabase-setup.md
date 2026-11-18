@@ -172,6 +172,8 @@ Consent is recorded on the account and checked by the AI Edge Functions (section
 - `cross_entry_analysis`: an on-demand review across entries in a period the user picks.
 - `follow_up`: AI replies in the follow-up conversation about one entry (Phase 5C). Separate from `entry_reflection`.
 
+`cross_entry_analysis` also covers "Talk about this" on a saved topic (`generate-topic-talk`, section 6b), which reads several linked entries. Its consent version went to **3** for that wording; the disclosure version string is unchanged (it changes only for retention or provider changes), so deploy the server and the app together as with any consent bump.
+
 Consent needs an account; local-only users can't grant it, so nothing can be sent for them.
 
 **What's recorded** (`public.ai_consents`, one row per grant): user, scope, consent wording version, disclosure version, provider, model named in the disclosure, `accepted_at` (set by the server), `revoked_at`.
@@ -192,7 +194,7 @@ Version history: `entry_reflection` went to **2** in Phase 5D1, when its disclos
 **Releasing a disclosure change.** The server only accepts consents for the current version, and an app still running the old version believes its old consent is active. So release the app and the server together, then make sure every device actually runs the new version:
 
 1. Push. Cloudflare Pages builds the web app; wait until its JS bundle contains the new version string.
-2. Deploy the functions: `npx supabase functions deploy generate-reflection generate-insights generate-follow-up`.
+2. Deploy the functions: `npx supabase functions deploy generate-reflection generate-insights generate-follow-up generate-topic-talk`.
 3. Publish the Android update: `npx eas-cli@latest update --channel preview --message "<what changed>"`.
 4. Android: close Kindway fully and open it twice (the first start downloads the update, the second runs it).
 5. iPhone web app: tap **Restart now** when Today offers it, or close the app fully from the app switcher and reopen it.
@@ -202,17 +204,18 @@ Until step 6, AI requests on a device still running the old version are refused 
 
 **Withdrawing** blocks new requests on the server immediately. It doesn't delete outputs already written; the AI processing screen has a separate **Delete AI outputs** action (section 6b).
 
-## 6b. Real AI reflections, reviews and follow-ups (Phase 4B/4C, 5C)
+## 6b. Real AI reflections, reviews, follow-ups and topic talks (Phase 4B/4C, 5C, wise friend C7)
 
-Three authenticated Edge Functions, all run with the **caller's** JWT (never the service-role key), so RLS decides what they can read and write:
+Four authenticated Edge Functions, all read with the **caller's** JWT, so RLS decides what exists. Only the AI rows and the request ledger are written with the server key (see "Who writes AI rows"):
 
 | Function | Request body | Needs consent | Reads |
 |---|---|---|---|
 | `generate-reflection` | `entry_id`, `style`, `idempotency_key` | `entry_reflection` (consent version 2 since Phase 5D1) | That one entry; the profile's challenge settings; for compass values linked to that entry with `ai_may_reference` ("AI may use this"), the name and the first 400 characters of the note, only when "What reflections can see" isn't "this entry only". Never other entries or unlinked values. Reviews get linked value names only (no notes) when "Count my compass links" is on; follow-ups get no compass data. |
 | `generate-insights` | `period` (`week`/`month`), `entry_ids` (shown to the user first), `idempotency_key` | `cross_entry_analysis` | Exactly those entries, re-checked: all must exist, be in the period and not be kept out of analysis, or it refuses (`selection_changed`). Compass links only if "Count my compass links" is on. |
+| `generate-topic-talk` | `topic_id`, `message` (≤ 1500 chars), `style`, `idempotency_key`, optional `context_ids` (stored exchanges of that topic, ≤ 6) and `asked` (a question from the newest of those exchanges) | `cross_entry_analysis` (consent version 3) | That one saved topic (open or resolved; another user's or a missing one is `topic_not_found`); up to `AI_TOPIC_TALK_MAX_ENTRIES` (8) of the entries linked to it, written in the last `AI_TOPIC_TALK_DAYS` (90) days, newest first, each cut to `AI_TOPIC_TALK_MAX_ENTRY_CHARS` (600) characters, never entries kept out of analysis or matching the safety screen; the named earlier exchanges of that topic's conversation (others refuse with `context_not_found`), of which only the last `AI_TOPIC_TALK_MAX_TURNS` are sent; the profile's challenge settings. Never other entries, other topics, reviews or compass values. Stored in `ai_topic_talks`. Requests are counted in the ledger under the `follow_up` kind with the `AI_TOPIC_TALK_*` limits (no separate kind), so the daily cap is shared with follow-ups. |
 | `generate-follow-up` | `entry_id`, `message` (≤ 1500 chars), `style`, `idempotency_key`, optional `context_ids` (stored exchanges, ≤ 6) and `reflection_id` | `follow_up` | That one entry; the AI reflection named (must belong to that entry); the named earlier exchanges of that entry's conversation (any that are missing, another user's, or another entry's refuse with `context_not_found`), of which only the last `AI_FOLLOW_UP_MAX_TURNS` are sent; the profile's challenge settings. Never other entries, reviews or compass values. |
 
-No request carries entry text or a user id; the server reads both itself (a follow-up carries only the user's new message). Code: `supabase/functions/_shared/` (`reflection.ts`, `insights.ts`, `follow-up.ts`, `ai-http.ts` pipeline, `ai-store.ts` data access, `ai-provider.ts` adapter, `ai-config.ts` settings, `safety.ts`), entry points in `generate-reflection/`, `generate-insights/` and `generate-follow-up/`.
+No request carries entry text or a user id; the server reads both itself (a follow-up carries only the user's new message). Code: `supabase/functions/_shared/` (`reflection.ts`, `insights.ts`, `follow-up.ts`, `topic-talk.ts`, `ai-http.ts` pipeline, `ai-store.ts` data access, `ai-provider.ts` adapter, `ai-config.ts` settings, `safety.ts`), entry points in `generate-reflection/`, `generate-insights/`, `generate-follow-up/` and `generate-topic-talk/`.
 
 **Order of checks** (each refusal happens before any provider call): method → valid token (Auth `getUser`) → JSON content type and size (8 KB) → body shape (unknown keys rejected) → configuration → consent → entry exists for this user (another user's id looks like a missing one: `entry_not_found`) → length/count caps → safety screen → request ledger (duplicate, one at a time, cooldown, daily cap) → provider.
 
@@ -237,6 +240,10 @@ No request carries entry text or a user id; the server reads both itself (a foll
 | `AI_FOLLOW_UP_MAX_TOKENS` | 700 | 200–2000 |
 | `AI_FOLLOW_UP_MAX_CHARS` / `AI_FOLLOW_UP_MAX_TURNS` | 1500 / 3 | 100–2000 / 0–6 |
 | `AI_FOLLOW_UP_COOLDOWN_SECONDS` / `AI_FOLLOW_UP_DAILY_LIMIT` | 5 / 60 | per user |
+| `AI_TOPIC_TALK_MAX_TOKENS` | 700 | 200–2000 |
+| `AI_TOPIC_TALK_MAX_CHARS` / `AI_TOPIC_TALK_MAX_TURNS` | 1500 / 3 | 100–2000 / 0–6 |
+| `AI_TOPIC_TALK_MAX_ENTRIES` / `AI_TOPIC_TALK_MAX_ENTRY_CHARS` / `AI_TOPIC_TALK_DAYS` | 8 / 600 / 90 | 1–20 / 100–2000 / 1–365. The consent wording states 8, 600 and 90, so change them only after a new consent version. |
+| `AI_TOPIC_TALK_COOLDOWN_SECONDS` / `AI_TOPIC_TALK_DAILY_LIMIT` | 5 / 60 | per user (counted with the `follow_up` ledger kind) |
 
 The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REVIEW_LIMITS`) only to explain them before sending; change both together. The three-entry minimum for reviews is a product heuristic, not a validated threshold. Groq's own limits are per organization and apply on top (Developer-plan table for this model on 2026-10-20: 30 requests/min, 1,000/day, 8,000 tokens/min, 200,000 tokens/day; check **console.groq.com/settings/limits** for your account). A provider 429 is reported to the user as "paused for a little while". With the council, one request uses about 4× the tokens, so a long entry or a full review can reach the 8,000 tokens/min limit by itself.
 
@@ -246,11 +253,11 @@ The app mirrors the review caps in `src/components/ai-review-panel.tsx` (`AI_REV
 
 **Safety.** Layered, and **not** clinically reviewed: the app's existing phrase check before a request, a broader server phrase screen before the provider (no call is made if it matches), and the model's `safety_concern` flag. Any of them routes to Extra support instead of showing model text, and nothing is stored. Extra support still has no verified regional resources, so Kindway is not crisis-ready.
 
-**What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. `ai_follow_ups`: one row per completed exchange (entry id, style, the user's message, validated reply, provider, model, versions, request id); later turns read their context from here rather than trusting the app's copy. Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
+**What's stored.** `ai_reflections`: entry id, style, validated output, provider, model, prompt and schema versions, the entry's `updated_at` at the time, request id. `ai_insights`: period, accepted window, entry count, validated output, provider, model, versions; `ai_insight_sources`: every entry that was sent. `ai_follow_ups`: one row per completed exchange (entry id, style, the user's message, validated reply, provider, model, versions, request id); later turns read their context from here rather than trusting the app's copy. `ai_topic_talks`: the same for a topic conversation (topic id instead of entry id). Not stored: the request to the provider, the system prompt, the entry text sent, raw model output. Reflections and reviews can't be edited after they're written.
 
-**Who writes AI rows.** Only the Edge Functions. They read as the caller (so RLS decides what exists), then open the request and write the reflection, review or follow-up reply with the server key, setting the user id from the verified token. Signed-in users have no insert rights on `ai_reflections`, `ai_insights`, `ai_insight_sources` or `ai_follow_ups` and can't run the ledger functions (Phase 7, 2026-10-29), so a stored output's provider, model and "Written by AI" label come from the server. Foreign keys still tie every row to an entry and a request of the same account, for the server too. Users can read and delete their own rows.
+**Who writes AI rows.** Only the Edge Functions. They read as the caller (so RLS decides what exists), then open the request and write the reflection, review, follow-up reply or topic talk with the server key, setting the user id from the verified token. Signed-in users have no insert rights on `ai_reflections`, `ai_insights`, `ai_insight_sources`, `ai_follow_ups` or `ai_topic_talks` and can't run the ledger functions (Phase 7, 2026-10-29), so a stored output's provider, model and "Written by AI" label come from the server. Foreign keys still tie every row to an entry and a request of the same account, for the server too. Users can read and delete their own rows.
 
-**Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections, reviews and follow-up conversations (both sides); entries stay. Deleting an entry also deletes its follow-up conversation; **Clear this conversation** deletes that entry's exchanges from the account. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage. Since Phase 5A every signed-in device with cloud backup reads the account's newest reflection per entry with each pull (`aiOutputs.reflections` in `src/state/cloud-sync.tsx`), so a reflection deleted on one device disappears from the others on their next pull; the Patterns screen reads the newest stored review per period from the account (Phase 5B).
+**Deletion.** Deleting an entry deletes its AI reflections (FK cascade) and every AI review that used it (trigger). **Delete AI outputs** (`delete_ai_outputs()`) deletes all of the caller's reflections, reviews, follow-up conversations (both sides) and topic talks; entries stay. Deleting a topic deletes its topic talks (FK cascade). Deleting an entry also deletes its follow-up conversation; **Clear this conversation** deletes that entry's exchanges from the account. Removing one AI reflection in the app also deletes it from the account. Deleting the account deletes everything, including the ledger. AI reflections are also cached in the device's journal storage. Since Phase 5A every signed-in device with cloud backup reads the account's newest reflection per entry with each pull (`aiOutputs.reflections` in `src/state/cloud-sync.tsx`), so a reflection deleted on one device disappears from the others on their next pull; the Patterns screen reads the newest stored review per period from the account (Phase 5B).
 
 **Logs.** One JSON line per request with `fn`, `outcome`, `http_status`, `ms`, and when known `request_id`, token counts, `attempts`, `dropped_refs`, `config_problem`. Never request bodies, entry text, prompts, model output, headers or keys. Provider error messages are discarded unread.
 
@@ -272,7 +279,7 @@ npx supabase functions serve --env-file supabase/functions/.env
 npx supabase link --project-ref <project-ref>
 npx supabase db push                                   # 20261020140000_ai_consent, 20261020170000_ai_outputs, 20261021120000_ai_follow_ups
 npx supabase secrets set --env-file supabase/functions/.env
-npx supabase functions deploy generate-reflection generate-insights generate-follow-up
+npx supabase functions deploy generate-reflection generate-insights generate-follow-up generate-topic-talk
 ```
 
 **Calls from the web app (CORS).** Browsers ask permission (`OPTIONS`) before calling a function from a website. All four functions answer through `_shared/cors.ts`, for the sites listed in the `ALLOWED_ORIGINS` secret: comma-separated exact origins, or one wildcard label for preview addresses.

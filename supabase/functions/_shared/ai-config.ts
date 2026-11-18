@@ -21,6 +21,15 @@
 //   AI_FOLLOW_UP_MAX_CHARS       longest follow-up message                 (default 1500)
 //   AI_FOLLOW_UP_MAX_TURNS       earlier exchanges sent as context         (default 3)
 //   AI_FOLLOW_UP_COOLDOWN_SECONDS / AI_FOLLOW_UP_DAILY_LIMIT               (default 5 / 60)
+//   AI_TOPIC_TALK_MAX_TOKENS     output budget for a topic talk reply      (default 700)
+//   AI_TOPIC_TALK_MAX_CHARS      longest topic talk message                (default 1500)
+//   AI_TOPIC_TALK_MAX_TURNS      earlier exchanges sent as context         (default 3)
+//   AI_TOPIC_TALK_MAX_ENTRIES / AI_TOPIC_TALK_MAX_ENTRY_CHARS              (default 8 / 600)
+//   AI_TOPIC_TALK_DAYS           how far back linked entries are read      (default 90)
+//                                the consent wording states MAX_TURNS, MAX_ENTRIES, MAX_ENTRY_CHARS and
+//                                DAYS, so changing any of them means a new consent version first
+//   AI_TOPIC_TALK_COOLDOWN_SECONDS / AI_TOPIC_TALK_DAILY_LIMIT             (default 5 / 60)
+//                                counted in the follow_up request ledger, per user
 import { AI_CONSENT_TERMS } from './ai-consent.ts';
 import { serverKey } from './server-key.ts';
 
@@ -34,6 +43,7 @@ export type AiConfig = {
   reflection: { maxTokens: number; maxEntryChars: number } & Limits;
   insights: { maxTokens: number; maxEntries: number; maxChars: number; minEntries: number; latest: { maxEntries: number; maxChars: number } } & Limits;
   followUp: { maxTokens: number; maxMessageChars: number; maxTurns: number } & Limits;
+  topicTalk: { maxTokens: number; maxMessageChars: number; maxTurns: number; maxEntries: number; maxEntryChars: number; days: number } & Limits;
 };
 
 /** The existing three-entry minimum: a product heuristic, not a validated threshold. */
@@ -91,6 +101,17 @@ export function loadAiConfig(env: Env): { ok: true; config: AiConfig } | { ok: f
       maxTurns: int('AI_FOLLOW_UP_MAX_TURNS', 3, 0, 6),
       cooldownSeconds: int('AI_FOLLOW_UP_COOLDOWN_SECONDS', 5, 0, 3600),
       dailyLimit: int('AI_FOLLOW_UP_DAILY_LIMIT', 60, 1, 500),
+    },
+    topicTalk: {
+      maxTokens: int('AI_TOPIC_TALK_MAX_TOKENS', 700, 200, 2000),
+      maxMessageChars: int('AI_TOPIC_TALK_MAX_CHARS', 1500, 100, 2000),
+      maxTurns: int('AI_TOPIC_TALK_MAX_TURNS', 3, 0, 6),
+      maxEntries: int('AI_TOPIC_TALK_MAX_ENTRIES', 8, 1, 20),
+      maxEntryChars: int('AI_TOPIC_TALK_MAX_ENTRY_CHARS', 600, 100, 2000),
+      days: int('AI_TOPIC_TALK_DAYS', 90, 1, 365),
+      // Topic talks are counted under the `follow_up` ledger kind, so the daily cap is shared with follow-ups.
+      cooldownSeconds: int('AI_TOPIC_TALK_COOLDOWN_SECONDS', 5, 0, 3600),
+      dailyLimit: int('AI_TOPIC_TALK_DAILY_LIMIT', 60, 1, 500),
     },
   };
   if (bad.length > 0) return { ok: false, problem: `invalid:${bad.join(',')}` };

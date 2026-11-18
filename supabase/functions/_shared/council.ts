@@ -7,12 +7,13 @@
 import { fence, isObject } from './ai-http.ts';
 import type { AiProvider, CompletionRequest, CompletionResult, Usage } from './ai-provider.ts';
 
-export type CouncilKind = 'reflection' | 'follow_up' | 'insights';
+export type CouncilKind = 'reflection' | 'follow_up' | 'insights' | 'topic_talk';
 
 const MATERIAL: Record<CouncilKind, string> = {
   reflection: 'one journal entry the user wrote, before Kindway writes a short reflection on it',
   follow_up: 'a journal entry, the AI reflection on it if any, and a short conversation about it, before Kindway replies to the user’s latest message',
   insights: 'several journal entries, before Kindway writes a short review of them',
+  topic_talk: 'the name of a topic the user follows, some of their journal entries about it, and a short conversation about it, before Kindway replies to the user’s latest message',
 };
 
 /** Each advisor reads for something different; together they keep the answer balanced. */

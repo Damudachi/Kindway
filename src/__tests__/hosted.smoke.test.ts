@@ -15,6 +15,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AI_SCOPES, CURRENT_TERMS, type AiScope } from '@/services/ai/consent';
 
 import { FOLLOW_UP_PROMPT_VERSION } from '../../supabase/functions/_shared/follow-up';
+import { TOPIC_TALK_PROMPT_VERSION } from '../../supabase/functions/_shared/topic-talk';
 import { INSIGHTS_PROMPT_VERSION } from '../../supabase/functions/_shared/insights';
 import { REFLECTION_PROMPT_VERSION } from '../../supabase/functions/_shared/reflection';
 
@@ -42,7 +43,7 @@ async function device(who: 'A' | 'B') {
   return { id: data.user.id, client, token: data.session.access_token };
 }
 
-async function call(fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up', token: string, body: unknown) {
+async function call(fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up' | 'generate-topic-talk', token: string, body: unknown) {
   const res = await nodeFetch(`${url}/functions/v1/${fn}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, apikey: publishable!, 'Content-Type': 'application/json' },
@@ -63,6 +64,7 @@ const grant = (client: SupabaseClient, scope: AiScope, version: string = CURRENT
 /** Back to an empty journal with no consent, so each run starts the same way. */
 async function clear(client: SupabaseClient) {
   await client.rpc('delete_ai_outputs');
+  await client.from('topics').delete().neq('id', '');
   await client.from('entries').delete().neq('id', '');
   for (const scope of AI_SCOPES) await client.rpc('revoke_ai_consent', { p_scope: scope });
 }
@@ -115,7 +117,7 @@ run('the deployed system, with two throwaway accounts', () => {
   });
 
   it('every function refuses a forged token', async () => {
-    for (const fn of ['generate-reflection', 'generate-insights', 'generate-follow-up'] as const) {
+    for (const fn of ['generate-reflection', 'generate-insights', 'generate-follow-up', 'generate-topic-talk'] as const) {
       expect((await call(fn, 'not-a-real-token', {})).status).toBe(401);
     }
   });
@@ -155,6 +157,24 @@ run('the deployed system, with two throwaway accounts', () => {
     expect(data?.map((r) => r.prompt_version)).toEqual([FOLLOW_UP_PROMPT_VERSION]);
   });
 
+  it('LIVE: Talk about this on a saved topic needs cross-entry consent, refuses another account’s topic, then the real model replies', async () => {
+    await spaceOut();
+    const { error } = await a.client.from('topics').insert({ id: 'smoke-t1', name: 'Fictional: tiredness after work' });
+    if (error) throw new Error(`could not insert fictional topic: ${error.message}`);
+    const link = await a.client.from('topic_entries').insert([{ topic_id: 'smoke-t1', entry_id: 's3' }, { topic_id: 'smoke-t1', entry_id: 's1' }]);
+    if (link.error) throw new Error(`could not link fictional entries: ${link.error.message}`);
+    const ask = (who: typeof a) => call('generate-topic-talk', who.token, { topic_id: 'smoke-t1', message: 'Fictional: why am I so tired lately?', style: 'understand', idempotency_key: uuid() });
+    expect(await ask(a)).toEqual({ status: 403, body: { error: 'consent_required' } });
+    expect((await grant(a.client, 'cross_entry_analysis')).error).toBeNull();
+    expect((await grant(b.client, 'cross_entry_analysis')).error).toBeNull();
+    expect(await ask(b)).toEqual({ status: 404, body: { error: 'topic_not_found' } });
+    const res = await ask(a);
+    expect(res.status).toBe(200);
+    console.log('LIVE topic talk (fictional topic):', JSON.stringify(res.body, null, 2));
+    const { data } = await a2.client.from('ai_topic_talks').select('prompt_version');
+    expect(data?.map((r) => r.prompt_version)).toEqual([TOPIC_TALK_PROMPT_VERSION]);
+  });
+
   it('LIVE: a review cites only the entries sent, reaches the other device, and goes when a source entry is deleted', async () => {
     await spaceOut();
     expect((await grant(a.client, 'cross_entry_analysis')).error).toBeNull();
@@ -171,7 +191,7 @@ run('the deployed system, with two throwaway accounts', () => {
 
   it('“Delete AI outputs” on one device removes them for the other, and keeps the entries', async () => {
     expect((await a.client.rpc('delete_ai_outputs')).error).toBeNull();
-    expect([await count(a2.client, 'ai_reflections'), await count(a2.client, 'ai_insights'), await count(a2.client, 'ai_follow_ups')]).toEqual([0, 0, 0]);
+    expect([await count(a2.client, 'ai_reflections'), await count(a2.client, 'ai_insights'), await count(a2.client, 'ai_follow_ups'), await count(a2.client, 'ai_topic_talks')]).toEqual([0, 0, 0, 0]);
     expect(await count(a2.client, 'entries')).toBe(3);
   });
 

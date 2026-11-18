@@ -187,13 +187,13 @@ const earlierText = (body: string) => {
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** The local date of an entry (UTC when no offset is sent), shown the same way for the entry and for earlier ones. */
-const dateOf = (writtenAt: string, tzOffsetMinutes = 0) => {
+export const dateOf = (writtenAt: string, tzOffsetMinutes = 0) => {
   const t = Date.parse(writtenAt);
   return Number.isNaN(t) ? writtenAt.slice(0, 10) : new Date(t + tzOffsetMinutes * 60000).toISOString().slice(0, 10);
 };
 
 /** The device's offset from UTC in minutes (east positive), as sent with the request. */
-const validOffset = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= -840 && v <= 840;
+export const validOffset = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= -840 && v <= 840;
 
 /** The label a saved topic is shown under, so its id never reaches the model. */
 const topicLabel = (i: number) => `T${i + 1}`;

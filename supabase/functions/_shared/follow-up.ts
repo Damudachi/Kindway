@@ -13,18 +13,18 @@ import { needsSafetyRoute } from './safety.ts';
 export const FOLLOW_UP_SCHEMA_VERSION = 'follow-up-1';
 export const FOLLOW_UP_PROMPT_VERSION = 'follow-up-p6';
 
-const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
+export const STYLES = ['listen', 'understand', 'honest', 'forward', 'ask'] as const;
 export type Style = (typeof STYLES)[number];
 
 /** Hard cap on context ids in a request, whatever the configured turn limit. */
-const MAX_CONTEXT_IDS = 6;
+export const MAX_CONTEXT_IDS = 6;
 const MAX_REPLY = 1200;
 /** A step is one short line; the app's Tomorrow Bridge field holds 120 characters. */
 const MAX_STEP = 120;
 /** Questions Kindway could ask next, at most this many per reply. */
 const MAX_QUESTIONS = 2;
 /** Longest `asked` the app may send: one Kindway question. */
-const MAX_ASKED = 200;
+export const MAX_ASKED = 200;
 
 /** `suggested_step`: a small step the reply offered, which the user can save to Tomorrow Bridge. */
 export type FollowUpOutput = { schema_version: typeof FOLLOW_UP_SCHEMA_VERSION; reply: string; suggested_step?: string | null; follow_up_questions: string[] };

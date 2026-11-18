@@ -40,14 +40,16 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
   },
   cross_entry_analysis: {
     title: 'Reviews across entries',
-    when: 'Only when you ask for a review. You choose “This week”, “Last 30 days” or “All entries”, and you see how many entries and which dates are included before anything is sent.',
+    when: 'Only when you ask for a review, or send a message in a conversation about a topic you saved. For a review you choose “This week”, “Last 30 days” or “All entries”, and you see how many entries and which dates are included before anything is sent.',
     sent: [
       'The text of the entries in that period, with their feeling tags, “one good thing” and “come back to this” marks.',
       'For “All entries”: not your whole journal, but your most recent entries, up to 25 and about 20,000 characters in all, however old they are.',
       'Compass values, only if “Count my compass links” is on.',
+      'For a conversation about a topic you saved: your message, the topic’s name, up to 8 of the entries linked to that topic from the last 90 days (newest first, each with its date and feeling tags and cut to its first 600 characters), up to the last 3 AI replies of that conversation with the messages they answered, and your support style and challenge settings.',
     ],
     notSent: [
       'Entries you kept out of analysis, entries outside the period you chose, for “All entries” any entries beyond the 25 most recent, your email address or your account details.',
+      'In a topic conversation: entries that aren’t linked to that topic, linked entries older than 90 days or beyond the 8 newest, your other topics, reviews, compass values or other conversations.',
     ],
   },
 };

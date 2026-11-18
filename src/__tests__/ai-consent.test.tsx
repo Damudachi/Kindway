@@ -39,6 +39,18 @@ describe('consent terms', () => {
     expect(SCOPE_COPY.entry_reflection.notSent.join(' ')).toContain('topics you resolved');
   });
 
+  it('the cross-entry disclosure covers conversations about a saved topic, under consent v3', () => {
+    expect(CURRENT_TERMS.consentVersion.cross_entry_analysis).toBe('3');
+    expect(AI_CONSENT_TERMS.consentVersion.cross_entry_analysis).toBe('3');
+    const copy = SCOPE_COPY.cross_entry_analysis;
+    expect(copy.when).toContain('a topic you saved');
+    const sent = copy.sent.join(' ');
+    expect(sent).toContain('up to 8 of the entries linked to that topic from the last 90 days');
+    expect(sent).toContain('first 600 characters');
+    expect(sent).toContain('your support style and challenge settings');
+    expect(copy.notSent.join(' ')).toContain('entries that aren’t linked to that topic');
+  });
+
   it('describes Zero Data Retention, which is on in Kindway’s Groq account, under its own version', () => {
     expect(CURRENT_TERMS.disclosureVersion).toBe('groq-zdr-2026-10-28');
     expect(AI_CONSENT_TERMS.disclosureVersion).toBe('groq-zdr-2026-10-28');
