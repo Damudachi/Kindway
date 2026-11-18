@@ -267,10 +267,28 @@ export function ReflectionView({ entry, onRest }: Props) {
         </Animated.View>
       )}
 
-      {r.question && (
-        <Text variant="pencil" style={styles.question}>
-          {r.question}
-        </Text>
+      {!!r.followUpQuestions?.length ? (
+        <Animated.View entering={enter(5)} style={styles.part}>
+          <Text variant="label">Kindway wonders…</Text>
+          <ChipRow>
+            {r.followUpQuestions.map((q, i) => (
+              <Chip
+                key={`${i}:${q}`}
+                kind="assist"
+                icon="forum-outline"
+                label={q}
+                accessibilityHint="Opens the conversation with this question"
+                onPress={() => router.push({ pathname: '/entry/[id]/talk', params: { id: entry.id, ask: String(i) } })}
+              />
+            ))}
+          </ChipRow>
+        </Animated.View>
+      ) : (
+        r.question && (
+          <Text variant="pencil" style={styles.question}>
+            {r.question}
+          </Text>
+        )
       )}
 
       {!!r.otherTopics?.length && (

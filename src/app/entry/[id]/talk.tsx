@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, KeyboardAvoidingView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +38,8 @@ const ERROR_COPY: Record<FollowUpError, string> = {
   'conversation-changed': 'Earlier messages here were cleared or deleted from your account. Clear this conversation to start fresh.',
 };
 
+const askedId = () => `q${Date.now()}`;
+
 /**
  * Entry-linked follow-up conversation. Replies come from the real AI service. Without follow-up
  * consent, sending asks for it (or for the account and cloud backup it needs) and sends nothing
@@ -47,7 +49,8 @@ export default function Talk() {
   const styles = useStyles();
   const { color } = useTheme();
   // `topic`: one of the other topics a reflection named, to start the conversation on.
-  const { id, topic } = useLocalSearchParams<{ id: string; topic?: string }>();
+  // `ask`: the index of one of the reflection's follow-up questions, posted as Kindway's first message.
+  const { id, topic, ask } = useLocalSearchParams<{ id: string; topic?: string; ask?: string }>();
   const { state, dispatch } = useStore();
   const insets = useSafeAreaInsets();
   const entry = state.entries.find((e) => e.id === id);
@@ -65,6 +68,32 @@ export default function Talk() {
   const [asking, setAsking] = useState(false);
   const list = useRef<FlatList<ChatMessage>>(null);
   const bottom = useBottomInset(insets.bottom);
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  // The question Kindway asked that the next message answers; kept until a message is really sent.
+  const [pendingAsk, setPendingAsk] = useState<string | undefined>();
+  // Bumped when the conversation is cleared, so a late failure can't bring back a question that is gone.
+  const cleared = useRef(0);
+  const arrivedAsk = useRef<string | undefined>(undefined);
+  const askedQuestion = ask !== undefined && /^\d+$/.test(ask) ? entry?.reflection?.followUpQuestions?.[Number(ask)] : undefined;
+  const latest = messages[messages.length - 1];
+  // Chips belong to the newest message only, and only when it is a real AI reply.
+  const chips = latest?.from === 'kindway' && latest.source === 'ai' && latest.ai ? (latest.questions ?? []) : [];
+
+  /** Posts a question as Kindway's message (unless the chat already ends with it) and gets the input ready. */
+  const postQuestion = (question: string) => {
+    if (!(latest?.asked && latest.text === question)) {
+      dispatch({ type: 'appendChat', entryId: id, messages: [{ id: askedId(), from: 'kindway', text: question, source: 'ai', asked: true }] });
+    }
+    setPendingAsk(question);
+    input.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!askedQuestion || arrivedAsk.current === askedQuestion) return;
+    arrivedAsk.current = askedQuestion;
+    postQuestion(askedQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askedQuestion]);
 
   /** `consentJustGiven`: the account recorded follow-up consent before the app re-read it. */
   const send = (consentJustGiven = false) => {
@@ -75,7 +104,10 @@ export default function Talk() {
       else setAsking(true);
       return;
     }
+    const asked = pendingAsk;
+    const generation = cleared.current;
     setText('');
+    setPendingAsk(undefined);
     setFailed(null);
     setThinking(true);
     sendFollowUp(
@@ -85,16 +117,21 @@ export default function Talk() {
       (error) => {
         setThinking(false);
         setFailed(error ?? null);
+        // The message is kept after a failure, so the retry still answers the same question.
+        if (error && asked && generation === cleared.current) setPendingAsk(asked);
         if (error === 'safety') router.push('/support');
       },
       consentJustGiven,
+      asked,
     );
   };
 
   const clear = () => {
-    const hadAi = messages.some((m) => m.source === 'ai');
+    const hadAi = messages.some((m) => m.source === 'ai' && !m.asked);
     dispatch({ type: 'chat', entryId: id, messages: [] });
     setFailed(null);
+    setPendingAsk(undefined);
+    cleared.current += 1;
     setConfirmClear(false);
     if (hadAi && real.outputs) {
       real.outputs
@@ -154,13 +191,13 @@ export default function Talk() {
         renderItem={({ item }) => (
           <View
             style={[styles.bubble, item.from === 'me' ? styles.me : styles.them]}
-            accessibilityLabel={`${item.from === 'me' ? 'You' : item.source === 'ai' ? 'AI reply' : 'Simulated reply'}: ${item.text}`}>
+            accessibilityLabel={`${item.from === 'me' ? 'You' : item.asked ? 'Kindway asked' : item.source === 'ai' ? 'AI reply' : 'Simulated reply'}: ${item.text}`}>
             <Text variant={item.from === 'me' ? 'body' : 'entry'} style={item.from === 'me' ? { color: color.onTrailContainer } : styles.themText}>
               {item.text}
             </Text>
             {item.from === 'kindway' && (
               <Text variant="labelSmall" style={styles.source}>
-                {item.source === 'ai' ? 'Written by AI' : 'Simulated reply'}
+                {item.asked ? 'Kindway asked' : item.source === 'ai' ? 'Written by AI' : 'Simulated reply'}
               </Text>
             )}
             {item.step && <StepOffer step={item.step} entryId={id} />}
@@ -178,6 +215,13 @@ export default function Talk() {
                 Your message is kept here. {ERROR_COPY[failed]}
               </Notice>
             )}
+            {chips.length > 0 && (
+              <ChipRow>
+                {chips.map((q, i) => (
+                  <Chip key={`${i}:${q}`} kind="assist" icon="forum-outline" label={q} accessibilityHint="Opens the conversation with this question" onPress={() => postQuestion(q)} />
+                ))}
+              </ChipRow>
+            )}
             <Text variant="small">
               {mode === 'ai'
                 ? 'AI replies are written by openai/gpt-oss-120b on GroqCloud, not by a person, and can be wrong. Kindway is a reflection aid, not a therapist.'
@@ -188,6 +232,8 @@ export default function Talk() {
       />
       <View style={[styles.composer, { paddingBottom: space.sm + bottom }]}>
         <TextInput
+          ref={input}
+          autoFocus={askedQuestion !== undefined}
           value={text}
           onChangeText={setText}
           placeholder="Ask a follow-up"

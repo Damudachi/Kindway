@@ -18,9 +18,10 @@ type Props = {
   kind?: 'filter' | 'assist';
   /** A filter chip's own hue when selected (feelings); the trail's otherwise. */
   tint?: Tint;
+  accessibilityHint?: string;
 };
 
-export function Chip({ label, selected = false, onPress, icon, disabled, kind = 'filter', tint }: Props) {
+export function Chip({ label, selected = false, onPress, icon, disabled, kind = 'filter', tint, accessibilityHint }: Props) {
   const styles = useStyles();
   const { color } = useTheme();
   const on = tint?.on ?? color.onTrailContainer;
@@ -30,6 +31,7 @@ export function Chip({ label, selected = false, onPress, icon, disabled, kind = 
       accessibilityRole={kind === 'filter' ? 'checkbox' : 'button'}
       accessibilityState={kind === 'filter' ? { checked: selected, disabled } : { disabled }}
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       disabled={disabled}
       onPress={onPress}
       {...press.handlers}
