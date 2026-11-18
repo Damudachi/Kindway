@@ -212,6 +212,18 @@ const withEntry = (patch: Partial<Entry> = {}, state: Partial<DemoState> = {}): 
 });
 
 describe('a real AI reflection on an entry', () => {
+  it('tells the user what reflecting sends, matching the “What reflections can see” setting', async () => {
+    const invoke = respond(200, { status: 'ready', reflection: storedReflection() });
+    await render('entry/[id]', EntryDetail, withEntry({}, { contextScope: 'relevant' }), { reflections: true, invoke });
+    expect(await screen.findByText(/names of your open topics, and up to 5 recent entries/)).toBeOnTheScreen();
+  });
+
+  it('says only the entry, its date and tags when set to “This entry only”', async () => {
+    const invoke = respond(200, { status: 'ready', reflection: storedReflection() });
+    await render('entry/[id]', EntryDetail, withEntry({}, { contextScope: 'current' }), { reflections: true, invoke });
+    expect(await screen.findByText('Reflecting sends this entry, its date, tags and good thing to GroqCloud.')).toBeOnTheScreen();
+  });
+
   it('waits for cloud backup, asks the server, and labels the result as written by AI', async () => {
     const invoke = respond(200, { status: 'ready', reflection: storedReflection() });
     const { sync } = await render('entry/[id]', EntryDetail, withEntry(), { reflections: true, invoke });

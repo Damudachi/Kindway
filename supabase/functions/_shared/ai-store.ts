@@ -66,6 +66,8 @@ export interface AiStore {
   recentEntries(q: { since: string; before: string; excludeId: string; limit: number }): Promise<EntryRow[]>;
   profile(): Promise<ProfileRow | null>;
   compassLinks(entryIds: string[]): Promise<CompassLink[]>;
+  /** The caller's open saved topics, newest first, at most 12. Read under RLS. */
+  openTopics(): Promise<{ id: string; name: string }[]>;
   reflectionForRequest(requestId: string): Promise<StoredReflection | null>;
   insightForRequest(requestId: string): Promise<StoredInsight | null>;
   saveReflection(row: NewReflection): Promise<StoredReflection>;
@@ -166,6 +168,12 @@ export function supabaseAiStore(caller: Client, server: Client, userId: string):
         caller.from('entry_compass_links').select('entry_id, compass_values(area, note, ai_may_reference)').in('entry_id', entryIds),
       )) ?? [];
       return links.flatMap((l) => (l.compass_values?.ai_may_reference ? [{ entry_id: l.entry_id, area: l.compass_values.area, note: l.compass_values.note }] : []));
+    },
+
+    async openTopics() {
+      return (
+        (await rows<{ id: string; name: string }[]>(caller.from('topics').select('id, name').eq('status', 'open').order('created_at', { ascending: false }).limit(12))) ?? []
+      );
     },
 
     reflectionForRequest: (requestId) => rows<StoredReflection>(caller.from('ai_reflections').select(REFLECTION_COLUMNS).eq('request_id', requestId).maybeSingle()),

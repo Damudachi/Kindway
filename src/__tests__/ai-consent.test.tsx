@@ -2,7 +2,7 @@ import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-li
 
 import AiConsentScreen from '@/app/settings/ai-consent';
 import { SnackbarProvider } from '@/components/feedback';
-import { PROVIDER_COPY } from '@/data/ai-disclosure';
+import { PROVIDER_COPY, SCOPE_COPY } from '@/data/ai-disclosure';
 import { consentStatus, CURRENT_TERMS, supabaseConsentRepo, type AiScope, type ConsentRecord, type ConsentRepo } from '@/services/ai/consent';
 import { CloudError } from '@/services/cloud/repo';
 import { AiConsentProvider } from '@/state/ai-consent';
@@ -29,6 +29,14 @@ const record = (scope: AiScope, patch: Partial<ConsentRecord> = {}): ConsentReco
 describe('consent terms', () => {
   it('the app records exactly the terms the server requires', () => {
     expect(CURRENT_TERMS).toEqual(AI_CONSENT_TERMS);
+  });
+
+  it('the reflection disclosure lists the entry’s date and the names of open topics, under consent v4', () => {
+    expect(CURRENT_TERMS.consentVersion.entry_reflection).toBe('4');
+    const sent = SCOPE_COPY.entry_reflection.sent.join(' ');
+    expect(sent).toContain('The date of that entry');
+    expect(sent).toContain('the names of your open topics');
+    expect(SCOPE_COPY.entry_reflection.notSent.join(' ')).toContain('topics you resolved');
   });
 
   it('describes Zero Data Retention, which is on in Kindway’s Groq account, under its own version', () => {

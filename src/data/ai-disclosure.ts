@@ -17,11 +17,13 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
     sent: [
       'The text of that entry, its feeling tags and its “one good thing”.',
       'If “What reflections can see” is “This entry and recent ones”: the dates, feeling tags and text of up to 5 of your most recent entries from the 14 days before that entry, each cut to its first 600 characters. Entries you kept out of analysis are never included. Not sent when it is set to “This entry only”.',
+      'The date of that entry (so “Thursday” can be read as a day).',
+      'If “What reflections can see” is “This entry and recent ones”: the names of your open topics (up to 12), only the names. Not sent when it is set to “This entry only”.',
       'Your support style and challenge settings for that reflection.',
       'For each compass value you linked to that entry and marked “AI may use this”: its name and your note about it (up to the first 400 characters). Not sent when “What reflections can see” is “This entry only”.',
     ],
     notSent: [
-      'Older entries, or more than 5 earlier entries, entries you kept out of analysis, compass values you didn’t link to that entry or didn’t mark “AI may use this”, your email address or your account details.',
+      'Older entries, or more than 5 earlier entries, entries you kept out of analysis, topics you resolved, which entries a topic is linked to, compass values you didn’t link to that entry or didn’t mark “AI may use this”, your email address or your account details.',
     ],
   },
   follow_up: {
@@ -49,6 +51,12 @@ export const SCOPE_COPY: Record<AiScope, { title: string; when: string; sent: st
     ],
   },
 };
+
+/** The short notice shown where the user chooses to reflect with AI. Keep in step with SCOPE_COPY.entry_reflection. */
+export const reflectionSendNotice = (contextScope: 'relevant' | 'current') =>
+  contextScope === 'relevant'
+    ? 'Reflecting sends this entry, its date, tags and good thing, the compass values you linked to it, the names of your open topics, and up to 5 recent entries from the last two weeks, to GroqCloud.'
+    : 'Reflecting sends this entry, its date, tags and good thing to GroqCloud.';
 
 export const PROVIDER_COPY = {
   name: 'GroqCloud',

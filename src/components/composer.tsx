@@ -12,6 +12,7 @@ import { Dialog } from '@/components/feedback';
 import { Notice } from '@/components/notice';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { reflectionSendNotice } from '@/data/ai-disclosure';
 import { daysAgo, nowIso, relativeDay } from '@/data/dates';
 import { FEELINGS, PROMPTS, STYLE_LABEL, SUPPORT_STYLES } from '@/data/sample';
 import { useReflectionMode, useSaveDraft } from '@/state/actions';
@@ -125,7 +126,7 @@ export function Composer({ first, quick, onSaved, onSkip }: Props) {
             <>
               <Button label={mode === 'ai' ? 'Save & reflect with AI' : 'Save & reflect'} trailingIcon="arrow-right" disabled={empty} onPress={() => doSave(true)} />
               <Button variant="secondary" label="Save without AI" disabled={empty} onPress={() => doSave(false)} />
-              {mode === 'ai' && <Text variant="small">{state.contextScope === 'relevant' ? 'Reflecting sends this entry, its tags and good thing, plus up to 5 recent entries from the last two weeks, to GroqCloud. Saving without AI sends nothing.' : 'Reflecting sends this entry, its tags and good thing to GroqCloud. Saving without AI sends nothing.'}</Text>}
+              {mode === 'ai' && <Text variant="small">{`${reflectionSendNotice(state.contextScope)} Saving without AI sends nothing.`}</Text>}
             </>
           ) : (
             <Button label={editing ? 'Save changes' : 'Save entry'} disabled={empty} onPress={() => doSave(false)} />
