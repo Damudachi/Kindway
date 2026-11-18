@@ -14,6 +14,7 @@ import { Screen } from '@/components/screen';
 import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { Feelings, Trail, TrailStop } from '@/components/trail';
+import { TrailMoment } from '@/components/trail-moment';
 import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
@@ -76,7 +77,12 @@ export default function Today() {
   // Not an entry the trail already shows, so the same one never appears twice.
   const lookBack = lookBackLater ? null : lookBackFor(entries.filter((e) => !todays.includes(e) && !earlier.includes(e)), today);
 
+  // With no reflection to wait for, the lighting moment plays here, where the blaze already paints.
+  const moment = state.trailMoment;
+  const lighting = focused && !!moment && state.entries.find((e) => e.id === moment.entryId)?.reflectionStatus === 'none';
+
   return (
+    <>
     <Screen
       inTabs
       onRefresh={refresh}
@@ -282,6 +288,8 @@ export default function Today() {
         }}
       />
     </Screen>
+    {lighting && moment && <TrailMoment moment={moment} onDone={() => dispatch({ type: 'clearTrailMoment' })} />}
+    </>
   );
 }
 

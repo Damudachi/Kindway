@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
@@ -10,6 +10,7 @@ import { StateView } from '@/components/notice';
 import { ReflectionView } from '@/components/reflection-view';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
+import { TrailMoment } from '@/components/trail-moment';
 import { DateDialog } from '@/components/date-dialog';
 import { longDate } from '@/data/dates';
 import { TITLE_MAX, titleFrom } from '@/data/titles';
@@ -31,6 +32,12 @@ export default function EntryDetail() {
   const [rename, setRename] = useState<string | null>(null);
   const [changeDate, setChangeDate] = useState(false);
   const entry = state.entries.find((e) => e.id === id);
+  // The lighting moment plays over a loading reflection, and gives way the moment it lands.
+  const moment = state.trailMoment?.entryId === id ? state.trailMoment : undefined;
+  const lighting = !!moment && entry?.reflectionStatus === 'loading';
+  useEffect(() => {
+    if (moment && entry && entry.reflectionStatus !== 'loading') dispatch({ type: 'clearTrailMoment' });
+  }, [moment, entry, dispatch]);
 
   if (!entry) {
     return (
@@ -51,6 +58,7 @@ export default function EntryDetail() {
   const minutes = Math.max(1, Math.round(entry.body.split(/\s+/).length / 200));
 
   return (
+    <>
     <Screen
       top={{
         back: true,
@@ -157,6 +165,8 @@ export default function EntryDetail() {
         }}
       />
     </Screen>
+    {lighting && moment && <TrailMoment moment={moment} paint onDone={() => dispatch({ type: 'clearTrailMoment' })} />}
+    </>
   );
 }
 
