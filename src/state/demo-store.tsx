@@ -18,6 +18,7 @@ import type {
   TomorrowStep,
 } from '@/data/types';
 import { hasAutoTitle } from '@/data/titles';
+import { daysWritten, newUnlocks, type Milestone } from '@/state/trail-progress';
 import { applyCloud, mergeSnapshots, toCloud, type CloudSnapshot } from '@/services/cloud/records';
 import { deviceStorage, type StateStorage } from '@/storage/persistence';
 
@@ -47,6 +48,10 @@ export type DemoState = {
   reminders: Reminders;
   /** Whether the home-screen widget may show the open Tomorrow Bridge step. Device only. */
   widgetShowsStep: boolean;
+  /** Milestones reached on the trail. Permanent, even if the days-written count later drops. */
+  trailUnlocks: number[];
+  /** The save the trail's lighting moment is for; `milestone` is set when it crossed one. Not saved. */
+  trailMoment?: { entryId: string; count: number; milestone?: Milestone };
   /** Entry whose blaze should play the paint animation once. Not saved. */
   justPainted?: string;
   /** Reviewer switches for simulated conditions. Not saved. */
@@ -73,6 +78,7 @@ export const initialState: DemoState = {
   insightFeedback: {},
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
   widgetShowsStep: true,
+  trailUnlocks: [],
   demo: { ai: 'ok', sessionExpired: false },
 };
 
@@ -82,6 +88,8 @@ export type Action =
   | { type: 'draft'; patch: Partial<Draft> }
   | { type: 'clearDraft' }
   | { type: 'saveEntry'; entry: Entry }
+  | { type: 'unlockTrail'; milestones: number[] }
+  | { type: 'clearTrailMoment' }
   | { type: 'updateEntry'; id: string; patch: Partial<Entry> }
   | { type: 'setReflection'; id: string; status: Entry['reflectionStatus']; reflection?: Reflection }
   | { type: 'removeReflection'; id: string }
@@ -117,10 +125,25 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, draft: { ...state.draft, ...action.patch } };
     case 'clearDraft':
       return { ...state, draft: emptyDraft };
-    case 'saveEntry':
+    case 'saveEntry': {
       // Never store a blank entry, or a fictional one.
       if (!action.entry.body.trim() || action.entry.sample) return state;
-      return { ...state, entries: [action.entry, ...state.entries], draft: emptyDraft, justPainted: action.entry.id };
+      const entries = [action.entry, ...state.entries];
+      const count = daysWritten(entries);
+      const fresh = newUnlocks(count, state.trailUnlocks);
+      return {
+        ...state,
+        entries,
+        draft: emptyDraft,
+        justPainted: action.entry.id,
+        trailMoment: { entryId: action.entry.id, count, milestone: fresh[fresh.length - 1] },
+        trailUnlocks: fresh.length ? [...state.trailUnlocks, ...fresh] : state.trailUnlocks,
+      };
+    }
+    case 'unlockTrail':
+      return { ...state, trailUnlocks: [...new Set([...state.trailUnlocks, ...action.milestones])].sort((a, b) => a - b) };
+    case 'clearTrailMoment':
+      return { ...state, trailMoment: undefined };
     case 'updateEntry':
       if (action.patch.body !== undefined && !action.patch.body.trim()) return state;
       return { ...state, entries: state.entries.map((e) => (e.id === action.id ? { ...e, ...action.patch } : e)) };
@@ -217,7 +240,7 @@ const VERSION = 1;
 
 /** What is written to device storage: everything except reviewer switches and one-shot animation flags. */
 export function toSnapshot(state: DemoState) {
-  const { demo: _demo, justPainted: _painted, ...saved } = state;
+  const { demo: _demo, justPainted: _painted, trailMoment: _moment, ...saved } = state;
   return { version: VERSION, state: saved };
 }
 
