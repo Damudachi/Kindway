@@ -107,7 +107,8 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
     /** The newest refresh this pass's pull answers, if it pulls. */
     let answers: number | null = null;
     try {
-      if (!base.current) base.current = ((await storage.load().catch(() => null)) as CloudSnapshot | null) ?? emptySnapshot();
+      // A base saved before a kind existed lacks it; fill it so diff and merge never see undefined.
+      if (!base.current) base.current = { ...emptySnapshot(), ...((await storage.load().catch(() => null)) as Partial<CloudSnapshot> | null) };
       if (!pulled.current) {
         answers = asked.current;
         const remote = await repo.pull(userId);

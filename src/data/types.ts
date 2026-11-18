@@ -165,3 +165,25 @@ export type Reminders = {
   /** Asked once whether reminders should arrive on time (Android's "Alarms & reminders"). */
   onTimeAsked?: boolean;
 };
+
+/** A named thread the user follows across entries. */
+export type Topic = {
+  id: string;
+  name: string;
+  status: 'open' | 'resolved';
+  createdAt: string;
+  resolvedAt?: string;
+  /** Set when resolved: what helped, in the user's words. */
+  whatHelped?: string;
+  entryIds: string[];
+  /** When the check-in for this topic was last shown. */
+  checkInShownAt?: string;
+};
+
+/** Words the user chose to keep, with where they came from. */
+export type KeptWord = {
+  id: string;
+  text: string;
+  source: { kind: 'reflection' | 'follow_up'; entryId: string } | { kind: 'topic'; topicId: string };
+  createdAt: string;
+};

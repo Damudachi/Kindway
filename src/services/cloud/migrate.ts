@@ -1,4 +1,4 @@
-import { applyCloud, counts, diff, linkKey, toCloud, type CloudSnapshot } from '@/services/cloud/records';
+import { applyCloud, counts, diff, linkKey, sortedUnlocks, toCloud, topicLinkKey, type CloudSnapshot } from '@/services/cloud/records';
 import { CloudError, type CloudRepo } from '@/services/cloud/repo';
 import { emptyDraft, type DemoState } from '@/state/demo-store';
 
@@ -27,7 +27,7 @@ export type MigrationPlan = {
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 export const isEmpty = (s: CloudSnapshot) =>
-  !s.profile && [s.compass, s.entries, s.links, s.tomorrow, s.feedback].every((rows) => Object.keys(rows).length === 0);
+  !s.profile && [s.compass, s.entries, s.links, s.tomorrow, s.feedback, s.topics, s.topicLinks, s.kept].every((rows) => Object.keys(rows).length === 0);
 
 export function planMigration(localState: DemoState, cloud: CloudSnapshot): MigrationPlan {
   const local = toCloud(localState);
@@ -63,6 +63,17 @@ export function planMigration(localState: DemoState, cloud: CloudSnapshot): Migr
     result.links[linkKey(l)] = l;
   }
 
+  // The account keeps a topic with the same id; this device's links and kept words still come along.
+  for (const [id, row] of Object.entries(local.topics)) if (!result.topics[id]) result.topics[id] = row;
+  for (const link of Object.values(local.topicLinks)) {
+    const l = { topic_id: link.topic_id, entry_id: mapped(link.entry_id) };
+    result.topicLinks[topicLinkKey(l)] = l;
+  }
+  for (const [id, row] of Object.entries(local.kept)) {
+    if (result.kept[id]) continue;
+    result.kept[id] = { ...row, source_entry_id: row.source_entry_id ? mapped(row.source_entry_id) : null };
+  }
+
   const keepsAccountStep = Object.keys(cloud.tomorrow).length > 0;
   if (!keepsAccountStep)
     for (const t of Object.values(local.tomorrow)) {
@@ -73,7 +84,12 @@ export function planMigration(localState: DemoState, cloud: CloudSnapshot): Migr
 
   const keepsAccountPreferences = !!cloud.profile;
   result.profile = cloud.profile
-    ? { ...cloud.profile, onboarded: cloud.profile.onboarded || localState.onboarded }
+    ? {
+        ...cloud.profile,
+        onboarded: cloud.profile.onboarded || localState.onboarded,
+        // Unlocks only ever grow, so this device's are kept too.
+        trail_unlocks: sortedUnlocks([...cloud.profile.trail_unlocks, ...(local.profile?.trail_unlocks ?? [])]),
+      }
     : local.profile;
 
   return { local: counts(local), cloud: counts(cloud), adding, copies, compassOverflow, keepsAccountPreferences, keepsAccountStep, result };
@@ -116,7 +132,7 @@ export async function runMigration(repo: CloudRepo, userId: string, plan: Migrat
 export class VerificationError extends Error {}
 
 function verify(expected: CloudSnapshot, actual: CloudSnapshot) {
-  const kinds = ['compass', 'entries', 'links', 'tomorrow', 'feedback'] as const;
+  const kinds = ['compass', 'entries', 'links', 'tomorrow', 'feedback', 'topics', 'topicLinks', 'kept'] as const;
   for (const kind of kinds) {
     const want = expected[kind] as Record<string, unknown>;
     const got = actual[kind] as Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { emptySnapshot, linkKey, type Changes, type CloudSnapshot } from '@/services/cloud/records';
+import { emptySnapshot, linkKey, topicLinkKey, type Changes, type CloudSnapshot } from '@/services/cloud/records';
 import { CloudError, type CloudRepo } from '@/services/cloud/repo';
 
 /**
@@ -41,6 +41,19 @@ export function fakeCloud() {
         step();
         delete d.links[key];
       }
+      for (const key of changes.deletes.topicLinks) {
+        step();
+        delete d.topicLinks[key];
+      }
+      for (const key of changes.deletes.kept) {
+        step();
+        delete d.kept[key];
+      }
+      for (const key of changes.deletes.topics) {
+        step();
+        delete d.topics[key];
+        for (const [k, l] of Object.entries(d.topicLinks)) if (l.topic_id === key) delete d.topicLinks[k];
+      }
       for (const key of changes.deletes.feedback) {
         step();
         delete d.feedback[key];
@@ -53,6 +66,7 @@ export function fakeCloud() {
         step();
         delete d.entries[key];
         for (const [k, l] of Object.entries(d.links)) if (l.entry_id === key) delete d.links[k];
+        for (const [k, l] of Object.entries(d.topicLinks)) if (l.entry_id === key) delete d.topicLinks[k];
         for (const t of Object.values(d.tomorrow)) if (t.source_entry_id === key) t.source_entry_id = null;
       }
       for (const key of changes.deletes.compass) {
@@ -64,10 +78,10 @@ export function fakeCloud() {
         step();
         d.profile = structuredClone(changes.profile);
       }
-      for (const kind of ['compass', 'entries', 'links', 'tomorrow', 'feedback'] as const) {
+      for (const kind of ['compass', 'entries', 'topics', 'links', 'topicLinks', 'tomorrow', 'feedback', 'kept'] as const) {
         for (const row of changes.upserts[kind]) {
           step();
-          const key = kind === 'links' ? linkKey(row as never) : kind === 'feedback' ? (row as { insight_id: string }).insight_id : (row as { id: string }).id;
+          const key = kind === 'links' ? linkKey(row as never) : kind === 'topicLinks' ? topicLinkKey(row as never) : kind === 'feedback' ? (row as { insight_id: string }).insight_id : (row as { id: string }).id;
           (d[kind] as Record<string, unknown>)[key] = structuredClone(row);
         }
       }

@@ -40,6 +40,9 @@ const KEYS: Record<keyof typeof TABLES, string> = {
   links: 'entry_id,compass_id',
   tomorrow: 'id',
   feedback: 'insight_id',
+  topics: 'id',
+  topicLinks: 'topic_id,entry_id',
+  kept: 'id',
 };
 
 export function fail(error: { message?: string; code?: string; status?: number } | null): never {
@@ -61,10 +64,14 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
 
   const remove = async (table: string, userId: string, keyCols: string, keys: string[]) => {
     if (keys.length === 0) return;
-    if (keyCols === 'entry_id,compass_id') {
+    if (keyCols.includes(',')) {
+      // Composite keys arrive as `a|b`, in the column order.
+      const cols = keyCols.split(',');
       for (const key of keys) {
-        const [entry_id, compass_id] = key.split('|');
-        const { error } = await client.from(table).delete().eq('user_id', userId).eq('entry_id', entry_id).eq('compass_id', compass_id);
+        const parts = key.split('|');
+        let q = client.from(table).delete().eq('user_id', userId);
+        cols.forEach((col, i) => (q = q.eq(col, parts[i])));
+        const { error } = await q;
         if (error) fail(error);
       }
       return;
@@ -82,15 +89,18 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
   return {
     async pull(userId) {
       try {
-        const [profiles, compass, entries, links, tomorrow, feedback] = await Promise.all([
+        const [profiles, compass, entries, links, tomorrow, feedback, topics, topicLinks, kept] = await Promise.all([
           select('profiles', userId),
           select('compass_values', userId),
           select('entries', userId),
           select('entry_compass_links', userId),
           select('tomorrow_actions', userId),
           select('insight_feedback', userId),
+          select('topics', userId),
+          select('topic_entries', userId),
+          select('kept_words', userId),
         ]);
-        return normalizeRows({ profile: profiles[0] ?? null, compass, entries, links, tomorrow, feedback });
+        return normalizeRows({ profile: profiles[0] ?? null, compass, entries, links, tomorrow, feedback, topics, topicLinks, kept });
       } catch (e) {
         throw unexpected(e);
       }
@@ -100,6 +110,9 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
       try {
         // Children first when deleting, parents first when writing, so foreign keys always hold.
         await remove('entry_compass_links', userId, KEYS.links, c.deletes.links);
+        await remove('topic_entries', userId, KEYS.topicLinks, c.deletes.topicLinks);
+        await remove('kept_words', userId, KEYS.kept, c.deletes.kept);
+        await remove('topics', userId, KEYS.topics, c.deletes.topics);
         await remove('insight_feedback', userId, KEYS.feedback, c.deletes.feedback);
         await remove('tomorrow_actions', userId, KEYS.tomorrow, c.deletes.tomorrow);
         await remove('entries', userId, KEYS.entries, c.deletes.entries);
@@ -108,6 +121,9 @@ export function supabaseRepo(client: SupabaseClient): CloudRepo {
         await upsert('compass_values', userId, KEYS.compass, c.upserts.compass);
         await upsert('entries', userId, KEYS.entries, c.upserts.entries);
         await upsert('entry_compass_links', userId, KEYS.links, c.upserts.links);
+        await upsert('topics', userId, KEYS.topics, c.upserts.topics);
+        await upsert('topic_entries', userId, KEYS.topicLinks, c.upserts.topicLinks);
+        await upsert('kept_words', userId, KEYS.kept, c.upserts.kept);
         await upsert('tomorrow_actions', userId, KEYS.tomorrow, c.upserts.tomorrow);
         await upsert('insight_feedback', userId, KEYS.feedback, c.upserts.feedback);
       } catch (e) {

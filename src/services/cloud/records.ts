@@ -1,4 +1,4 @@
-import type { CompassValue, Entry, InsightFeedback, TomorrowStep } from '@/data/types';
+import type { CompassValue, Entry, InsightFeedback, KeptWord, TomorrowStep, Topic } from '@/data/types';
 import type { DemoState } from '@/state/demo-store';
 
 /**
@@ -44,6 +44,24 @@ export type TomorrowRow = {
   source_entry_id: string | null;
 };
 export type FeedbackRow = { insight_id: string; feedback: InsightFeedback };
+export type TopicRow = {
+  id: string;
+  name: string;
+  status: Topic['status'];
+  created_at: string;
+  resolved_at: string | null;
+  what_helped: string | null;
+  check_in_shown_at: string | null;
+};
+export type TopicLinkRow = { topic_id: string; entry_id: string };
+export type KeptRow = {
+  id: string;
+  text: string;
+  source_kind: 'reflection' | 'follow_up' | 'topic';
+  source_entry_id: string | null;
+  source_topic_id: string | null;
+  created_at: string;
+};
 
 export type CloudSnapshot = {
   profile: ProfileRow | null;
@@ -52,9 +70,22 @@ export type CloudSnapshot = {
   links: Record<string, LinkRow>;
   tomorrow: Record<string, TomorrowRow>;
   feedback: Record<string, FeedbackRow>;
+  topics: Record<string, TopicRow>;
+  /** Keyed `topic|entry`. */
+  topicLinks: Record<string, TopicLinkRow>;
+  kept: Record<string, KeptRow>;
 };
 
-export type Table = 'profiles' | 'compass_values' | 'entries' | 'entry_compass_links' | 'tomorrow_actions' | 'insight_feedback';
+export type Table =
+  | 'profiles'
+  | 'compass_values'
+  | 'entries'
+  | 'entry_compass_links'
+  | 'tomorrow_actions'
+  | 'insight_feedback'
+  | 'topics'
+  | 'topic_entries'
+  | 'kept_words';
 type Kind = Exclude<keyof CloudSnapshot, 'profile'>;
 
 export const TABLES: Record<Kind, Table> = {
@@ -63,15 +94,19 @@ export const TABLES: Record<Kind, Table> = {
   links: 'entry_compass_links',
   tomorrow: 'tomorrow_actions',
   feedback: 'insight_feedback',
+  topics: 'topics',
+  topicLinks: 'topic_entries',
+  kept: 'kept_words',
 };
 
-export const emptySnapshot = (): CloudSnapshot => ({ profile: null, compass: {}, entries: {}, links: {}, tomorrow: {}, feedback: {} });
+export const emptySnapshot = (): CloudSnapshot => ({ profile: null, compass: {}, entries: {}, links: {}, tomorrow: {}, feedback: {}, topics: {}, topicLinks: {}, kept: {} });
 
 export const linkKey = (l: LinkRow) => `${l.entry_id}|${l.compass_id}`;
+export const topicLinkKey = (l: TopicLinkRow) => `${l.topic_id}|${l.entry_id}`;
 /** The one Tomorrow step has no id of its own; when it was saved identifies it. */
 export const stepId = (s: TomorrowStep) => `t-${new Date(s.savedOn).getTime()}`;
 const iso = (s: string) => new Date(s).toISOString();
-const sortedUnlocks = (a: number[] | null | undefined) => [...new Set(a ?? [])].sort((x, y) => x - y);
+export const sortedUnlocks = (a: number[] | null | undefined) => [...new Set(a ?? [])].sort((x, y) => x - y);
 const isSampleInsight = (id: string) => id.startsWith('sample:');
 
 // State -> rows ----------------------------------------------------------------------------
@@ -131,6 +166,34 @@ export function toCloud(state: DemoState): CloudSnapshot {
   for (const [insight_id, feedback] of Object.entries(state.insightFeedback)) {
     if (!isSampleInsight(insight_id)) snap.feedback[insight_id] = { insight_id, feedback };
   }
+  for (const t of state.topics) {
+    if (!t.name.trim()) continue;
+    snap.topics[t.id] = {
+      id: t.id,
+      name: t.name.trim().slice(0, 40),
+      status: t.status,
+      created_at: iso(t.createdAt),
+      resolved_at: t.resolvedAt ? iso(t.resolvedAt) : null,
+      what_helped: t.whatHelped?.slice(0, 200) ?? null,
+      check_in_shown_at: t.checkInShownAt ? iso(t.checkInShownAt) : null,
+    };
+    for (const entry_id of new Set(t.entryIds)) {
+      if (!snap.entries[entry_id]) continue;
+      const link = { topic_id: t.id, entry_id };
+      snap.topicLinks[topicLinkKey(link)] = link;
+    }
+  }
+  for (const k of state.kept) {
+    if (!k.text.trim()) continue;
+    snap.kept[k.id] = {
+      id: k.id,
+      text: k.text.slice(0, 1200),
+      source_kind: k.source.kind,
+      source_entry_id: k.source.kind === 'topic' ? null : k.source.entryId,
+      source_topic_id: k.source.kind === 'topic' ? k.source.topicId : null,
+      created_at: iso(k.createdAt),
+    };
+  }
   return snap;
 }
 
@@ -142,6 +205,9 @@ export function normalizeRows(rows: {
   links: (LinkRow & Record<string, unknown>)[];
   tomorrow: (TomorrowRow & Record<string, unknown>)[];
   feedback: (FeedbackRow & Record<string, unknown>)[];
+  topics: (TopicRow & Record<string, unknown>)[];
+  topicLinks: (TopicLinkRow & Record<string, unknown>)[];
+  kept: (KeptRow & Record<string, unknown>)[];
 }): CloudSnapshot {
   const snap = emptySnapshot();
   const p = rows.profile;
@@ -184,6 +250,26 @@ export function normalizeRows(rows: {
       source_entry_id: t.source_entry_id ?? null,
     };
   for (const f of rows.feedback) snap.feedback[f.insight_id] = { insight_id: f.insight_id, feedback: f.feedback };
+  for (const t of rows.topics)
+    snap.topics[t.id] = {
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      created_at: iso(t.created_at),
+      resolved_at: t.resolved_at ? iso(t.resolved_at) : null,
+      what_helped: t.what_helped ?? null,
+      check_in_shown_at: t.check_in_shown_at ? iso(t.check_in_shown_at) : null,
+    };
+  for (const l of rows.topicLinks) snap.topicLinks[topicLinkKey(l)] = { topic_id: l.topic_id, entry_id: l.entry_id };
+  for (const k of rows.kept)
+    snap.kept[k.id] = {
+      id: k.id,
+      text: k.text,
+      source_kind: k.source_kind,
+      source_entry_id: k.source_entry_id ?? null,
+      source_topic_id: k.source_topic_id ?? null,
+      created_at: iso(k.created_at),
+    };
   return snap;
 }
 
@@ -202,12 +288,12 @@ export function diff(base: CloudSnapshot, next: CloudSnapshot): Changes {
   const kinds = Object.keys(TABLES) as Kind[];
   const changes: Changes = {
     profile: next.profile && !same(base.profile, next.profile) ? next.profile : null,
-    upserts: { compass: [], entries: [], links: [], tomorrow: [], feedback: [] },
-    deletes: { compass: [], entries: [], links: [], tomorrow: [], feedback: [] },
+    upserts: { compass: [], entries: [], links: [], tomorrow: [], feedback: [], topics: [], topicLinks: [], kept: [] },
+    deletes: { compass: [], entries: [], links: [], tomorrow: [], feedback: [], topics: [], topicLinks: [], kept: [] },
   };
   for (const kind of kinds) {
-    const b = base[kind] as Record<string, unknown>;
-    const n = next[kind] as Record<string, unknown>;
+    const b = (base[kind] ?? {}) as Record<string, unknown>;
+    const n = (next[kind] ?? {}) as Record<string, unknown>;
     for (const [key, row] of Object.entries(n)) if (!same(b[key], row)) (changes.upserts[kind] as unknown[]).push(row);
     for (const key of Object.keys(b)) if (!(key in n)) changes.deletes[kind].push(key);
   }
@@ -229,9 +315,9 @@ export function mergeSnapshots(base: CloudSnapshot, local: CloudSnapshot, remote
   // Unlocks only ever grow, so whichever side wins the other fields, neither side's unlocks are dropped.
   out.profile = profile && { ...profile, trail_unlocks: sortedUnlocks([...(local.profile?.trail_unlocks ?? []), ...(remote.profile?.trail_unlocks ?? [])]) };
   for (const kind of Object.keys(TABLES) as Kind[]) {
-    const b = base[kind] as Record<string, unknown>;
-    const l = local[kind] as Record<string, unknown>;
-    const r = remote[kind] as Record<string, unknown>;
+    const b = (base[kind] ?? {}) as Record<string, unknown>;
+    const l = (local[kind] ?? {}) as Record<string, unknown>;
+    const r = (remote[kind] ?? {}) as Record<string, unknown>;
     const merged = out[kind] as Record<string, unknown>;
     for (const key of new Set([...Object.keys(b), ...Object.keys(l), ...Object.keys(r)])) {
       const changedHere = !same(b[key], l[key]);
@@ -239,8 +325,9 @@ export function mergeSnapshots(base: CloudSnapshot, local: CloudSnapshot, remote
       if (value !== undefined) merged[key] = value;
     }
   }
-  // A link or step can't point at an entry or compass value the merge dropped.
+  // A link or step can't point at an entry, topic or compass value the merge dropped.
   for (const [key, link] of Object.entries(out.links)) if (!out.entries[link.entry_id] || !out.compass[link.compass_id]) delete out.links[key];
+  for (const [key, link] of Object.entries(out.topicLinks)) if (!out.entries[link.entry_id] || !out.topics[link.topic_id]) delete out.topicLinks[key];
   for (const t of Object.values(out.tomorrow)) if (t.source_entry_id && !out.entries[t.source_entry_id]) t.source_entry_id = null;
   return out;
 }
@@ -307,6 +394,31 @@ export function applyCloud(state: DemoState, snap: CloudSnapshot): DemoState {
       }
     : null;
 
+  const entryIdsByTopic = new Map<string, string[]>();
+  for (const l of Object.values(snap.topicLinks))
+    if (kept.has(l.entry_id)) entryIdsByTopic.set(l.topic_id, [...(entryIdsByTopic.get(l.topic_id) ?? []), l.entry_id]);
+  const topics: Topic[] = Object.values(snap.topics)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      createdAt: t.created_at,
+      resolvedAt: t.resolved_at ?? undefined,
+      whatHelped: t.what_helped ?? undefined,
+      entryIds: entryIdsByTopic.get(t.id) ?? [],
+      checkInShownAt: t.check_in_shown_at ?? undefined,
+    }));
+  const keptWords: KeptWord[] = Object.values(snap.kept)
+    .filter((k) => (k.source_kind === 'topic' ? k.source_topic_id : k.source_entry_id))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((k) => ({
+      id: k.id,
+      text: k.text,
+      source: k.source_kind === 'topic' ? { kind: 'topic', topicId: k.source_topic_id! } : { kind: k.source_kind, entryId: k.source_entry_id! },
+      createdAt: k.created_at,
+    }));
+
   const p = snap.profile;
   return {
     ...state,
@@ -326,6 +438,8 @@ export function applyCloud(state: DemoState, snap: CloudSnapshot): DemoState {
     chats,
     insightFeedback,
     tomorrow,
+    topics,
+    kept: keptWords,
     draft: state.draft.editingId && !kept.has(state.draft.editingId) ? { ...state.draft, editingId: undefined } : state.draft,
   };
 }

@@ -11,11 +11,13 @@ import type {
   Draft,
   Entry,
   InsightFeedback,
+  KeptWord,
   Memory,
   Reflection,
   Reminders,
   SupportStyle,
   TomorrowStep,
+  Topic,
 } from '@/data/types';
 import { hasAutoTitle } from '@/data/titles';
 import { daysWritten, newUnlocks, type Milestone } from '@/state/trail-progress';
@@ -50,6 +52,12 @@ export type DemoState = {
   widgetShowsStep: boolean;
   /** Milestones reached on the trail. Permanent, even if the days-written count later drops. */
   trailUnlocks: number[];
+  /** Threads the user follows across entries. */
+  topics: Topic[];
+  /** Words the user chose to keep. */
+  kept: KeptWord[];
+  /** Check-ins the user dismissed, by key. Device only. */
+  dismissedCheckIns: string[];
   /** The save the trail's lighting moment is for; `milestone` is set when it crossed one. Not saved. */
   trailMoment?: { entryId: string; count: number; milestone?: Milestone };
   /** Entry whose blaze should play the paint animation once. Not saved. */
@@ -79,6 +87,9 @@ export const initialState: DemoState = {
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
   widgetShowsStep: true,
   trailUnlocks: [],
+  topics: [],
+  kept: [],
+  dismissedCheckIns: [],
   demo: { ai: 'ok', sessionExpired: false },
 };
 
@@ -90,6 +101,17 @@ export type Action =
   | { type: 'saveEntry'; entry: Entry }
   | { type: 'unlockTrail'; milestones: number[] }
   | { type: 'clearTrailMoment' }
+  | { type: 'addTopic'; topic: Topic }
+  | { type: 'updateTopic'; id: string; patch: Partial<Omit<Topic, 'id'>> }
+  | { type: 'deleteTopic'; id: string }
+  | { type: 'linkTopic'; topicId: string; entryId: string }
+  | { type: 'unlinkTopic'; topicId: string; entryId: string }
+  /** Marks a topic resolved; non-blank `whatHelped` is also kept as words. */
+  | { type: 'resolveTopic'; id: string; whatHelped?: string; at?: string; keptId?: string }
+  | { type: 'reopenTopic'; id: string }
+  | { type: 'keep'; word: KeptWord }
+  | { type: 'unkeep'; id: string }
+  | { type: 'dismissCheckIn'; key: string }
   | { type: 'updateEntry'; id: string; patch: Partial<Entry> }
   | { type: 'setReflection'; id: string; status: Entry['reflectionStatus']; reflection?: Reflection }
   | { type: 'removeReflection'; id: string }
@@ -144,6 +166,37 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, trailUnlocks: [...new Set([...state.trailUnlocks, ...action.milestones])].sort((a, b) => a - b) };
     case 'clearTrailMoment':
       return { ...state, trailMoment: undefined };
+    case 'addTopic':
+      return !action.topic.name.trim() || state.topics.some((t) => t.id === action.topic.id) ? state : { ...state, topics: [...state.topics, action.topic] };
+    case 'updateTopic':
+      if (action.patch.name !== undefined && !action.patch.name.trim()) return state;
+      return { ...state, topics: state.topics.map((t) => (t.id === action.id ? { ...t, ...action.patch } : t)) };
+    case 'deleteTopic':
+      return { ...state, topics: state.topics.filter((t) => t.id !== action.id) };
+    case 'linkTopic':
+      if (!state.entries.some((e) => e.id === action.entryId)) return state;
+      return { ...state, topics: state.topics.map((t) => (t.id === action.topicId && !t.entryIds.includes(action.entryId) ? { ...t, entryIds: [...t.entryIds, action.entryId] } : t)) };
+    case 'unlinkTopic':
+      return { ...state, topics: state.topics.map((t) => (t.id === action.topicId ? { ...t, entryIds: t.entryIds.filter((id) => id !== action.entryId) } : t)) };
+    case 'resolveTopic': {
+      const topic = state.topics.find((t) => t.id === action.id);
+      if (!topic) return state;
+      const now = action.at ?? new Date().toISOString();
+      const whatHelped = action.whatHelped?.trim().slice(0, 200) || undefined;
+      return {
+        ...state,
+        topics: state.topics.map((t) => (t.id === action.id ? { ...t, status: 'resolved', resolvedAt: now, whatHelped } : t)),
+        kept: whatHelped ? [...state.kept, { id: action.keptId ?? `k${Date.now()}`, text: whatHelped, source: { kind: 'topic', topicId: action.id }, createdAt: now }] : state.kept,
+      };
+    }
+    case 'reopenTopic':
+      return { ...state, topics: state.topics.map((t) => (t.id === action.id ? { ...t, status: 'open', resolvedAt: undefined } : t)) };
+    case 'keep':
+      return state.kept.some((k) => k.id === action.word.id) ? state : { ...state, kept: [...state.kept, action.word] };
+    case 'unkeep':
+      return { ...state, kept: state.kept.filter((k) => k.id !== action.id) };
+    case 'dismissCheckIn':
+      return state.dismissedCheckIns.includes(action.key) ? state : { ...state, dismissedCheckIns: [...state.dismissedCheckIns, action.key] };
     case 'updateEntry':
       if (action.patch.body !== undefined && !action.patch.body.trim()) return state;
       return { ...state, entries: state.entries.map((e) => (e.id === action.id ? { ...e, ...action.patch } : e)) };
@@ -181,6 +234,7 @@ export function reducer(state: DemoState, action: Action): DemoState {
         tomorrow:
           state.tomorrow?.source?.kind === 'reflection' && state.tomorrow.source.entryId === id ? { ...state.tomorrow, source: undefined } : state.tomorrow,
         draft: state.draft.editingId === id ? emptyDraft : state.draft,
+        topics: state.topics.some((t) => t.entryIds.includes(id)) ? state.topics.map((t) => ({ ...t, entryIds: t.entryIds.filter((e) => e !== id) })) : state.topics,
       };
     }
     case 'compass': {

@@ -1,4 +1,4 @@
-import type { Reflection } from '@/data/types';
+import type { KeptWord, Reflection, Topic } from '@/data/types';
 import { accountStateAfter, planMigration, runMigration } from '@/services/cloud/migrate';
 import { applyCloud, changeCount, diff, emptySnapshot, mergeSnapshots, toCloud } from '@/services/cloud/records';
 import { readConfig } from '@/services/supabase/client';
@@ -205,5 +205,165 @@ describe('client configuration', () => {
     expect(readConfig({ EXPO_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_abc' })).toBeNull();
     const serviceRoleJwt = `x.${btoa(JSON.stringify({ role: 'service_role' }))}.y`;
     expect(readConfig({ EXPO_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: serviceRoleJwt })).toBeNull();
+  });
+});
+
+describe('topics and kept words', () => {
+  const topic = (id: string, entryIds: string[] = []): Topic => ({ id, name: `Topic ${id}`, status: 'open', createdAt: '2026-11-01T09:00:00.000Z', entryIds });
+  const kept: KeptWord[] = [
+    { id: 'k1', text: 'Be kind', source: { kind: 'reflection', entryId: 'n1' }, createdAt: '2026-11-02T09:00:00.000Z' },
+    { id: 'k2', text: 'Ask for help', source: { kind: 'follow_up', entryId: 'n2' }, createdAt: '2026-11-03T09:00:00.000Z' },
+    { id: 'k3', text: 'Walking every morning', source: { kind: 'topic', topicId: 'p1' }, createdAt: '2026-11-04T09:00:00.000Z' },
+  ];
+  const withTopics = (patch: Partial<DemoState> = {}) =>
+    journal({
+      topics: [{ ...topic('p1', ['n1', 'n2']), status: 'resolved', resolvedAt: '2026-11-04T09:00:00.000Z', whatHelped: 'Walking every morning', checkInShownAt: '2026-11-05T09:00:00.000Z' }, topic('p2')],
+      kept,
+      ...patch,
+    });
+
+  it('maps topics, links and kept words to rows', () => {
+    const snap = toCloud(withTopics());
+    expect(Object.keys(snap.topics).sort()).toEqual(['p1', 'p2']);
+    expect(snap.topics.p1).toEqual({
+      id: 'p1',
+      name: 'Topic p1',
+      status: 'resolved',
+      created_at: '2026-11-01T09:00:00.000Z',
+      resolved_at: '2026-11-04T09:00:00.000Z',
+      what_helped: 'Walking every morning',
+      check_in_shown_at: '2026-11-05T09:00:00.000Z',
+    });
+    expect(Object.keys(snap.topicLinks).sort()).toEqual(['p1|n1', 'p1|n2']);
+    expect(snap.kept.k3).toMatchObject({ source_kind: 'topic', source_topic_id: 'p1', source_entry_id: null });
+    expect(snap.kept.k1).toMatchObject({ source_kind: 'reflection', source_entry_id: 'n1', source_topic_id: null });
+  });
+
+  it('round-trips through applyCloud', () => {
+    const state = withTopics();
+    const back = applyCloud({ ...initialState, dismissedCheckIns: ['x'] }, toCloud(state));
+    expect(back.topics.map((t) => ({ ...t, entryIds: [...t.entryIds].sort() })).sort((a, b) => a.id.localeCompare(b.id))).toEqual(state.topics);
+    expect([...back.kept].sort((a, b) => a.id.localeCompare(b.id))).toEqual(kept);
+    expect(back.dismissedCheckIns).toEqual(['x']);
+    expect(toCloud(back)).toEqual(toCloud(state));
+  });
+
+  it('does not emit a link to a sample, blank or missing entry', () => {
+    const state = journal({
+      entries: [entry('n1', 1), entry('s1', 2, { sample: true }), entry('blank', 3, { body: '  ' })],
+      topics: [topic('p1', ['n1', 's1', 'blank', 'gone'])],
+    });
+    expect(Object.keys(toCloud(state).topicLinks)).toEqual(['p1|n1']);
+  });
+
+  it('applyCloud drops links to entries that are gone', () => {
+    const state = withTopics();
+    const remote = toCloud(state);
+    delete remote.entries.n1;
+    delete remote.links['n1|c-Work'];
+    expect(applyCloud(state, remote).topics.find((t) => t.id === 'p1')?.entryIds).toEqual(['n2']);
+  });
+
+  it('pushing into an empty cloud matches, with nothing left to send', async () => {
+    const cloud = fakeCloud();
+    const state = withTopics();
+    const snap = toCloud(state);
+    await cloud.repo.push('A', diff(emptySnapshot(), snap));
+    expect(cloud.data('A')).toEqual(snap);
+    expect(changeCount(diff(cloud.data('A'), toCloud(applyCloud(state, snap))))).toBe(0);
+  });
+
+  it('removed topics, links and kept words are deleted', () => {
+    const d = diff(toCloud(withTopics()), toCloud(withTopics({ topics: [topic('p2')], kept: [kept[0]] })));
+    expect(d.deletes.topics).toEqual(['p1']);
+    expect(d.deletes.topicLinks.sort()).toEqual(['p1|n1', 'p1|n2']);
+    expect(d.deletes.kept.sort()).toEqual(['k2', 'k3']);
+  });
+
+  it('merges per record: a topic changed here wins, one changed elsewhere follows the cloud', () => {
+    const p1 = withTopics().topics[0];
+    const base = toCloud(withTopics());
+    const local = toCloud(withTopics({ topics: [p1, { ...topic('p2'), name: 'Mine' }] }));
+    const remote = toCloud(
+      withTopics({
+        topics: [{ ...p1, name: 'Theirs' }, topic('p2')],
+        kept: [...kept, { id: 'k4', text: 'Added there', source: { kind: 'topic', topicId: 'p2' }, createdAt: '2026-11-06T09:00:00.000Z' }],
+      }),
+    );
+    const merged = mergeSnapshots(base, local, remote);
+    expect(merged.topics.p2.name).toBe('Mine');
+    expect(merged.topics.p1.name).toBe('Theirs');
+    expect(merged.kept.k4).toBeDefined();
+  });
+
+  it('a merge drops links whose topic is gone', () => {
+    const base = toCloud(withTopics());
+    const remote = toCloud(withTopics());
+    delete remote.topics.p1;
+    expect(Object.keys(mergeSnapshots(base, toCloud(withTopics()), remote).topicLinks)).toEqual([]);
+  });
+
+  it('migrating a local journal carries its topics, links and kept words', async () => {
+    const cloud = fakeCloud();
+    const state = withTopics();
+    const plan = planMigration(state, emptySnapshot());
+    const after = await runMigration(cloud.repo, 'A', plan, emptySnapshot());
+    expect(Object.keys(after.topics).sort()).toEqual(['p1', 'p2']);
+    expect(Object.keys(after.topicLinks).sort()).toEqual(['p1|n1', 'p1|n2']);
+    expect(Object.keys(after.kept).sort()).toEqual(['k1', 'k2', 'k3']);
+    expect(accountStateAfter(state, plan, after).topics.find((t) => t.id === 'p1')?.entryIds.sort()).toEqual(['n1', 'n2']);
+  });
+
+  it('migration points links and kept words at the copy of a same-id entry', () => {
+    const account = toCloud(journal({ entries: [entry('n1', 1, { body: 'Different words' })] }));
+    const plan = planMigration(withTopics(), account);
+    expect(plan.copies.n1).toBeDefined();
+    expect(plan.result.topicLinks[`p1|${plan.copies.n1}`]).toBeDefined();
+    expect(plan.result.kept.k1.source_entry_id).toBe(plan.copies.n1);
+  });
+
+  it('migration into an account that already has a profile unions the trail unlocks', () => {
+    const plan = planMigration(journal({ trailUnlocks: [7, 100] }), toCloud(journal({ trailUnlocks: [7, 30] })));
+    expect(plan.keepsAccountPreferences).toBe(true);
+    expect(plan.result.profile?.trail_unlocks).toEqual([7, 30, 100]);
+  });
+
+  it('migration keeps an account topic that has the same id', () => {
+    const account = toCloud(withTopics({ topics: [{ ...topic('p2'), name: 'Account name' }], kept: [] }));
+    const plan = planMigration(withTopics(), account);
+    expect(plan.result.topics.p2.name).toBe('Account name');
+  });
+});
+
+describe('topics: older saved bases and database limits', () => {
+  const oldBase = () => {
+    const { topics: _t, topicLinks: _l, kept: _k, ...old } = toCloud(journal());
+    return old as unknown as ReturnType<typeof toCloud>;
+  };
+
+  it('diff and merge cope with a sync base saved before topics existed', () => {
+    const next = toCloud(journal({ topics: [{ id: 'p1', name: 'Work', status: 'open', createdAt: '2026-11-01T09:00:00.000Z', entryIds: ['n1'] }] }));
+    expect(diff(oldBase(), next).upserts.topics).toHaveLength(1);
+    const merged = mergeSnapshots(oldBase(), next, toCloud(journal()));
+    expect(Object.keys(merged.topics)).toEqual(['p1']);
+    expect(Object.keys(merged.topicLinks)).toEqual(['p1|n1']);
+  });
+
+  it('rows stay inside the database limits, and stay stable across a round trip', () => {
+    const state = journal({
+      topics: [{ id: 'p1', name: `  ${'n'.repeat(60)}  `, status: 'resolved', createdAt: '2026-11-01T09:00:00.000Z', whatHelped: 'w'.repeat(300), entryIds: [] }],
+      kept: [{ id: 'k1', text: 't'.repeat(2000), source: { kind: 'topic', topicId: 'p1' }, createdAt: '2026-11-02T09:00:00.000Z' }],
+    });
+    const snap = toCloud(state);
+    expect(snap.topics.p1.name).toHaveLength(40);
+    expect(snap.topics.p1.what_helped).toHaveLength(200);
+    expect(snap.kept.k1.text).toHaveLength(1200);
+    expect(toCloud(applyCloud(state, snap))).toEqual(snap);
+  });
+
+  it('applyCloud skips a kept word with no source id', () => {
+    const snap = toCloud(journal());
+    snap.kept.bad = { id: 'bad', text: 'x', source_kind: 'reflection', source_entry_id: null, source_topic_id: null, created_at: '2026-11-02T09:00:00.000Z' };
+    expect(applyCloud(journal(), snap).kept).toEqual([]);
   });
 });
