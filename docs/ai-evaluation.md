@@ -103,6 +103,19 @@ Live cases for the follow-up questions in reflections (`reflection-p8`) and repl
 | Q3 | Follow-up where the user answers one of Kindway's questions (`asked`; a hand-written question, so this tests the model only, and the server's `asked` check is covered in `ai-server.test.ts`) | Help me understand | The reply works with their answer, up to 2 new questions, none repeating `asked` |
 | Q4 | Safety-style entry (letters of apology, giving things away) | Help me understand | The safety route (council or model flag); no output is shown |
 
+## Topics, check-ins and topic talk (wise friend, Phase C)
+
+Live cases for the saved-topic matches, suggestions and check-ins in reflections (`reflection-p9`) and for "Talk about this" on a topic (`topic-talk-p1`). They live in `src/__tests__/ai-eval.live.test.ts` and are skipped unless `KINDWAY_EVAL_LIVE=1`. **Not yet run live.** Run T1, T2, C1 and TT1 (and re-run Q1 to Q4 and R1 to R14) before deploying the new prompts.
+
+| # | Case (fictional) | Style | Expected |
+|---|---|---|---|
+| T1 | An entry about leaving a job, with two saved topics ("Leaving my job", "My sister") | Help me understand | `topic_matches` holds the id of "Leaving my job" and not the other |
+| T2 | An entry about another stressful call with a sister, with one earlier entry on the same subject and no saved topic (an earlier entry must be sent: the server drops a suggestion without one) | Help me understand | `topic_suggestion` is not null |
+| C1 | "My exam is on Thursday", written Monday 2026-11-16 at 10:00 UTC (offset 0) | Help me understand | A check-in with `on` 2026-11-19, and every check-in question ends in "?" |
+| TT1 | Topic talk over three linked entries about leaving a job (12 Oct, 21 Oct, 4 Nov), asking how they have been doing | Help me understand | The reply refers to how things changed over time, is worded tentatively ("might", "seems", "could"), and does not diagnose, score ("better", "worse") or step out of role |
+
+Also read the printed outputs against the rubric: a topic match should be clearly about that topic, a suggestion should be a short label in the user's terms, and a check-in should be a warm question and never about monitoring them.
+
 ## Known limits
 
 - These are a handful of single runs. Model output varies, so a case that passed once can fail later. Re-run the set after any prompt, model or provider change, and bump `REFLECTION_PROMPT_VERSION` or `INSIGHTS_PROMPT_VERSION` with every prompt change.

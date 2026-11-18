@@ -11,6 +11,7 @@ Hardening comes before new native features, so widgets and notifications don't l
 | **7: Beta hardening** | On Android and the web app: close the per-user AI-output provenance limitation; security and privacy review; live Groq evaluation (needs approval: it uses provider quota); offline recovery; accessibility (large text, TalkBack, reduced motion); check Groq retention, quota and consent wording | A review document with no open high-severity findings; evaluation tables in `docs/ai-evaluation.md` filled in; accessibility checklist passed |
 | **7B: Everyday basics** (added 2026-10-30) | What people expect from any app with an account and any journal app: show/hide password, change password and email, resend the confirmation email, app lock (Android), export my journal, About and Contact us, pull down to refresh, undo a delete, change an entry's date, and no demo leftovers. Version 1.3.0, a new runtime | All 12 items are built and tested; the owner's checks on the A37, real email addresses and an iPhone pass; the owner approves the privacy policy and terms |
 | **8: Native capabilities** | Web reminders for the iPhone web app (Web Push sent by Supabase on a schedule; stores only the reminder time). Voice transcription (starts with a feasibility spike). Reminders and the home-screen widget moved up into Phase 6 on 2026-10-25, before the month-long test | Each feature works on the development build and has its own phone test, or is dropped after its spike with the reason written down |
+| **Wise friend** (added 2026-11-16) | Kindway as a friend who asks, remembers and notices: follow-up questions, a growing trail, topics, check-ins, kept words and a conversation per topic. Runtime 1.3.0 | Built and tested (done); the owner's phone checklist passes; ship order below followed |
 | **9: Closed beta, then release** | Preview and production EAS builds, internal testing track, privacy policy and store listing, support and incident process, retention and deletion policy | Testers use it for at least 2 weeks with no data-loss or privacy bugs; the release checklist is complete |
 
 ## Phase 6 backlog
@@ -94,3 +95,41 @@ Design: `docs/superpowers/specs/2026-10-30-everyday-basics-design.md`. Plan: `do
 - [ ] Owner, on an iPhone web app: export (Safari's share sheet), change password, the policy links, and the show-password toggle keeping the keyboard open
 - [ ] Owner: read and approve `public/privacy.html` and `public/terms.html` before pushing, including "we do not sell", the National Privacy Commission complaint line, the Data Privacy Act rights list and "tested by two people"
 - [ ] Any further over-the-air update for 1.2.1 users must come from the pre-7B tree, because this phase's runtime is 1.3.0
+
+## Wise friend checklist
+
+Design: `docs/superpowers/specs/2026-11-16-wise-friend-engagement-design.md`. Plan: `docs/superpowers/plans/2026-11-16-wise-friend-engagement.md`. Built 2026-11-16 to 2026-11-18; the live evaluation (T1, T2, C1, TT1, Q1 to Q4) has not been run yet (`docs/ai-evaluation.md`).
+
+What shipped:
+
+- [x] Phase A, follow-up questions: a reflection and each reply end with two or three open questions the user can tap to answer in the chat (`reflection-p8`, `follow-up-p6`)
+- [x] Phase B, a growing trail: a lighting moment after each save (blaze, glow, "N days on your way."), and milestones at 7, 30, 50, 100, 200 and 365 days that add scenery to the "Your trail" card for good, never counting what was missed (migration `20261116120000`)
+- [x] Phase C, topics: save a topic from a reflection's suggestion, link entries to it, resolve and reopen it, and keep "what helped" (migration `20261116130000`)
+- [x] Phase C, check-ins: things an entry says are coming up become a question on Today on the day, answered with a tap
+- [x] Phase C, kept words and "helped before": a line from a reflection can be kept, and a similar topic shows what helped last time
+- [x] Phase C, topic talk: "Talk about this" on a topic, a conversation over up to 8 linked entries (`generate-topic-talk`, `topic-talk-p1`, consent `cross_entry_analysis` v3)
+
+Owner, on the A37 with build 1.3.0 (after the ship order below):
+
+- [ ] Follow-up questions: a reflection shows two or three questions as chips; tapping one opens the chat with it as the question being answered; the reply asks up to two new ones; none repeats the question just answered
+- [ ] Lighting moment: saving an entry paints the blaze and shows "N days on your way." for about 1.5 seconds without delaying a ready reflection; tapping skips it; with reduced motion on there is no glow or scale but the line still shows briefly; at day 7 it lasts about 2.5 seconds
+- [ ] Trail scenery: a milestone adds scenery to the "Your trail" card and it stays after more entries; nothing about counts, topics or check-ins appears in reminders, notifications or the widget
+- [ ] Topics: save a suggested topic; link and unlink an entry; resolve a topic and reopen it; add a "what helped" note and see it on the topic; delete a topic and check its conversation goes too
+- [ ] Check-ins on Today: write "my exam is on Thursday" on a Monday; on Thursday Today asks how it went; answer one and dismiss another; neither comes back
+- [ ] Kept words and helped before: keep a line from a reflection and find it again; with a resolved topic similar to a new one, "helped before" shows what helped
+- [ ] Topic talk and consent: "Talk about this" asks for consent first (the new wording); the reply refers to the linked entries; a second turn keeps context; an offline attempt fails with no stand-in reply; Delete AI outputs removes the conversation
+- [ ] Consent bump: users who agreed before are asked again for reflections (v4) and reviews (v3); an old build can no longer use AI
+
+Out of scope for now (roadmap):
+
+- Happy for you: a good-news mode that celebrates without analysing
+- Share from anywhere: the OS share sheet into a new entry
+- A next-day check-in after a heavy entry
+- Merging the entry-level "revisit" flag ("Still open" in Patterns) into Topics
+
+Ship order (the controller does these with the owner's OK):
+
+1. Run pgTAP with Docker running: `npx supabase test db`.
+2. Push the migrations `20261116120000_profile_trail_unlocks.sql` and `20261116130000_topics_kept_words.sql`: `npx supabase db push`.
+3. Deploy the functions: `npx supabase functions deploy generate-reflection generate-follow-up generate-topic-talk`.
+4. Make a new EAS build (runtime 1.3.0). The consent versions go to `entry_reflection` 4 and `cross_entry_analysis` 3, so signed-in users are asked to agree again. Old builds lose AI until they are updated, because the server now requires the new versions.

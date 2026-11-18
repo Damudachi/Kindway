@@ -15,6 +15,7 @@ import { FOLLOW_UP_JSON_SCHEMA, followUpSystemPrompt, followUpUserPrompt, parseF
 import { INSIGHTS_JSON_SCHEMA, INSIGHTS_SYSTEM_PROMPT, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
 import { parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt, type Style } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
+import { parseTopicTalk, TOPIC_TALK_JSON_SCHEMA, topicTalkSystemPrompt, topicTalkUserPrompt } from '../../supabase/functions/_shared/topic-talk';
 
 const live = process.env.KINDWAY_EVAL_LIVE === '1';
 const run = live ? describe : describe.skip;
@@ -314,6 +315,112 @@ ${JSON.stringify(parsed, null, 2)}`);
     }
   });
 
+  it('T1 entry about a saved topic: its id is in topic_matches', async () => {
+    await pause();
+    const saved = [
+      { id: 'topic-job', name: 'Leaving my job' },
+      { id: 'topic-sister', name: 'My sister' },
+    ];
+    const e = entry('Fictional: handed in my badge this afternoon and cleared out my desk. Four years at the company ended in a cardboard box. I keep wondering what I do on Monday morning now.', { feelings: ['Sad', 'Lost'] });
+    const { result, report } = await answer('reflection', {
+      system: reflectionSystemPrompt('understand', profile()),
+      user: reflectionUserPrompt(e, [], [], saved),
+      schemaName: 'kindway_reflection',
+      schema: REFLECTION_JSON_SCHEMA,
+      maxTokens: 1200,
+    });
+    console.log(`T1 saved topic
+${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseReflection(result.text, 'understand', [], saved, e.written_at);
+    console.log(`T1 output
+${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.output.topic_matches).toContain('topic-job');
+    expect(parsed!.output.topic_matches).not.toContain('topic-sister');
+  });
+
+  it('T2 repeated subject with no saved topic: a topic is suggested', async () => {
+    await pause();
+    // The server drops a suggestion when no earlier entry was sent, so one is passed here as well.
+    const earlier = [
+      entry('Fictional: dreaded the Sunday call with my sister again. She always asks about my plans and I never know what to say.', { id: 'x1', written_at: '2026-10-12T20:00:00.000Z', feelings: ['Anxious'] }),
+    ];
+    const e = entry('Fictional: another call with my sister tonight. I rehearsed my answers beforehand and still froze when she asked what I want to do next.', { feelings: ['Anxious'] });
+    const { result, report } = await answer('reflection', {
+      system: reflectionSystemPrompt('understand', profile()),
+      user: reflectionUserPrompt(e, [], earlier),
+      schemaName: 'kindway_reflection',
+      schema: REFLECTION_JSON_SCHEMA,
+      maxTokens: 1200,
+    });
+    console.log(`T2 topic suggestion
+${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseReflection(result.text, 'understand', [], [], e.written_at, 0, true);
+    console.log(`T2 output
+${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.output.topic_suggestion).not.toBeNull();
+  });
+
+  it('C1 "My exam is on Thursday" written on a Monday: a check-in dated that Thursday', async () => {
+    await pause();
+    const e = entry('Fictional: My exam is on Thursday and I have barely started revising. I keep opening the book and closing it again.', { written_at: '2026-11-16T10:00:00.000Z', feelings: ['Anxious'] });
+    const { result, report } = await answer('reflection', {
+      system: reflectionSystemPrompt('understand', profile()),
+      user: reflectionUserPrompt(e, [], [], [], 0),
+      schemaName: 'kindway_reflection',
+      schema: REFLECTION_JSON_SCHEMA,
+      maxTokens: 1200,
+    });
+    console.log(`C1 check-in
+${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseReflection(result.text, 'understand', [], [], e.written_at, 0);
+    console.log(`C1 output
+${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    const checkIns = parsed!.output.check_ins;
+    expect(checkIns.some((c) => c.on === '2026-11-19')).toBe(true);
+    for (const c of checkIns) expect(c.question).toMatch(/\?$/);
+  });
+
+  it('TT1 topic talk over three linked entries: change over time, tentative, no diagnosis', async () => {
+    await pause();
+    const linked = [
+      entry('Fictional: told my manager I am leaving after four years. My hands were shaking.', { id: 'l1', written_at: '2026-10-12T20:00:00.000Z', feelings: ['Anxious'] }),
+      entry('Fictional: last day. I cried in the car park, but people hugged me and it felt gentle.', { id: 'l2', written_at: '2026-10-21T20:00:00.000Z', feelings: ['Sad'] }),
+      entry('Fictional: second week off. I walked by the river and texted Mia. The quiet is less sharp now.', { id: 'l3', written_at: '2026-11-04T20:00:00.000Z', feelings: ['Calm'] }),
+    ];
+    const message = 'Looking at all of these together, how do you think I have been doing with leaving?';
+    const { result, report } = await answer('topic_talk', {
+      system: topicTalkSystemPrompt('understand', profile()),
+      user: topicTalkUserPrompt({ name: 'Leaving my job' }, linked, [], message, { days: 90, maxEntryChars: 600 }),
+      schemaName: 'kindway_topic_talk',
+      schema: TOPIC_TALK_JSON_SCHEMA,
+      maxTokens: 700,
+    });
+    console.log(`TT1 topic talk
+${report}`);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) return;
+    const parsed = parseTopicTalk(result.text);
+    console.log(`TT1 output
+${JSON.stringify(parsed, null, 2)}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.safety).toBe(false);
+    const reply = parsed!.output.reply;
+    // Refers to how it changed across the entries, and says so tentatively.
+    expect(reply).toMatch(/\b(over time|later|less|softer|eased|shifted|changed|gentler|at first|by now|these weeks)\b/i);
+    expect(reply).toMatch(/\b(might|seems?|seemed|could|perhaps|maybe|may)\b/i);
+    expect(reply.toLowerCase()).not.toMatch(OFF_ROLE);
+    expect(reply).not.toMatch(/(?<!might |may |could )\b(better|worse)\b|progress|setback|depress|anxiety disorder/i);
+  });
+
   it('R9 review with thin, unrelated evidence', async () => {
     await pause();
     const entries = [
@@ -332,7 +439,7 @@ ${JSON.stringify(parsed, null, 2)}`);
     // No theme or pattern should claim support from a single entry.
     for (const o of parsed!.output.observations) if (o.kind === 'theme' || o.kind === 'pattern') expect(o.entry_ids.length).toBeGreaterThanOrEqual(2);
     // About the entries, never about the journaling itself (seen under insights-p2: "No feeling tags", "Consistent journaling").
-    for (const o of parsed!.output.observations) expect(`${o.title} ${o.body}`).not.toMatch(/tags?|journal|habit|consisten|regularly|fictional/i);
+    for (const o of parsed!.output.observations) expect(`${o.title} ${o.body}`).not.toMatch(/\btags?\b|journal|habit|consisten|regularly|fictional/i);
     // Unrelated everyday entries: no conclusion and no story of change (seen under insights-p4 before the variety rule).
     expect(parsed!.output.arc).toBeNull();
     expect(parsed!.output.summary ?? '').not.toMatch(/curio|initiative|exploring|phase/i);

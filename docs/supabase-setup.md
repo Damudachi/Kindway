@@ -88,6 +88,7 @@ The schema is in checked-in migrations under `supabase/migrations/`:
 - `20261020055800_cloud_journal.sql`: tables `profiles`, `compass_values`, `entries`, `entry_compass_links`, `tomorrow_actions`, `insight_feedback`; triggers; RLS policies; grants.
 - `20261020140000_ai_consent.sql`: table `ai_consents`, its guard trigger, the functions `grant_ai_consent`, `revoke_ai_consent` and `ai_consent_active`; RLS policies; grants. See section 6a.
 - `20261020170000_ai_outputs.sql`: tables `ai_requests` (request ledger), `ai_reflections`, `ai_insights`, `ai_insight_sources`; the functions `ai_begin_request`, `ai_finish_request`, `delete_ai_outputs`; a trigger that deletes AI reviews when a source entry is deleted; RLS policies; grants. See section 6b.
+- `20261116120000_profile_trail_unlocks.sql` and `20261116130000_topics_kept_words.sql` (wise friend): the trail milestones on `profiles`; then topics, their entry links, check-ins, kept words and `ai_topic_talks`; RLS and grants as above. Run `npx supabase test db` before pushing them.
 - `20261029100000_ai_server_ledger.sql` and `20261029110000_ai_outputs_server_only.sql` (Phase 7): the ledger functions became `ai_server_begin_request` and `ai_server_finish_request`, callable only by `service_role` with an explicit user id; signed-in users lost insert rights on the AI output tables. See section 6b.
 
 Key rules:
@@ -189,6 +190,8 @@ Consent needs an account; local-only users can't grant it, so nothing can be sen
 
 Version history: `entry_reflection` went to **2** in Phase 5D1, when its disclosure started naming exactly what compass context is sent (linked values marked "AI may use this": name and note, first 400 characters). A version-1 grant is "outdated" and refused until the user agrees again. **Deploy the server and the app together:** an app expecting version 2 against a server still requiring version 1 (or the reverse) makes every reflection request fail closed with `consent_required`.
 
+Wise friend (2026-11-16): `entry_reflection` went to **4** (reflections also read saved topic names and may suggest topics and check-ins) and `cross_entry_analysis` to **3** (topic talk). The numbers must match in `src/services/ai/consent.ts` (`CURRENT_TERMS`) and `supabase/functions/_shared/ai-consent.ts`. The same rule applies: deploy together, users agree again, and an old app build loses AI until updated.
+
 **Provider disclosure.** It describes GroqCloud's retention as stated in Groq's docs (console.groq.com/docs/your-data, checked 2026-10-28): no retention of inference content by default; usage metadata without content; retained data stored in the US. The owner turned on **Zero Data Retention** in Groq's Data Controls on 2026-10-28, which also stops logging for reliability or abuse investigations; the disclosure (`disclosureVersion` `groq-zdr-2026-10-28`) says that. Kindway uses no Batch or fine-tuning, which ZDR disables. If ZDR is ever turned off, rewrite the retention lines in `src/data/ai-disclosure.ts` and bump `disclosureVersion` in both files. Don't edit the wording without bumping the version.
 
 **Releasing a disclosure change.** The server only accepts consents for the current version, and an app still running the old version believes its old consent is active. So release the app and the server together, then make sure every device actually runs the new version:
@@ -277,7 +280,7 @@ npx supabase functions serve --env-file supabase/functions/.env
 
 ```bash
 npx supabase link --project-ref <project-ref>
-npx supabase db push                                   # 20261020140000_ai_consent, 20261020170000_ai_outputs, 20261021120000_ai_follow_ups
+npx supabase db push                                   # pending migrations, e.g. 20261116120000_profile_trail_unlocks and 20261116130000_topics_kept_words
 npx supabase secrets set --env-file supabase/functions/.env
 npx supabase functions deploy generate-reflection generate-insights generate-follow-up generate-topic-talk
 ```

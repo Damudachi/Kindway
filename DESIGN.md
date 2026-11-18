@@ -238,6 +238,7 @@ All Reanimated 4, all instant under reduced motion, ease-out `cubic-bezier(0.23,
 - **Tomorrow step done:** its blaze fills in lichen (same paint motion).
 - **Haptic:** one light tap (expo-haptics, Light impact) as any blaze is painted, so a save or a finished step feels certain. Nothing else vibrates.
 - **Held light:** the mark's light breathes (halo grows and fades over 2.4s, sine ease) in the Today wordmark and on Welcome, only while the screen is in view; still under reduced motion.
+- **Lighting moment:** after a new save, the blaze paints, a soft glow rises and one line ("N days on your way.") shows for about 1.5s (2.5s at a milestone) while the reflection loads; it never delays a ready reflection, and under reduced motion the glow and scale drop but the line still shows briefly (see Trail growth).
 - **Theme switch:** the old paper dissolves into the new over 200ms.
 - **Not animated:** tab switches (native navigation bar behaviour) and screen transitions (native stack defaults).
 
@@ -375,7 +376,7 @@ The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (m
 - **Next:** the optional Tomorrow Bridge step, a solid 2dp lichen stroke.
 - **Tentative:** a 2dp Graphite Pencil stroke.
 - **Trail growth:** the trail rewards writing and never counts what was missed.
-  - After a new save, a short lighting moment plays while the reflection loads: the blaze paints, a soft glow rises, and one line reads "N days on your way." About 1.5s, or 2.5s at a milestone. Tap to skip; reduced motion drops the glow and scale.
+  - After a new save, a short lighting moment plays while the reflection loads: the blaze paints, a soft glow rises, and one line reads "N days on your way." About 1.5s, or 2.5s at a milestone. It never holds back a reflection that is ready. Tap to skip; reduced motion drops the glow and scale, and the line still shows briefly.
   - Milestones at 7, 30, 50, 100, 200 and 365 days written add scenery to the "Your trail" card, for good.
   - The count shows only in the moment and on the trail card, never in reminders, notifications or the widget.
   - No vibration beyond the existing blaze paint tap.
