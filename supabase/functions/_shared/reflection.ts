@@ -10,7 +10,7 @@ import type { CompassLink, EntryRow, ProfileRow, StoredReflection } from './ai-s
 import { needsSafetyRoute } from './safety.ts';
 
 export const REFLECTION_SCHEMA_VERSION = 'reflection-1';
-export const REFLECTION_PROMPT_VERSION = 'reflection-p7';
+export const REFLECTION_PROMPT_VERSION = 'reflection-p8';
 
 /** Limits on the entry title and on the other topics a many-topic entry is split into. */
 export const MAX_TITLE = 60;
@@ -19,6 +19,9 @@ export const MAX_TOPIC = 40;
 /** Concrete options offered when the user asks for help: how many, and how long each may be. */
 export const MAX_IDEAS = 3;
 export const MAX_IDEA = 200;
+/** Short open questions Kindway asks the user about what they wrote: how many, and how long each may be. */
+export const MAX_FOLLOW_UP_QUESTIONS = 3;
+export const MAX_FOLLOW_UP_QUESTION = 120;
 
 /** The longest part of a compass note sent with a reflection; the rest is left out. */
 export const MAX_COMPASS_NOTE = 400;
@@ -45,6 +48,9 @@ export type ReflectionOutput = {
   suggested_step: string | null;
   /** Up to three concrete options, when the user asked for help. Never in "Just listen". */
   ideas: string[];
+  /** Two or three short questions Kindway asks about the entry. Kept in every style. */
+  follow_up_questions: string[];
+  /** The first follow-up question, kept for readers of older stored reflections. */
   reflection_question: string | null;
   /** For an entry about several things: the topics the reflection didn't focus on. */
   other_topics: string[];
@@ -60,7 +66,7 @@ const nullableString = { type: ['string', 'null'] };
 export const REFLECTION_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'acknowledgment', 'events_and_interpretations', 'possible_perspective', 'compass_value', 'compass_connection', 'suggested_step', 'ideas', 'reflection_question', 'other_topics', 'comfort_only', 'safety_concern'],
+  required: ['title', 'acknowledgment', 'events_and_interpretations', 'possible_perspective', 'compass_value', 'compass_connection', 'suggested_step', 'ideas', 'follow_up_questions', 'other_topics', 'comfort_only', 'safety_concern'],
   properties: {
     title: { type: 'string' },
     acknowledgment: { type: 'string' },
@@ -70,7 +76,7 @@ export const REFLECTION_JSON_SCHEMA = {
     compass_connection: nullableString,
     suggested_step: nullableString,
     ideas: { type: 'array', items: { type: 'string' } },
-    reflection_question: nullableString,
+    follow_up_questions: { type: 'array', items: { type: 'string' } },
     other_topics: { type: 'array', items: { type: 'string' } },
     comfort_only: { type: 'boolean' },
     safety_concern: { type: 'boolean' },
@@ -79,7 +85,7 @@ export const REFLECTION_JSON_SCHEMA = {
 
 const STYLE_RULES: Record<Exclude<Style, 'ask'>, string> = {
   listen:
-    'Just listen. Acknowledge and reflect back what the user shared. Do not reframe, analyse, challenge or advise: events_and_interpretations, possible_perspective and suggested_step must be null and ideas must be empty. A reflection_question is optional.',
+    'Just listen. Acknowledge and reflect back what the user shared. Do not reframe, analyse, challenge or advise: events_and_interpretations, possible_perspective and suggested_step must be null and ideas must be empty. follow_up_questions are still asked, gently, to invite them to say more.',
   understand:
     'Help me understand. Help the user tell apart what happened, how they felt, and what they concluded from it. Offer at most one tentative alternative perspective, only where it is useful. If someone treated the user badly, what they did is part of what happened, not the user’s interpretation, and the perspective must not excuse or explain away their conduct; leave it null or make it about the user’s own options. suggested_step is usually null. Exception: when the entry is about loss, an ending or grief and the user has not drawn a harsh conclusion about themselves, there is nothing to untangle: set comfort_only to true, and the reflection is mostly acknowledgment (and ideas if they asked for help).',
   honest:
@@ -138,7 +144,7 @@ Fields:
 - compass_value and compass_connection: only if compass values are listed inside the entry block and one is genuinely relevant to what this entry is about. Leaving them null is normal; don't mention a value just because it is listed. compass_value must be exactly one of the listed names; compass_connection says briefly and tentatively how it might connect. A note after a value is the user's own words about it: don't treat it as a target they must meet, don't add goals or values they didn't write, and don't state anything about their values beyond those words. Never frame a hard feeling, rest or a setback as failing a value, and never use a value to pressure or shame. Otherwise both null.
 - suggested_step: one small optional practical step, or null.
 - ideas: up to three short options (one sentence each) when the user asked for help or advice, as described above. Otherwise an empty array. Always empty in Just listen.
-- reflection_question: at most one open question, or null.
+- follow_up_questions: two or three short open questions Kindway asks the user to learn more about what they wrote, one idea each, in their terms, at most 20 words. When an earlier entry is plainly about the same subject, one may ask how it has moved since. No yes/no questions, no advice phrased as a question, no "why did you" questions that blame. For loss, grief or hurt, gently invite them to say more about what or who matters ("What do you miss most about her?"); never analyse.
 - other_topics: for an entry about several separate things, the ones the reflection didn't focus on, at most three, each a short label of one to four words in the user's terms (for example "your sister's visit"). Otherwise an empty array.
 - comfort_only: true when what this entry is mostly about is loss, an ending, grief or being hurt (for example leaving a job, a breakup, a death), even if the user also asks what to do or says it feels unreal. False only if the entry itself draws a harsh or sweeping conclusion about the user's own worth or ability, or is mainly about a disagreement with someone. Kindway then leaves out events_and_interpretations and possible_perspective, so don't rely on them.
 - safety_concern: true if the entry suggests the user may be at risk of harming themselves or someone else, or is in danger; then Kindway shows reviewed support information instead of your reflection. Otherwise false.`;
@@ -201,6 +207,18 @@ export function parseReflection(text: string, style: Style, compass: CompassLink
     // A title or topic that breaks the limits is dropped, not a reason to distrust the reply.
     const title = typeof raw.title === 'string' ? raw.title.trim().replace(/^["“']+|["”'.]+$/g, '').trim() : '';
     const topics = Array.isArray(raw.other_topics) ? raw.other_topics : [];
+    // Over-long questions are dropped, not a reason to distrust the reply. Kept in every style.
+    const seen = new Set<string>();
+    const followUps = (Array.isArray(raw.follow_up_questions) ? raw.follow_up_questions : [])
+      .filter((t): t is string => typeof t === 'string')
+      .map((t) => t.trim())
+      .filter((t) => {
+        const key = t.toLowerCase();
+        if (!t || t.length > MAX_FOLLOW_UP_QUESTION || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, MAX_FOLLOW_UP_QUESTIONS);
     const listening = style === 'listen';
     // Loss with no harsh self-conclusion has nothing to untangle; the model says so, the server enforces it.
     const quiet = listening || raw.comfort_only === true;
@@ -225,7 +243,8 @@ export function parseReflection(text: string, style: Style, compass: CompassLink
               .map((t) => t.trim())
               .filter((t) => t && t.length <= MAX_IDEA)
               .slice(0, MAX_IDEAS),
-        reflection_question: field('reflection_question', 300),
+        follow_up_questions: followUps,
+        reflection_question: followUps[0] ?? null,
         other_topics: topics
           .filter((t): t is string => typeof t === 'string')
           .map((t) => t.trim())

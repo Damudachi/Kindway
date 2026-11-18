@@ -11,7 +11,7 @@ import { AI_CONSENT_TERMS, type AiScope, hasActiveConsent } from '../../supabase
 import { supabaseAiStore, type AiStore, type BeginResult, type CompassLink, type EntryRow, type ProfileRow, type StoredFollowUp, type StoredInsight, type StoredReflection } from '../../supabase/functions/_shared/ai-store';
 import { followUpStyleInstructions, followUpSystemPrompt, handleFollowUp, parseFollowUp } from '../../supabase/functions/_shared/follow-up';
 import { handleInsights, INSIGHTS_JSON_SCHEMA, INSIGHTS_SYSTEM_PROMPT, insightsUserPrompt, parseInsights } from '../../supabase/functions/_shared/insights';
-import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
+import { handleReflection, MAX_COMPASS_NOTE, parseReflection, REFLECTION_JSON_SCHEMA, REFLECTION_PROMPT_VERSION, reflectionSystemPrompt, reflectionUserPrompt } from '../../supabase/functions/_shared/reflection';
 import { needsSafetyRoute } from '../../supabase/functions/_shared/safety';
 import { ADVISORS, CHAIR_RULES, parseNotes, withCouncil } from '../../supabase/functions/_shared/council';
 import { caseEntry, caseTurns, FOLLOW_UP_CASES } from '@/test-utils/follow-up-cases';
@@ -46,7 +46,7 @@ const reply = (o: Record<string, unknown>) =>
     compass_value: null,
     compass_connection: null,
     suggested_step: null,
-    reflection_question: null,
+    follow_up_questions: [],
     title: 'A long day',
     other_topics: [],
     safety_concern: false,
@@ -338,7 +338,7 @@ describe('generate-reflection', () => {
     const result = await handleReflection(reflect(), ctx(store, provider));
     expect(result.status).toBe(200);
     expect(result.body).toMatchObject({ status: 'ready', reflection: { id: 'ref-1', entry_id: 'e1', style: 'understand', provider: 'groq', model: 'openai/gpt-oss-120b' } });
-    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p7', entry_updated_at: '2026-10-19T20:00:00.000Z' });
+    expect(store.reflections[0]).toMatchObject({ request_id: 'req-1', schema_version: 'reflection-1', prompt_version: 'reflection-p8', entry_updated_at: '2026-10-19T20:00:00.000Z' });
     expect(store.ledger.get(KEY)?.status).toBe('succeeded');
     expect(store.entries).toHaveBeenCalledWith(['e1']);
     const sent = provider.calls[0].user;
@@ -479,8 +479,42 @@ describe('generate-reflection', () => {
   });
 
   it('“Just listen” never carries reframing or advice, whatever the model returns', () => {
-    const parsed = parseReflection(reply({ possible_perspective: 'p', events_and_interpretations: 'e', suggested_step: 's', reflection_question: 'q?' }), 'listen', []);
-    expect(parsed?.output).toMatchObject({ possible_perspective: null, events_and_interpretations: null, suggested_step: null, reflection_question: 'q?' });
+    const parsed = parseReflection(reply({ possible_perspective: 'p', events_and_interpretations: 'e', suggested_step: 's', follow_up_questions: ['q?'] }), 'listen', []);
+    expect(parsed?.output).toMatchObject({ possible_perspective: null, events_and_interpretations: null, suggested_step: null, follow_up_questions: ['q?'], reflection_question: 'q?' });
+  });
+
+  describe('reflection follow-up questions', () => {
+    const questions = ['What made Tuesday lighter?', ' What made Tuesday lighter? ', 'x'.repeat(121), 'Who else knows?', 'What would help?', 'Extra?'];
+
+    it('keeps up to three short, distinct questions and mirrors the first as reflection_question', () => {
+      const output = parseReflection(reply({ follow_up_questions: questions }), 'understand', [])?.output;
+      expect(output?.follow_up_questions).toEqual(['What made Tuesday lighter?', 'Who else knows?', 'What would help?']);
+      expect(output?.reflection_question).toBe('What made Tuesday lighter?');
+    });
+
+    it('de-duplicates ignoring case', () => {
+      expect(parseReflection(reply({ follow_up_questions: ['Who else knows?', 'WHO ELSE KNOWS?', 4] }), 'understand', [])?.output.follow_up_questions).toEqual(['Who else knows?']);
+    });
+
+    it('gives none when the field is missing or not an array', () => {
+      for (const o of [{ follow_up_questions: undefined }, { follow_up_questions: 'What now?' }]) {
+        const output = parseReflection(reply(o), 'understand', [])?.output;
+        expect(output?.follow_up_questions).toEqual([]);
+        expect(output?.reflection_question).toBeNull();
+      }
+    });
+
+    it('keeps the questions in “Just listen” and when comfort_only', () => {
+      expect(parseReflection(reply({ follow_up_questions: ['What do you miss most?'] }), 'listen', [])?.output.follow_up_questions).toEqual(['What do you miss most?']);
+      expect(parseReflection(reply({ comfort_only: true, follow_up_questions: ['What do you miss most?'] }), 'understand', [])?.output.follow_up_questions).toEqual(['What do you miss most?']);
+    });
+
+    it('asks for them in the schema and prompt, under version reflection-p8', () => {
+      expect(REFLECTION_JSON_SCHEMA.required).toContain('follow_up_questions');
+      expect(REFLECTION_JSON_SCHEMA.required).not.toContain('reflection_question');
+      expect(REFLECTION_PROMPT_VERSION).toBe('reflection-p8');
+      expect(reflectionSystemPrompt('listen', null)).toContain('follow_up_questions');
+    });
   });
 
   it('keeps a compass connection only for a value the user linked and allowed', () => {
@@ -520,8 +554,8 @@ describe('generate-reflection', () => {
   });
 
   it('drops the analysis blocks when the entry is grief with no harsh conclusion, but keeps comfort and ideas', () => {
-    const body = reply({ comfort_only: true, events_and_interpretations: 'e', possible_perspective: 'p', ideas: ['Call a friend'], reflection_question: 'q?' });
-    expect(parseReflection(body, 'understand', [])?.output).toMatchObject({ events_and_interpretations: null, possible_perspective: null, ideas: ['Call a friend'], reflection_question: 'q?' });
+    const body = reply({ comfort_only: true, events_and_interpretations: 'e', possible_perspective: 'p', ideas: ['Call a friend'], follow_up_questions: ['q?'] });
+    expect(parseReflection(body, 'understand', [])?.output).toMatchObject({ events_and_interpretations: null, possible_perspective: null, ideas: ['Call a friend'], follow_up_questions: ['q?'] });
     expect(parseReflection(reply({ comfort_only: false, events_and_interpretations: 'e', possible_perspective: 'p' }), 'understand', [])?.output).toMatchObject({ events_and_interpretations: 'e', possible_perspective: 'p' });
     expect(REFLECTION_JSON_SCHEMA.required).toContain('comfort_only');
   });
