@@ -9,6 +9,7 @@ import type { ChatMessage, Entry, Reflection } from '@/data/types';
 import type { AiScope } from '@/services/ai/consent';
 import type { AiOutputsRepo, Invoke } from '@/services/ai/remote';
 import { AiConsentProvider, type AiConsentInfo } from '@/state/ai-consent';
+import { useSendFollowUp } from '@/state/actions';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, reducer, type DemoState } from '@/state/demo-store';
 import { RealAiProvider, type RealAi } from '@/state/real-ai';
@@ -293,5 +294,42 @@ describe('where replies may land', () => {
       ],
     });
     expect(reducer(s, { type: 'removeAiChats' }).chats.e1.map((m) => m.id)).toEqual(['m1', 'k1']);
+  });
+});
+
+describe('sending a follow-up that answers a Kindway question', () => {
+  it('forwards asked, and never offers a chip message as context', async () => {
+    const invoke = respond(200, followUp());
+    const sync: SyncInfo = { status: 'synced', pending: 0, retry: () => {}, refresh: async () => {}, ensureSynced: jest.fn(async () => true) };
+    const real: RealAi = { reflections: true, insights: false, followUps: true, needs: null, account: 'user-a', invoke, outputs: fakeOutputs() };
+    const chat: ChatMessage[] = [
+      { id: 'u1', from: 'me', text: 'Fictional earlier', source: 'ai' },
+      { id: 'ai:fu-1', from: 'kindway', text: 'Fictional reply 1', source: 'ai', ai: { id: 'fu-1', provider: 'groq', model: 'm', createdAt: '2026-10-20T12:00:00.000Z' } },
+      { id: 'q1', from: 'kindway', text: 'What helped?', source: 'ai', asked: true },
+      { id: 'ai:fu-2', from: 'kindway', text: 'Fictional reply 2', source: 'ai', ai: { id: 'fu-2', provider: 'groq', model: 'm', createdAt: '2026-10-20T12:01:00.000Z' } },
+    ];
+    const e = journal(chat).entries[0];
+    function Sender() {
+      const send = useSendFollowUp();
+      return <Text onPress={() => send(e, 'Fictional answer', 'understand', () => {}, false, 'What helped?')}>send</Text>;
+    }
+    function Wrapped() {
+      return (
+        <RealAiProvider value={real}>
+          <DemoStoreProvider initial={journal(chat)}>
+            <SyncContext value={sync}>
+              <Sender />
+            </SyncContext>
+          </DemoStoreProvider>
+        </RealAiProvider>
+      );
+    }
+    await renderRouter({ _layout: () => <Stack />, index: Wrapped }, { initialUrl: '/' });
+    await fireEvent.press(screen.getByText('send'));
+    await waitFor(() => expect(invoke).toHaveBeenCalled(), wait);
+    const [fn, body] = invoke.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    expect(fn).toBe('generate-follow-up');
+    expect(body.context_ids).toEqual(['fu-1', 'fu-2']);
+    expect(body.asked).toBe('What helped?');
   });
 });

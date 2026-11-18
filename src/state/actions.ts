@@ -93,7 +93,7 @@ export function useSendFollowUp() {
   const real = useRealAi();
   const sync = useSync();
   return useCallback(
-    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void, consentJustGiven = false) => {
+    (entry: Entry, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void, consentJustGiven = false, asked?: string) => {
       const earlier = state.chats[entry.id] ?? [];
       const ai = (real.followUps || consentJustGiven) && real.invoke ? real.invoke : null;
       const mine: ChatMessage = { id: `u${Date.now()}`, from: 'me', text, source: ai ? 'ai' : 'simulated' };
@@ -111,7 +111,7 @@ export function useSendFollowUp() {
           if (!synced) return land({ ok: false, error: sync?.status === 'offline' ? 'offline' : 'not-synced' });
           const contextIds = earlier.flatMap((m) => (m.source === 'ai' && m.ai ? [m.ai.id] : []));
           const reflectionId = entry.reflection?.source === 'ai' && entry.reflection.ai ? entry.reflection.ai.id : null;
-          land(await requestAiFollowUp(ai, { entryId: entry.id, message: text, style, contextIds, reflectionId }));
+          land(await requestAiFollowUp(ai, { entryId: entry.id, message: text, style, contextIds, reflectionId, asked }));
         })();
         return;
       }

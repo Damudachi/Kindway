@@ -57,6 +57,7 @@ const ERRORS: Record<string, AiError> = {
 const errorOf = (body: unknown): string | undefined => (isObject(body) && typeof body.error === 'string' ? body.error : undefined);
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined);
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter(str).map((t: string) => t.trim()) : []);
 
 // Daily reflection ------------------------------------------------------------------------
 
@@ -66,6 +67,7 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
   const o = stored.output;
   const acknowledge = str(o.acknowledgment);
   if (!acknowledge || typeof stored.id !== 'string') return null;
+  const questions = strings(o.follow_up_questions);
   const compass = isObject(o.compass_connection) && str(o.compass_connection.value) && str(o.compass_connection.text) ? o.compass_connection : null;
   return {
     style: stored.style as SupportStyle,
@@ -77,7 +79,7 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
     ...(compass && { longGame: { value: String(compass.value), text: String(compass.text) } }),
     ...(str(o.suggested_step) && { nextStep: str(o.suggested_step) }),
     ...(Array.isArray(o.ideas) && o.ideas.some(str) && { ideas: o.ideas.filter(str).map((t: string) => t.trim()) }),
-    ...(str(o.reflection_question) && { question: str(o.reflection_question) }),
+    ...(questions.length ? { followUpQuestions: questions } : str(o.reflection_question) && { question: str(o.reflection_question) }),
     ...(str(o.title) && { title: str(o.title)!.trim() }),
     ...(Array.isArray(o.earlier_entry_ids) && o.earlier_entry_ids.some(str) && { related: o.earlier_entry_ids.filter(str) }),
     ...(Array.isArray(o.other_topics) && o.other_topics.some(str) && { otherTopics: o.other_topics.filter(str).map((t: string) => t.trim()) }),
@@ -111,6 +113,8 @@ export type FollowUpAsk = {
   contextIds: string[];
   /** The AI reflection shown with the entry, if any. Simulated ones are never sent. */
   reflectionId: string | null;
+  /** The question the user picked from a chip, when this message answers one. */
+  asked?: string;
 };
 
 export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = newRequestKey()): Promise<FollowUpResult> {
@@ -121,6 +125,7 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
     idempotency_key: key,
     context_ids: ask.contextIds.slice(-FOLLOW_UP_CONTEXT_TURNS),
     reflection_id: ask.reflectionId,
+    ...(ask.asked && { asked: ask.asked }),
   });
   if (res === 'offline') return { ok: false, error: 'offline' };
   if (res.status === 200 && isObject(res.body)) {
@@ -129,6 +134,7 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
     const reply = f && isObject(f.output) ? str(f.output.reply) : undefined;
     const step = f && isObject(f.output) ? str(f.output.suggested_step)?.trim() : undefined;
     if (!f || !reply || typeof f.id !== 'string' || f.entry_id !== ask.entryId) return { ok: false, error: 'invalid' };
+    const questions = f && isObject(f.output) ? strings(f.output.follow_up_questions) : [];
     const message: ChatMessage = {
       id: `ai:${f.id}`,
       from: 'kindway',
@@ -136,6 +142,7 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
       source: 'ai',
       ai: { id: f.id, provider: String(f.provider), model: String(f.model), createdAt: String(f.created_at) },
       ...(step && { step }),
+      ...(questions.length && { questions }),
     };
     return { ok: true, message };
   }

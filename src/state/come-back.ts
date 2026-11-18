@@ -40,7 +40,7 @@ export function threadFor(entries: Entry[], at = now()): Thread | null {
   if (!latest) return null;
   const n = daysAgo(latest.date, at);
   const r = latest.reflection;
-  const question = r?.source === 'ai' ? r.question?.trim() : undefined;
+  const question = r?.source === 'ai' ? (r.followUpQuestions?.[0] ?? r.question)?.trim() : undefined;
   const topic = r?.source === 'ai' ? r.otherTopics?.[0]?.trim() : undefined;
   const prompt = question || (topic ? `Last time you mentioned ${topic}. How is that sitting with you now?` : `You wrote “${latest.title}” ${ago(n)}. How is it sitting with you now?`);
   return { entryId: latest.id, prompt, from: `From “${latest.title}”, ${ago(n)}` };

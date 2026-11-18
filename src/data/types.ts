@@ -36,6 +36,8 @@ export type Reflection = {
   ideas?: string[];
   /** An optional reflection question. */
   question?: string;
+  /** AI only: up to three questions the reflection ended with. When present, `question` is not set. */
+  followUpQuestions?: string[];
   /** AI only: a short title for the entry, used unless the user renamed it. */
   title?: string;
   /** AI only: for an entry about several things, the topics this reflection didn't focus on. */
@@ -140,6 +142,10 @@ export type ChatMessage = {
   ai?: { id: string; provider: string; model: string; createdAt: string };
   /** AI replies only: a small step the reply offered, which the user can save to Tomorrow Bridge. */
   step?: string;
+  /** AI replies only: questions the reply ended with, offered as chips. */
+  questions?: string[];
+  /** A Kindway question the user picked from a chip. Never sent as a user message or counted as context. */
+  asked?: true;
 };
 
 export type Reminders = {

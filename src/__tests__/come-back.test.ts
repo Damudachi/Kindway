@@ -30,6 +30,13 @@ describe('pick up the thread', () => {
     expect(threadFor([e], AT)).toEqual({ entryId: 'a', prompt: 'What part of it felt most like home?', from: 'From “Leaving work”, yesterday' });
   });
 
+  it('prefers the first of the follow-up questions over the older single question', () => {
+    const e = entry('a', 1, { title: 'Leaving work', reflection: reflection({ followUpQuestions: ['What helped?', 'Who knows?'], question: 'Old?' }) });
+    expect(threadFor([e], AT)?.prompt).toBe('What helped?');
+    const sim = entry('b', 1, { reflection: reflection({ source: 'simulated', followUpQuestions: ['Nope?'] }) });
+    expect(threadFor([sim], AT)?.prompt).toBe('You wrote “Title b” yesterday. How is it sitting with you now?');
+  });
+
   it('ignores the question of a simulated reflection, which is pre-written and says nothing about this entry', () => {
     const e = entry('a', 2, { title: 'A slow day', reflection: reflection({ source: 'simulated', question: 'Generic question?' }) });
     expect(threadFor([e], AT)?.prompt).toBe('You wrote “A slow day” 2 days ago. How is it sitting with you now?');

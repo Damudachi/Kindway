@@ -7,7 +7,7 @@ import Patterns from '@/app/(tabs)/patterns';
 import EntryDetail from '@/app/entry/[id]/index';
 import { SnackbarProvider } from '@/components/feedback';
 import type { Entry } from '@/data/types';
-import { requestAiReflection, requestAiReview, toReview, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
+import { requestAiFollowUp, requestAiReflection, requestAiReview, toReflection, toReview, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, type DemoState } from '@/state/demo-store';
 import { AiConsentProvider, type AiConsentInfo } from '@/state/ai-consent';
@@ -120,6 +120,41 @@ describe('remote AI client', () => {
   it('a review states the server’s limits when it refuses', async () => {
     expect(await requestAiReview(respond(413, { error: 'too_many_entries', max_entries: 20 }), 'week', ['a'])).toEqual({ status: 'error', error: 'too-many', limit: 20 });
     expect(await requestAiReview(respond(409, { error: 'selection_changed' }), 'week', ['a'])).toEqual({ status: 'error', error: 'selection-changed' });
+  });
+
+  describe('follow-up questions', () => {
+    it('maps follow_up_questions (trimmed, non-empty) and leaves the legacy mirror out of question', () => {
+      const r = toReflection(storedReflection({ follow_up_questions: ['  What helped?  ', '', 4, 'Who knows?'], reflection_question: 'What helped?' }), 'x')!;
+      expect(r.followUpQuestions).toEqual(['What helped?', 'Who knows?']);
+      expect(r).not.toHaveProperty('question');
+    });
+
+    it('still maps an old reflection_question to question, with no followUpQuestions', () => {
+      const r = toReflection(storedReflection({ reflection_question: 'Old question?' }), 'x')!;
+      expect(r.question).toBe('Old question?');
+      expect(r).not.toHaveProperty('followUpQuestions');
+      expect(toReflection(storedReflection({ follow_up_questions: [], reflection_question: 'Old question?' }), 'x')).toMatchObject({ question: 'Old question?' });
+    });
+
+    const fu = (output: Record<string, unknown>) => ({ status: 'ready', follow_up: { id: 'fu-1', entry_id: 'e1', created_at: '2026-10-25T12:00:00.000Z', provider: 'groq', model: 'm', output: { reply: 'Fictional.', ...output } } });
+    const ask = { entryId: 'e1', message: 'x', style: 'forward' as const, contextIds: [], reflectionId: null };
+
+    it('sends asked only when given', async () => {
+      const a = respond(200, fu({}));
+      await requestAiFollowUp(a, { ...ask, asked: 'What helped?' });
+      expect((a as jest.Mock).mock.calls[0][1].asked).toBe('What helped?');
+      const b = respond(200, fu({}));
+      await requestAiFollowUp(b, ask);
+      expect((b as jest.Mock).mock.calls[0][1]).not.toHaveProperty('asked');
+    });
+
+    it('maps the reply’s follow_up_questions to message.questions', async () => {
+      const r = await requestAiFollowUp(respond(200, fu({ follow_up_questions: [' One? ', '', 'Two?'] })), ask);
+      expect(r).toMatchObject({ ok: true, message: { questions: ['One?', 'Two?'] } });
+      const none = await requestAiFollowUp(respond(200, fu({ follow_up_questions: [] })), ask);
+      expect(none.ok).toBe(true);
+      if (none.ok) expect(none.message).not.toHaveProperty('questions');
+    });
   });
 });
 
