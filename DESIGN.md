@@ -374,6 +374,11 @@ The blaze is the system's signature mark. It comes in exactly two sizes, 6x16 (m
 - **Open:** tonight's unwritten stop, drawn in SVG inside the same footprint as a 2dp lantern stroke dashed 3/2 on Map Paper.
 - **Next:** the optional Tomorrow Bridge step, a solid 2dp lichen stroke.
 - **Tentative:** a 2dp Graphite Pencil stroke.
+- **Trail growth:** the trail rewards writing and never counts what was missed.
+  - After a new save, a short lighting moment plays while the reflection loads: the blaze paints, a soft glow rises, and one line reads "N days on your way." About 1.5s, or 2.5s at a milestone. Tap to skip; reduced motion drops the glow and scale.
+  - Milestones at 7, 30, 50, 100, 200 and 365 days written add scenery to the "Your trail" card, for good.
+  - The count shows only in the moment and on the trail card, never in reminders, notifications or the widget.
+  - No vibration beyond the existing blaze paint tap.
 - **Trail:** one 2dp slate path at 45% opacity threads every stop. It passes straight through each blaze and swings 6dp left and right between them, alternately, like a footpath between painted trees; stops are measured, so the path follows the real layout at any font size. Onboarding progress is drawn as a short 4dp stretch of the same trail on a sand track.
 
 ### Drawn elements

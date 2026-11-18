@@ -58,6 +58,12 @@ describe('onboarding', () => {
     expect(await screen.findByText('What kind of support helps you?')).toBeOnTheScreen();
   });
 
+  it('welcome promises no streaks to break and no pressure', async () => {
+    const screen = await renderRouter({ welcome: withProviders(Welcome) }, { initialUrl: '/welcome' });
+    expect(await screen.findByText(/No streaks to break, no pressure\./)).toBeOnTheScreen();
+    expect(screen.queryByText(/no scores/i)).not.toBeOnTheScreen();
+  });
+
   it('the first entry can be skipped; onboarding still finishes', async () => {
     const screen = await renderRouter({ 'first-entry': withProviders(FirstEntry), today: Stub('Today screen') }, { initialUrl: '/first-entry' });
     await fireEvent.press(screen.getByRole('button', { name: "Skip for now, I'll write later" }));

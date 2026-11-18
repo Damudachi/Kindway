@@ -39,7 +39,7 @@ export default function Welcome() {
         <Text variant="body">Keep sight of what matters to you.</Text>
       </View>
       <Text variant="bodyMuted" style={styles.quiet}>
-        You don’t have to figure everything out tonight. No streaks, no scores, no pressure.
+        You don’t have to figure everything out tonight. No streaks to break, no pressure.
       </Text>
     </Screen>
   );

@@ -55,6 +55,8 @@ Planning assets only. No users, testimonials, metrics, or verified support resou
 4. AI is a reflection aid, not a therapist; no diagnosis, no claims of being someone's only support.
 5. No guilt mechanics, and still useful when AI is unavailable.
 
+Counts only go up with writing; nothing is ever lost, reset or shown in reminders, notifications or the widget. Missed days are just trail.
+
 ## Accessibility & Inclusion
 
 WCAG 2.1 AA contrast, TalkBack labels, font scaling (large text), reduced motion, 48dp touch targets, small-screen and keyboard-open layouts. English, global audience.
