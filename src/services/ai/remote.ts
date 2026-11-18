@@ -13,7 +13,7 @@ import type { AiError, FollowUpError, FollowUpResult, ReflectionResult } from '.
  */
 
 /** Calls a function as the signed-in user; `offline` when it couldn't be reached at all. */
-export type Invoke = (fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up', body: Record<string, unknown>) => Promise<{ status: number; body: unknown } | 'offline'>;
+export type Invoke = (fn: 'generate-reflection' | 'generate-insights' | 'generate-follow-up' | 'generate-topic-talk', body: Record<string, unknown>) => Promise<{ status: number; body: unknown } | 'offline'>;
 
 export function supabaseInvoke(client: SupabaseClient): Invoke {
   return async (fn, body) => {
@@ -111,7 +111,7 @@ export async function requestAiReflection(invoke: Invoke, entry: Pick<Entry, 'id
 /** At most this many earlier exchanges are offered as context; the server may use fewer. */
 export const FOLLOW_UP_CONTEXT_TURNS = 3;
 
-const FOLLOW_UP_ERRORS: Record<string, FollowUpError> = { ...ERRORS, context_not_found: 'conversation-changed', message_too_long: 'too-long' };
+const FOLLOW_UP_ERRORS: Record<string, FollowUpError> = { ...ERRORS, topic_not_found: 'not-synced', context_not_found: 'conversation-changed', message_too_long: 'too-long' };
 
 export type FollowUpAsk = {
   entryId: string;
@@ -150,6 +150,50 @@ export async function requestAiFollowUp(invoke: Invoke, ask: FollowUpAsk, key = 
       source: 'ai',
       ai: { id: f.id, provider: String(f.provider), model: String(f.model), createdAt: String(f.created_at) },
       ...(step && { step }),
+      ...(questions.length && { questions }),
+    };
+    return { ok: true, message };
+  }
+  return { ok: false, error: FOLLOW_UP_ERRORS[errorOf(res.body) ?? ''] ?? 'failed' };
+}
+
+// Topic conversation ------------------------------------------------------------------------
+
+export type TopicTalkAsk = {
+  topicId: string;
+  message: string;
+  style: SupportStyle;
+  /** Stored ids of the earlier AI replies shown in this conversation, oldest first. */
+  contextIds: string[];
+  /** The question the user picked from a chip, when this message answers one. */
+  asked?: string;
+};
+
+/** Same shape and errors as an entry follow-up; the server keeps topic exchanges apart from entries. */
+export async function requestAiTopicTalk(invoke: Invoke, ask: TopicTalkAsk, key = newRequestKey()): Promise<FollowUpResult> {
+  const res = await invoke('generate-topic-talk', {
+    topic_id: ask.topicId,
+    message: ask.message,
+    style: ask.style,
+    idempotency_key: key,
+    context_ids: ask.contextIds.slice(-FOLLOW_UP_CONTEXT_TURNS),
+    // Minutes east of UTC, so "yesterday" in an entry means the user's own calendar day.
+    tz_offset_minutes: Math.round(-new Date().getTimezoneOffset()),
+    ...(ask.asked && { asked: ask.asked }),
+  });
+  if (res === 'offline') return { ok: false, error: 'offline' };
+  if (res.status === 200 && isObject(res.body)) {
+    if (res.body.status === 'safety') return { ok: false, error: 'safety' };
+    const t = res.body.status === 'ready' && isObject(res.body.topic_talk) ? res.body.topic_talk : null;
+    const reply = t && isObject(t.output) ? str(t.output.reply) : undefined;
+    if (!t || !reply || typeof t.id !== 'string' || t.topic_id !== ask.topicId) return { ok: false, error: 'invalid' };
+    const questions = isObject(t.output) ? strings(t.output.follow_up_questions) : [];
+    const message: ChatMessage = {
+      id: `ai:${t.id}`,
+      from: 'kindway',
+      text: reply,
+      source: 'ai',
+      ai: { id: t.id, provider: String(t.provider), model: String(t.model), createdAt: String(t.created_at) },
       ...(questions.length && { questions }),
     };
     return { ok: true, message };
@@ -267,6 +311,8 @@ export interface AiOutputsRepo {
   deleteReflection(id: string): Promise<void>;
   /** The AI follow-up conversation about one entry. The entry is untouched. */
   deleteConversation(entryId: string): Promise<void>;
+  /** The AI conversation about one topic. The topic is untouched. */
+  deleteTopicTalk(topicId: string): Promise<void>;
   /** Every AI reflection, review and follow-up conversation on the account. Entries are untouched. */
   deleteAll(): Promise<void>;
 }
@@ -309,6 +355,10 @@ export function supabaseAiOutputs(client: SupabaseClient): AiOutputsRepo {
     },
     async deleteConversation(entryId) {
       const { error } = await client.from('ai_follow_ups').delete().eq('entry_id', entryId);
+      if (error) throw new Error('Could not delete the conversation');
+    },
+    async deleteTopicTalk(topicId) {
+      const { error } = await client.from('ai_topic_talks').delete().eq('topic_id', topicId);
       if (error) throw new Error('Could not delete the conversation');
     },
     async deleteAll() {

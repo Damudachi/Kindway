@@ -55,8 +55,30 @@ const COPY: Record<AiScope, { confirm: string; sentLabel: string; kept?: string;
   },
 };
 
+/** The same permission asked for from a topic conversation, in that conversation's words. */
+const TOPIC_COPY: typeof COPY.cross_entry_analysis = {
+  confirm: 'Allow and send',
+  sentLabel: 'What would be sent',
+  kept: ' Your message is still here.',
+  ask: {
+    none: {
+      title: 'Allow AI for topic conversations?',
+      body: `Sending a message here sends it to ${P} with this topic’s name and some of its linked entries. The same permission covers AI reviews across entries. Nothing is sent until you allow it.`,
+    },
+    outdated: { title: 'Agree to the new terms?', body: `What’s sent for topic conversations and AI reviews changed since you agreed. Nothing is sent to ${P} until you agree again.` },
+    withdrawn: {
+      title: 'Allow AI for topic conversations again?',
+      body: `You withdrew consent for AI reviews, which also covers topic conversations. Nothing is sent to ${P} unless you allow it again.`,
+    },
+  },
+  account: { title: 'Sign in to talk about this topic', body: 'Replies here come from real AI, which needs a signed-in account with cloud backup so your choice can be recorded. Nothing was sent.' },
+  cloud: { title: 'Turn on cloud backup first', body: 'Replies here come from real AI. Kindway’s server reads the topic and its entries from your account, so cloud backup needs to be on for this device. Nothing was sent.' },
+};
+
 type Props = {
   scope: AiScope;
+  /** `topic`: asked from a topic conversation. Only the wording changes; the scope stays the same. */
+  context?: 'topic';
   /** Why real AI can't run for this scope right now; null hides the dialog. */
   blocker: ConsentBlocker | null;
   onCancel: () => void;
@@ -70,12 +92,12 @@ type Props = {
  * that consent needs first. Shows exactly what would be sent and who processes it, and records
  * nothing until the user ticks that they've read it.
  */
-export function AiConsentDialog({ scope, blocker, onCancel, onAllowed, onGrantFailed }: Props) {
+export function AiConsentDialog({ scope, context, blocker, onCancel, onAllowed, onGrantFailed }: Props) {
   const styles = useStyles();
   const consent = useAiConsent();
   const [understood, setUnderstood] = useState(false);
   const [busy, setBusy] = useState(false);
-  const copy = COPY[scope];
+  const copy = context === 'topic' && scope === 'cross_entry_analysis' ? TOPIC_COPY : COPY[scope];
   const sent = SCOPE_COPY[scope];
 
   const close = () => {

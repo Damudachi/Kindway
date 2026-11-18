@@ -222,7 +222,7 @@ describe('suggested steps from reviews', () => {
   };
 
   it('an AI review’s step opens Tomorrow Bridge to review first instead of saving on tap', async () => {
-    const outputs: AiOutputsRepo = { latestReview: async () => toReview(stored), reflections: async () => ({}), deleteReflection: async () => {}, deleteConversation: async () => {}, deleteAll: async () => {} };
+    const outputs: AiOutputsRepo = { latestReview: async () => toReview(stored), reflections: async () => ({}), deleteReflection: async () => {}, deleteConversation: async () => {}, deleteTopicTalk: async () => {}, deleteAll: async () => {} };
     const { invoke } = await open({ ...initialState, onboarded: true, entries: week }, '/patterns', { outputs });
     await fireEvent.press(await screen.findByRole('button', { name: 'Save as tomorrow’s step' }, wait));
     expect(await screen.findByText('Suggested by AI in your review', {}, wait)).toBeOnTheScreen();

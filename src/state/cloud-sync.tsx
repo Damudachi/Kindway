@@ -230,7 +230,7 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
     async (want: { id: string; body: string }[]) => {
       for (let i = 0; i < ENSURE_TRIES && alive.current; i++) {
         const confirmed = base.current;
-        if (pulled.current && confirmed && want.every((w) => confirmed.entries[w.id]?.body === w.body) && contextSettled(confirmed, latest.current)) return true;
+        if (pulled.current && confirmed && want.every((w) => entrySettled(confirmed, latest.current, w)) && contextSettled(confirmed, latest.current)) return true;
         void sync();
         await new Promise((resolve) => setTimeout(resolve, ENSURE_POLL_MS));
       }
@@ -254,7 +254,16 @@ export function CloudSync({ userId, repo, aiOutputs = null, children, baseStorag
  */
 function contextSettled(confirmed: CloudSnapshot, state: DemoState) {
   const c = diff(confirmed, toCloud(state));
-  return !c.profile && [c.upserts.compass, c.upserts.links, c.deletes.compass, c.deletes.links].every((rows) => rows.length === 0);
+  // Topics and their links count too: the server picks a topic's entries from its own copy.
+  const rows = [c.upserts.compass, c.upserts.links, c.deletes.compass, c.deletes.links, c.upserts.topics, c.upserts.topicLinks, c.deletes.topics, c.deletes.topicLinks];
+  return !c.profile && rows.every((r) => r.length === 0);
+}
+
+/** The account holds this entry's text and its “keep out of analysis” choice as they are on this device. */
+function entrySettled(confirmed: CloudSnapshot, state: DemoState, want: { id: string; body: string }) {
+  const theirs = confirmed.entries[want.id];
+  const mine = toCloud(state).entries[want.id];
+  return theirs?.body === want.body && !!mine && theirs.exclude_from_analysis === mine.exclude_from_analysis;
 }
 
 /** Cloud sync status, or null when this journal is local-only. */

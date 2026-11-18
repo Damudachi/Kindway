@@ -4,9 +4,9 @@ import { useCallback } from 'react';
 import { nowIso, onDay } from '@/data/dates';
 import { looksHighRisk } from '@/data/safety';
 import { hasAutoTitle, titleFrom } from '@/data/titles';
-import type { ChatMessage, Entry, SupportStyle } from '@/data/types';
+import type { ChatMessage, Entry, SupportStyle, Topic } from '@/data/types';
 import { getAiService, type FollowUpError, type FollowUpResult, type ReflectionResult } from '@/services/ai';
-import { requestAiFollowUp, requestAiReflection } from '@/services/ai/remote';
+import { requestAiFollowUp, requestAiReflection, requestAiTopicTalk } from '@/services/ai/remote';
 import { reflectionRequest, toContext } from '@/state/ai-context';
 import { useSync } from '@/state/cloud-sync';
 import { useEntries, useStore } from '@/state/demo-store';
@@ -120,6 +120,46 @@ export function useSendFollowUp() {
         .then(land);
     },
     [state.chats, state.demo.ai, dispatch, real, sync],
+  );
+}
+
+/** Keeps two messages sent in the same millisecond apart. */
+let topicTurn = 0;
+
+/**
+ * Sends one message in a topic conversation. There is no simulated version: it runs only with
+ * real AI (`consentJustGiven` covers the moment right after cross-entry consent was recorded).
+ * The topic and the entries linked to it must be on the account first, since the server reads
+ * them from there.
+ */
+export function useSendTopicTalk() {
+  const { state, dispatch } = useStore();
+  const entries = useEntries();
+  const real = useRealAi();
+  const sync = useSync();
+  return useCallback(
+    (topic: Topic, text: string, style: SupportStyle, onDone: (error?: FollowUpError) => void, consentJustGiven = false, asked?: string) => {
+      const earlier = state.topicChats[topic.id] ?? [];
+      const ai = (real.insights || consentJustGiven) && real.invoke ? real.invoke : null;
+      const mine: ChatMessage = { id: `u${Date.now()}t${topicTurn++}`, from: 'me', text, source: 'ai' };
+      dispatch({ type: 'appendTopicChat', topicId: topic.id, messages: [mine] });
+      const land = (result: FollowUpResult) => {
+        if (result.ok) dispatch({ type: 'appendTopicChat', topicId: topic.id, messages: [result.message], after: mine.id });
+        onDone(result.ok ? undefined : result.error);
+      };
+
+      // Possible high-risk wording gets the reviewed support route, never a reply.
+      if (looksHighRisk(text)) return land({ ok: false, error: 'safety' });
+      if (!ai) return land({ ok: false, error: 'consent' });
+      const linked = entries.filter((e) => topic.entryIds.includes(e.id) && !e.sample).map((e) => ({ id: e.id, body: e.body }));
+      void (async () => {
+        const synced = sync ? await sync.ensureSynced(linked) : false;
+        if (!synced) return land({ ok: false, error: sync?.status === 'offline' ? 'offline' : 'not-synced' });
+        const contextIds = earlier.flatMap((m) => (m.source === 'ai' && m.ai ? [m.ai.id] : []));
+        land(await requestAiTopicTalk(ai, { topicId: topic.id, message: text, style, contextIds, asked }));
+      })();
+    },
+    [state.topicChats, entries, dispatch, real, sync],
   );
 }
 

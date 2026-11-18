@@ -45,6 +45,8 @@ export type DemoState = {
   draft: Draft;
   tomorrow: TomorrowStep | null;
   chats: Record<string, ChatMessage[]>;
+  /** The conversation about each topic, by topic id. Same shape as `chats`. */
+  topicChats: Record<string, ChatMessage[]>;
   /** Feedback on insights, by insight id. Sample-demo ids start with `sample:`. */
   insightFeedback: Record<string, InsightFeedback>;
   reminders: Reminders;
@@ -83,6 +85,7 @@ export const initialState: DemoState = {
   draft: emptyDraft,
   tomorrow: null,
   chats: {},
+  topicChats: {},
   insightFeedback: {},
   reminders: { enabled: false, permission: 'unasked', time: '9:00 PM', days: [true, true, true, true, true, false, false], weekly: false, weeklyDay: 6 },
   widgetShowsStep: true,
@@ -123,6 +126,8 @@ export type Action =
    * there: a reply that arrives after the conversation was cleared, or the entry deleted, is dropped.
    */
   | { type: 'appendChat'; entryId: string; messages: ChatMessage[]; after?: string }
+  | { type: 'topicChat'; topicId: string; messages: ChatMessage[] }
+  | { type: 'appendTopicChat'; topicId: string; messages: ChatMessage[]; after?: string }
   /** Removes every message sent to or written by the real AI, in every conversation. */
   | { type: 'removeAiChats' }
   | { type: 'insight'; id: string; feedback: InsightFeedback | undefined }
@@ -171,8 +176,11 @@ export function reducer(state: DemoState, action: Action): DemoState {
     case 'updateTopic':
       if (action.patch.name !== undefined && !action.patch.name.trim()) return state;
       return { ...state, topics: state.topics.map((t) => (t.id === action.id ? { ...t, ...action.patch } : t)) };
-    case 'deleteTopic':
-      return { ...state, topics: state.topics.filter((t) => t.id !== action.id) };
+    case 'deleteTopic': {
+      const topicChats = { ...state.topicChats };
+      delete topicChats[action.id];
+      return { ...state, topics: state.topics.filter((t) => t.id !== action.id), topicChats };
+    }
     case 'linkTopic':
       if (!state.entries.some((e) => e.id === action.entryId)) return state;
       return { ...state, topics: state.topics.map((t) => (t.id === action.topicId && !t.entryIds.includes(action.entryId) ? { ...t, entryIds: [...t.entryIds, action.entryId] } : t)) };
@@ -254,8 +262,18 @@ export function reducer(state: DemoState, action: Action): DemoState {
       if (!action.after && !state.entries.some((e) => e.id === action.entryId)) return state;
       return { ...state, chats: { ...state.chats, [action.entryId]: [...current, ...action.messages] } };
     }
-    case 'removeAiChats':
-      return { ...state, chats: Object.fromEntries(Object.entries(state.chats).map(([id, messages]) => [id, messages.filter((m) => m.source !== 'ai')])) };
+    case 'topicChat':
+      return { ...state, topicChats: { ...state.topicChats, [action.topicId]: action.messages } };
+    case 'appendTopicChat': {
+      const current = state.topicChats[action.topicId] ?? [];
+      if (action.after && !current.some((m) => m.id === action.after)) return state;
+      if (!action.after && !state.topics.some((t) => t.id === action.topicId)) return state;
+      return { ...state, topicChats: { ...state.topicChats, [action.topicId]: [...current, ...action.messages] } };
+    }
+    case 'removeAiChats': {
+      const withoutAi = (chats: Record<string, ChatMessage[]>) => Object.fromEntries(Object.entries(chats).map(([id, messages]) => [id, messages.filter((m) => m.source !== 'ai')]));
+      return { ...state, chats: withoutAi(state.chats), topicChats: withoutAi(state.topicChats) };
+    }
     case 'insight': {
       const insightFeedback = { ...state.insightFeedback };
       if (action.feedback) insightFeedback[action.id] = action.feedback;

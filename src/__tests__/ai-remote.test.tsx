@@ -7,7 +7,7 @@ import Patterns from '@/app/(tabs)/patterns';
 import EntryDetail from '@/app/entry/[id]/index';
 import { SnackbarProvider } from '@/components/feedback';
 import type { Entry } from '@/data/types';
-import { requestAiFollowUp, requestAiReflection, requestAiReview, toReflection, toReview, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
+import { requestAiFollowUp, requestAiReflection, requestAiReview, requestAiTopicTalk, toReflection, toReview, type AiOutputsRepo, type Invoke } from '@/services/ai/remote';
 import { SyncContext, type SyncInfo } from '@/state/cloud-sync';
 import { DemoStoreProvider, initialState, type DemoState } from '@/state/demo-store';
 import { AiConsentProvider, type AiConsentInfo } from '@/state/ai-consent';
@@ -183,10 +183,46 @@ describe('remote AI client', () => {
   });
 });
 
+describe('requestAiTopicTalk', () => {
+  const stored = (patch: Record<string, unknown> = {}, output: Record<string, unknown> = {}) => ({
+    status: 'ready',
+    topic_talk: { id: 'tt-1', topic_id: 'p1', created_at: '2026-11-17T12:00:00.000Z', style: 'understand', provider: 'groq', model: 'm', output: { schema_version: 'topic-talk-1', reply: 'Fictional.', follow_up_questions: [], ...output }, ...patch },
+  });
+  const ask = { topicId: 'p1', message: 'x', style: 'forward' as const, contextIds: ['a', 'b', 'c', 'd'] };
+
+  it('sends the documented body, with the last 3 context ids and minutes east of UTC', async () => {
+    const invoke = respond(200, stored());
+    await requestAiTopicTalk(invoke, { ...ask, asked: 'What helped?' }, 'key-1');
+    expect((invoke as jest.Mock).mock.calls[0]).toEqual([
+      'generate-topic-talk',
+      { topic_id: 'p1', message: 'x', style: 'forward', idempotency_key: 'key-1', context_ids: ['b', 'c', 'd'], tz_offset_minutes: Math.round(-new Date().getTimezoneOffset()), asked: 'What helped?' },
+    ]);
+    const plain = respond(200, stored());
+    await requestAiTopicTalk(plain, ask);
+    expect((plain as jest.Mock).mock.calls[0][1]).not.toHaveProperty('asked');
+  });
+
+  it('maps the reply and its questions to a chat message', async () => {
+    const r = await requestAiTopicTalk(respond(200, stored({}, { follow_up_questions: [' One? ', '', 'Two?'] })), ask);
+    expect(r).toMatchObject({ ok: true, message: { id: 'ai:tt-1', from: 'kindway', text: 'Fictional.', source: 'ai', ai: { id: 'tt-1', provider: 'groq', model: 'm' }, questions: ['One?', 'Two?'] } });
+    const none = await requestAiTopicTalk(respond(200, stored()), ask);
+    if (none.ok) expect(none.message).not.toHaveProperty('questions');
+  });
+
+  it('maps safety, errors and a reply for another topic', async () => {
+    expect(await requestAiTopicTalk(respond(200, { status: 'safety' }), ask)).toEqual({ ok: false, error: 'safety' });
+    expect(await requestAiTopicTalk(respond(404, { error: 'topic_not_found' }), ask)).toEqual({ ok: false, error: 'not-synced' });
+    expect(await requestAiTopicTalk(respond(403, { error: 'consent_required' }), ask)).toEqual({ ok: false, error: 'consent' });
+    expect(await requestAiTopicTalk(respond(200, stored({ topic_id: 'other' })), ask)).toEqual({ ok: false, error: 'invalid' });
+    expect(await requestAiTopicTalk(respond(200, stored({}, { reply: '  ' })), ask)).toEqual({ ok: false, error: 'invalid' });
+    expect(await requestAiTopicTalk((async () => 'offline') as Invoke, ask)).toEqual({ ok: false, error: 'offline' });
+  });
+});
+
 // Screens ---------------------------------------------------------------------------------
 
 function fakeOutputs(): AiOutputsRepo & { latestReview: jest.Mock; deleteReflection: jest.Mock; deleteConversation: jest.Mock; deleteAll: jest.Mock } {
-  return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteConversation: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
+  return { latestReview: jest.fn(async () => null), reflections: jest.fn(async () => ({})), deleteReflection: jest.fn(async () => {}), deleteConversation: jest.fn(async () => {}), deleteTopicTalk: jest.fn(async () => {}), deleteAll: jest.fn(async () => {}) };
 }
 
 async function render(path: string, Screen: () => React.ReactElement, state: DemoState, real: Partial<RealAi>, synced = true, consent?: AiConsentInfo) {

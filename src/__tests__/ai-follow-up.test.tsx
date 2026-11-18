@@ -42,7 +42,7 @@ const followUp = (o: Record<string, unknown> = {}) => ({
 const respond = (status: number, body: unknown) => jest.fn(async () => ({ status, body })) as jest.Mock & Invoke;
 
 function fakeOutputs(): AiOutputsRepo & { deleteConversation: jest.Mock } {
-  return { latestReview: async () => null, reflections: async () => ({}), deleteReflection: async () => {}, deleteConversation: jest.fn(async () => {}), deleteAll: async () => {} };
+  return { latestReview: async () => null, reflections: async () => ({}), deleteReflection: async () => {}, deleteConversation: jest.fn(async () => {}), deleteTopicTalk: jest.fn(async () => {}), deleteAll: async () => {} };
 }
 
 function journal(chat: ChatMessage[] = [], patch: Partial<Entry> = {}): DemoState {

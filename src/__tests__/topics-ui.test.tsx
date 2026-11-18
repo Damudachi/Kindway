@@ -151,10 +151,10 @@ describe('topic page', () => {
     expect(screen.getByText('kept:')).toBeOnTheScreen();
   });
 
-  it('does not offer Talk about this yet', async () => {
+  it('offers Talk about this', async () => {
     await openTopic(seeded([topic('p1', 'Work stress')]));
     await screen.findByText('Work stress');
-    expect(screen.queryByRole('button', { name: 'Talk about this' })).not.toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Talk about this' })).toBeOnTheScreen();
   });
 
   it('says so for a topic that is gone', async () => {
