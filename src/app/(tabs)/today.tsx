@@ -15,6 +15,7 @@ import { SectionTitle } from '@/components/illustrations';
 import { Text } from '@/components/text';
 import { Feelings, Trail, TrailStop } from '@/components/trail';
 import { TrailMoment } from '@/components/trail-moment';
+import { TrailScenery } from '@/components/trail-scenery';
 import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices';
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
@@ -22,6 +23,7 @@ import { usePullToRefresh, useSync } from '@/state/cloud-sync';
 import { lookBackFor, threadFor } from '@/state/come-back';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { countLine, daysWritten } from '@/state/trail-progress';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
 import { makeStyles, useTheme } from '@/theme/theme';
 import { space } from '@/theme/tokens';
@@ -54,6 +56,7 @@ export default function Today() {
   const when = partOfDay() === 'evening' ? 'tonight' : 'today';
   const today = now();
   const prompt = HOME_PROMPTS[today.getDate() % HOME_PROMPTS.length];
+  const written = daysWritten(entries);
   const todays = entries.filter((e) => daysAgo(e.date) === 0);
   const earlier = entries.filter((e) => daysAgo(e.date) > 0).slice(0, 2);
   const step = state.tomorrow;
@@ -162,6 +165,12 @@ export default function Today() {
         <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
           Your trail
         </SectionTitle>
+        <TrailScenery unlocks={state.trailUnlocks} />
+        {written > 0 && (
+          <Text variant="small" style={styles.count}>
+            {countLine(written).replace(/\.$/, '')}
+          </Text>
+        )}
         {/* Draws in once a day, and again as it extends to a newly saved entry. */}
         <Trail drawKey={state.justPainted ? `paint:${state.justPainted}` : `day:${today.toDateString()}`}>
           {todays.length === 0 ? (
@@ -303,6 +312,7 @@ const useStyles = makeStyles(() => ({
   section: { marginTop: space.lg, paddingTop: space.md, paddingBottom: 0, overflow: 'hidden' },
   stepAsk: { marginTop: space.xxs },
   trailTitle: { marginBottom: space.xs },
+  count: { marginBottom: space.sm },
   emptyNote: { marginTop: space.xs, marginBottom: space.sm },
   links: { marginTop: space.xs },
 }));
