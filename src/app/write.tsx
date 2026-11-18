@@ -5,7 +5,7 @@ import { Composer } from '@/components/composer';
 import { useStore } from '@/state/demo-store';
 
 export default function Write() {
-  const { edit, quick } = useLocalSearchParams<{ edit?: string; quick?: string }>();
+  const { edit, quick, prompt, topic } = useLocalSearchParams<{ edit?: string; quick?: string; prompt?: string; topic?: string }>();
   const { state, dispatch } = useStore();
 
   // An edit left unfinished earlier shouldn't turn a new entry into an edit. The saved entry is untouched.
@@ -18,6 +18,8 @@ export default function Write() {
   return (
     <Composer
       quick={quick === '1' && !edit}
+      prompt={edit ? undefined : prompt}
+      topicId={edit ? undefined : topic}
       onSaved={(id, reflected) => {
         // With a reflection, open the entry to watch it arrive; otherwise return to where writing started.
         if (reflected) router.replace(`/entry/${id}`);

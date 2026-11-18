@@ -42,6 +42,12 @@ export type Reflection = {
   title?: string;
   /** AI only: for an entry about several things, the topics this reflection didn't focus on. */
   otherTopics?: string[];
+  /** AI only: ids of saved open topics this entry is clearly about. */
+  topicMatches?: string[];
+  /** AI only: a new topic name, when this and an earlier entry are plainly about the same ongoing subject. */
+  topicSuggestion?: string;
+  /** AI only: things the entry says are coming up. `on` is a local YYYY-MM-DD date. */
+  checkIns?: { question: string; on: string }[];
   /** Entry text the reflection was written for, to flag edits made afterwards. */
   basedOn: string;
   /** Which pre-written perspective was used; "Try another perspective" moves to the next. */

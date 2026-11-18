@@ -25,12 +25,16 @@ type Props = {
   first?: boolean;
   /** "Just one line": the page and the feelings only, for a low-energy day. */
   quick?: boolean;
+  /** A question to write from (a check-in), shown above the page. It isn't put in the entry. */
+  prompt?: string;
+  /** A saved open topic a new entry is linked to when it's saved. */
+  topicId?: string;
   onSaved: (id: string, reflected: boolean) => void;
   /** Onboarding only: finish without writing anything. */
   onSkip?: () => void;
 };
 
-export function Composer({ first, quick, onSaved, onSkip }: Props) {
+export function Composer({ first, quick, prompt, topicId, onSaved, onSkip }: Props) {
   const styles = useStyles();
   const { color, tint } = useTheme();
   const { state, dispatch } = useStore();
@@ -105,6 +109,7 @@ export function Composer({ first, quick, onSaved, onSkip }: Props) {
     if (saving.current || empty) return;
     saving.current = true;
     const id = save({ reflect });
+    if (id && topicId && !editing && state.topics.some((t) => t.id === topicId && t.status === 'open')) dispatch({ type: 'linkTopic', topicId, entryId: id });
     if (id) onSaved(id, reflect && canReflect);
     else saving.current = false;
   };
@@ -143,6 +148,11 @@ export function Composer({ first, quick, onSaved, onSkip }: Props) {
         </Text>
       </Animated.View>
 
+      {!!prompt?.trim() && !editing && (
+        <Text variant="entryTitle" style={styles.prompt}>
+          {prompt.trim()}
+        </Text>
+      )}
       <Pressable
         onPress={() => setChangeDate(true)}
         accessibilityRole="button"
@@ -280,6 +290,7 @@ export function Composer({ first, quick, onSaved, onSkip }: Props) {
 
 const useStyles = makeStyles((color, type) => ({
   lede: { marginTop: space.xs, marginBottom: space.md },
+  prompt: { marginBottom: space.xs },
   dateRow: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start', marginBottom: space.xxs },
   pressed: { opacity: 0.6 },
   page: {

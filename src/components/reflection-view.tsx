@@ -13,6 +13,7 @@ import { SectionTitle } from '@/components/illustrations';
 import { KeepButton } from '@/components/keep-button';
 import { Notice } from '@/components/notice';
 import { Text } from '@/components/text';
+import { TOPIC_NAME_MAX } from '@/components/topics-list';
 import { reflectionSendNotice } from '@/data/ai-disclosure';
 import { shortDate } from '@/data/dates';
 import { STYLE_LABEL } from '@/data/sample';
@@ -26,6 +27,10 @@ import { makeStyles, useTheme } from '@/theme/theme';
 import { radius, space, touch } from '@/theme/tokens';
 
 type Props = { entry: Entry; onRest: () => void };
+
+// Ids are made in event handlers (not render), as in Talk.
+const newTopicId = () => `p${Date.now()}`;
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 type Failure = Exclude<Entry['reflectionStatus'], 'none' | 'loading' | 'ready'>;
 
@@ -137,6 +142,25 @@ export function ReflectionView({ entry, onRest }: Props) {
   const listening = r.style === 'listen';
   // A real AI reflection can be asked for again (a new request); simulated ones cycle pre-written text.
   const perspectives = isAi ? (real.reflections ? 2 : 0) : perspectiveCount(r.style, entry.feelings);
+
+  // Topics. Suggestions and matches are AI-only; the user's own saved topics are what they link to.
+  const linkedTo = (name: string) => state.topics.some((t) => sameName(t.name, name) && t.entryIds.includes(entry.id));
+  const suggestion = isAi && r.topicSuggestion && !linkedTo(r.topicSuggestion) ? r.topicSuggestion : null;
+  const matches = isAi
+    ? (r.topicMatches ?? [])
+        .map((id) => state.topics.find((t) => t.id === id))
+        .filter((t) => !!t && t.status === 'open' && !t.entryIds.includes(entry.id))
+        .slice(0, 2)
+    : [];
+  /** Saves `name` as a topic and links this entry; an open topic with that name is reused rather than copied. */
+  const saveTopic = (name: string) => {
+    const clean = name.trim().slice(0, TOPIC_NAME_MAX).trim();
+    if (!clean) return;
+    const existing = state.topics.find((t) => t.status === 'open' && sameName(t.name, clean));
+    const id = existing?.id ?? newTopicId();
+    if (!existing) dispatch({ type: 'addTopic', topic: { id, name: clean, status: 'open', createdAt: new Date().toISOString(), entryIds: [] } });
+    dispatch({ type: 'linkTopic', topicId: id, entryId: entry.id });
+  };
 
   /** The heart beside a piece of AI-written text; simulated text can't be kept. */
   const keep = (text: string) => (isAi ? <KeepButton text={text} source={{ kind: 'reflection', entryId: entry.id }} /> : null);
@@ -320,19 +344,44 @@ export function ReflectionView({ entry, onRest }: Props) {
         )
       )}
 
+      {(suggestion || matches.length > 0) && (
+        <Animated.View entering={enter(6)} style={styles.part}>
+          {matches.map((t) => (
+            <View key={t!.id} style={styles.part}>
+              <Text variant="body">{`This sounds like ${t!.name}. Add it?`}</Text>
+              <View style={styles.row}>
+                <Button variant="tonal" label={`Add to ${t!.name}`} onPress={() => dispatch({ type: 'linkTopic', topicId: t!.id, entryId: entry.id })} />
+              </View>
+            </View>
+          ))}
+          {suggestion && (
+            <View style={styles.part}>
+              <Text variant="body">{`This keeps coming up: ${suggestion}. Save it as a topic?`}</Text>
+              <View style={styles.row}>
+                <Button variant="tonal" label="Save as a topic" onPress={() => saveTopic(suggestion)} />
+              </View>
+            </View>
+          )}
+        </Animated.View>
+      )}
+
       {!!r.otherTopics?.length && (
         <Animated.View entering={enter(6)} style={styles.part}>
           <Text variant="label">Also in this entry</Text>
           <Text variant="small">This reflection stayed with one part. You can talk any of these through on its own.</Text>
           <ChipRow>
             {r.otherTopics.map((t) => (
-              <Chip
-                key={t}
-                kind="assist"
-                icon="forum-outline"
-                label={t}
-                onPress={() => router.push({ pathname: '/entry/[id]/talk', params: { id: entry.id, topic: t } })}
-              />
+              <View key={t} style={styles.topicPair}>
+                <Chip
+                  kind="assist"
+                  icon="forum-outline"
+                  label={t}
+                  onPress={() => router.push({ pathname: '/entry/[id]/talk', params: { id: entry.id, topic: t } })}
+                />
+                {isAi && !linkedTo(t.slice(0, TOPIC_NAME_MAX).trim()) && (
+                  <Chip kind="assist" icon="bookmark-plus-outline" label="Save topic" accessibilityHint={`Saves ${t} as a topic and adds this entry to it`} onPress={() => saveTopic(t)} />
+                )}
+              </View>
             ))}
           </ChipRow>
         </Animated.View>
@@ -400,6 +449,7 @@ const useStyles = makeStyles((color) => ({
   wrap: { gap: space.md, paddingVertical: space.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, alignItems: 'center' },
   part: { gap: space.xxs },
+  topicPair: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.xs, maxWidth: '100%' },
   keepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xxs },
   flex: { flex: 1 },
   simulated: { flexDirection: 'row', gap: space.xs, alignItems: 'flex-start' },

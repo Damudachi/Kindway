@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Button, IconButton } from '@/components/button';
+import { Chip, ChipRow } from '@/components/chip';
 import { Field, Section, SwitchRow } from '@/components/controls';
 import { Dialog, useSnackbar } from '@/components/feedback';
 import { StateView } from '@/components/notice';
@@ -31,6 +32,7 @@ export default function EntryDetail() {
   // The title being edited, or null when the rename dialog is closed.
   const [rename, setRename] = useState<string | null>(null);
   const [changeDate, setChangeDate] = useState(false);
+  const [pickTopics, setPickTopics] = useState(false);
   const entry = state.entries.find((e) => e.id === id);
   // The lighting moment plays over a loading reflection, and gives way the moment it lands.
   const moment = state.trailMoment?.entryId === id ? state.trailMoment : undefined;
@@ -55,6 +57,9 @@ export default function EntryDetail() {
     router.push(`/write?edit=${entry.id}`);
   };
 
+  // Open topics to choose from, plus any this entry is already in (so a resolved one can still be left).
+  const linked = state.topics.filter((t) => t.entryIds.includes(entry.id));
+  const choices = state.topics.filter((t) => t.status === 'open' || t.entryIds.includes(entry.id));
   const minutes = Math.max(1, Math.round(entry.body.split(/\s+/).length / 200));
 
   return (
@@ -108,6 +113,15 @@ export default function EntryDetail() {
         <ReflectionView entry={entry} onRest={() => router.back()} />
       </View>
 
+      {state.topics.length > 0 && (
+        <Section title="Topics">
+          <Text variant="body">{linked.length ? linked.map((t) => t.name).join(', ') : 'Not in any topic.'}</Text>
+          <View style={styles.topicActions}>
+            <Button variant="tonal" label="Change topics" onPress={() => setPickTopics(true)} />
+          </View>
+        </Section>
+      )}
+
       <Section title="Entry options">
         <SwitchRow
           title="Use in insights and as context"
@@ -123,6 +137,22 @@ export default function EntryDetail() {
           onChange={(revisit) => dispatch({ type: 'updateEntry', id: entry.id, patch: { revisit } })}
         />
       </Section>
+
+      <Dialog
+        visible={pickTopics}
+        title="Topics for this entry"
+        body="Choose the topics this entry belongs to. It changes straight away."
+        confirmLabel="Done"
+        cancelLabel="Close"
+        onCancel={() => setPickTopics(false)}
+        onConfirm={() => setPickTopics(false)}>
+        <ChipRow>
+          {choices.map((t) => {
+            const on = t.entryIds.includes(entry.id);
+            return <Chip key={t.id} label={t.name} selected={on} onPress={() => dispatch({ type: on ? 'unlinkTopic' : 'linkTopic', topicId: t.id, entryId: entry.id })} />;
+          })}
+        </ChipRow>
+      </Dialog>
 
       <DateDialog
         visible={changeDate}
@@ -176,6 +206,7 @@ const useStyles = makeStyles((color) => ({
   title: { flexShrink: 1 },
   titleIcon: { marginTop: 8 },
   pressed: { opacity: 0.6 },
+  topicActions: { flexDirection: 'row', marginTop: space.xs },
   words: { marginTop: space.lg, paddingBottom: space.lg, gap: space.xs },
   gratitude: { marginTop: space.xs, color: color.inkMuted },
   reflection: { borderTopWidth: 1, borderTopColor: color.sand, paddingTop: space.lg },

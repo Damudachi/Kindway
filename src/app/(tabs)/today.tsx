@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { Card, CardLink } from '@/components/card';
 import { Chip, ChipRow } from '@/components/chip';
 import { LookBackCard, ThreadCard } from '@/components/come-back-cards';
 import { Dialog, useSnackbar } from '@/components/feedback';
+import { CheckInCard, OngoingCard } from '@/components/friend-cards';
 import { Notice } from '@/components/notice';
 import { ReminderOffer } from '@/components/reminder-offer';
 import { Screen } from '@/components/screen';
@@ -20,9 +21,11 @@ import { BackupNudge, InstallTip, UpdateNotice } from '@/components/web-notices'
 import { daysAgo, longDate, now, partOfDay, relativeDay } from '@/data/dates';
 import { HOME_PROMPTS } from '@/data/sample';
 import { usePullToRefresh, useSync } from '@/state/cloud-sync';
+import { dueCheckIns, quietTopics, topicCheckInQuestion } from '@/state/check-ins';
 import { lookBackFor, threadFor } from '@/state/come-back';
 import { useEntries, useStore } from '@/state/demo-store';
 import { useSession } from '@/state/session';
+import { openTopics } from '@/state/topics';
 import { countLine, daysWritten } from '@/state/trail-progress';
 import { markDone, postpone, setOutcome, stepView } from '@/state/tomorrow';
 import { makeStyles, useTheme } from '@/theme/theme';
@@ -76,7 +79,13 @@ export default function Today() {
     if (!hasDraft) dispatch({ type: 'draft', patch: { text: `${text}\n\n` } });
     router.push('/write');
   };
-  const thread = threadLater ? null : threadFor(entries, today);
+  // One question at a time, so Today stays calm: a check-in the entry itself promised, then where you
+  // left off, then a topic that has gone quiet.
+  const checkIn = dueCheckIns(entries, state.dismissedCheckIns, today)[0];
+  const thread = checkIn || threadLater ? null : threadFor(entries, today);
+  const quiet = checkIn || thread ? undefined : quietTopics(state.topics, entries, today)[0];
+  const ongoing = openTopics({ topics: state.topics, entries });
+  const askAbout = (prompt: string, topicId?: string) => router.push({ pathname: '/write', params: topicId ? { prompt, topic: topicId } : { prompt } });
   // Not an entry the trail already shows, so the same one never appears twice.
   const lookBack = lookBackLater ? null : lookBackFor(entries.filter((e) => !todays.includes(e) && !earlier.includes(e)), today);
 
@@ -160,6 +169,26 @@ export default function Today() {
       </ChipRow>
 
       {thread && <ThreadCard thread={thread} onUse={() => startWith(thread.prompt)} onLater={() => setThreadLater(true)} />}
+      {checkIn && (
+        <CheckInCard
+          question={checkIn.question}
+          onWrite={() => {
+            dispatch({ type: 'dismissCheckIn', key: checkIn.key });
+            askAbout(checkIn.question);
+          }}
+          onLater={() => dispatch({ type: 'dismissCheckIn', key: checkIn.key })}
+        />
+      )}
+      {quiet && (
+        <CheckInCard
+          question={topicCheckInQuestion(quiet.name)}
+          onWrite={() => {
+            dispatch({ type: 'updateTopic', id: quiet.id, patch: { checkInShownAt: today.toISOString() } });
+            askAbout(topicCheckInQuestion(quiet.name), quiet.id);
+          }}
+          onLater={() => dispatch({ type: 'updateTopic', id: quiet.id, patch: { checkInShownAt: today.toISOString() } })}
+        />
+      )}
 
       <Card style={styles.section}>
         <SectionTitle icon="map-marker-path" style={styles.trailTitle}>
@@ -277,6 +306,8 @@ export default function Today() {
           <CardLink label="Look back across your entries" onPress={() => router.navigate('/patterns')} />
         </View>
       </Card>
+
+      <OngoingCard topics={ongoing} onOpen={(t) => router.push(`/topic/${t.id}` as Href)} />
 
       {lookBack && <LookBackCard lookBack={lookBack} onOpen={() => router.push(`/entry/${lookBack.entry.id}`)} onLater={() => setLookBackLater(true)} />}
 

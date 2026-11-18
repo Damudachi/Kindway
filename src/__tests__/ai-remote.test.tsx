@@ -62,11 +62,11 @@ const respond = (status: number, body: unknown): Invoke => jest.fn(async () => (
 describe('remote AI client', () => {
   it('sends only the entry id, style and a fresh idempotency key', async () => {
     const invoke = respond(200, { status: 'ready', reflection: storedReflection() });
-    const result = await requestAiReflection(invoke, { id: 'e1', body: 'Fictional text' }, 'understand');
+    const result = await requestAiReflection(invoke, { id: 'e1', body: 'Fictional text', date: '2026-10-20T12:00:00.000Z' }, 'understand');
     expect(result).toMatchObject({ ok: true, reflection: { source: 'ai', acknowledge: 'A long day, and you kept going.', ai: { model: 'openai/gpt-oss-120b' }, basedOn: 'Fictional text' } });
     const [fn, body] = (invoke as jest.Mock).mock.calls[0];
     expect(fn).toBe('generate-reflection');
-    expect(Object.keys(body).sort()).toEqual(['entry_id', 'idempotency_key', 'style']);
+    expect(Object.keys(body).sort()).toEqual(['entry_id', 'idempotency_key', 'style', 'tz_offset_minutes']);
     expect(body.idempotency_key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
@@ -82,13 +82,13 @@ describe('remote AI client', () => {
     [503, 'provider_unavailable', 'unavailable'],
     [500, 'something_new', 'failed'],
   ])('maps %i %s to the “%s” state', async (status, error, state) => {
-    expect(await requestAiReflection(respond(status, { error }), { id: 'e1', body: 'x' }, 'listen')).toEqual({ ok: false, error: state });
+    expect(await requestAiReflection(respond(status, { error }), { id: 'e1', body: 'x', date: '2026-10-20T12:00:00.000Z' }, 'listen')).toEqual({ ok: false, error: state });
   });
 
   it('reports offline, the safety route, and an unusable reply as such, never as a reflection', async () => {
-    expect(await requestAiReflection(jest.fn(async () => 'offline' as const), { id: 'e1', body: 'x' }, 'listen')).toEqual({ ok: false, error: 'offline' });
-    expect(await requestAiReflection(respond(200, { status: 'safety' }), { id: 'e1', body: 'x' }, 'listen')).toEqual({ ok: false, error: 'safety' });
-    expect(await requestAiReflection(respond(200, { status: 'ready', reflection: storedReflection({ acknowledgment: '' }) }), { id: 'e1', body: 'x' }, 'listen')).toEqual({
+    expect(await requestAiReflection(jest.fn(async () => 'offline' as const), { id: 'e1', body: 'x', date: '2026-10-20T12:00:00.000Z' }, 'listen')).toEqual({ ok: false, error: 'offline' });
+    expect(await requestAiReflection(respond(200, { status: 'safety' }), { id: 'e1', body: 'x', date: '2026-10-20T12:00:00.000Z' }, 'listen')).toEqual({ ok: false, error: 'safety' });
+    expect(await requestAiReflection(respond(200, { status: 'ready', reflection: storedReflection({ acknowledgment: '' }) }), { id: 'e1', body: 'x', date: '2026-10-20T12:00:00.000Z' }, 'listen')).toEqual({
       ok: false,
       error: 'invalid',
     });
@@ -120,6 +120,31 @@ describe('remote AI client', () => {
   it('a review states the server’s limits when it refuses', async () => {
     expect(await requestAiReview(respond(413, { error: 'too_many_entries', max_entries: 20 }), 'week', ['a'])).toEqual({ status: 'error', error: 'too-many', limit: 20 });
     expect(await requestAiReview(respond(409, { error: 'selection_changed' }), 'week', ['a'])).toEqual({ status: 'error', error: 'selection-changed' });
+  });
+
+  it('sends the entry date’s UTC offset in minutes east of UTC', async () => {
+    const invoke = respond(200, { status: 'ready', reflection: storedReflection() });
+    const date = '2026-10-20T12:00:00.000Z';
+    await requestAiReflection(invoke, { id: 'e1', body: 'x', date }, 'understand');
+    const body = (invoke as jest.Mock).mock.calls[0][1];
+    expect(body.tz_offset_minutes).toBe(-new Date(date).getTimezoneOffset());
+    expect(Number.isInteger(body.tz_offset_minutes)).toBe(true);
+  });
+
+  describe('topics and check-ins', () => {
+    it('maps topic matches, a suggestion and check-ins', () => {
+      const r = toReflection(storedReflection({ topic_matches: [' p1 ', '', 4], topic_suggestion: '  The job search ', check_ins: [{ question: ' How did the exam go? ', on: '2026-11-19' }] }), 'x')!;
+      expect(r.topicMatches).toEqual(['p1']);
+      expect(r.topicSuggestion).toBe('The job search');
+      expect(r.checkIns).toEqual([{ question: 'How did the exam go?', on: '2026-11-19' }]);
+    });
+
+    it('leaves them out when absent or malformed', () => {
+      const r = toReflection(storedReflection({ topic_matches: [], topic_suggestion: null, check_ins: [{ question: 'x', on: 'soon' }, { question: '', on: '2026-11-19' }, 7] }), 'x')!;
+      expect(r).not.toHaveProperty('topicMatches');
+      expect(r).not.toHaveProperty('topicSuggestion');
+      expect(r).not.toHaveProperty('checkIns');
+    });
   });
 
   describe('follow-up questions', () => {

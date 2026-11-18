@@ -69,6 +69,9 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
   if (!acknowledge || typeof stored.id !== 'string') return null;
   const questions = strings(o.follow_up_questions);
   const compass = isObject(o.compass_connection) && str(o.compass_connection.value) && str(o.compass_connection.text) ? o.compass_connection : null;
+  const checkIns = (Array.isArray(o.check_ins) ? o.check_ins : [])
+    .filter((c): c is { question: string; on: string } => isObject(c) && !!str(c.question) && typeof c.on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.on))
+    .map((c) => ({ question: c.question.trim(), on: c.on }));
   return {
     style: stored.style as SupportStyle,
     source: 'ai',
@@ -83,12 +86,17 @@ export function toReflection(stored: unknown, basedOn: string): Reflection | nul
     ...(str(o.title) && { title: str(o.title)!.trim() }),
     ...(Array.isArray(o.earlier_entry_ids) && o.earlier_entry_ids.some(str) && { related: o.earlier_entry_ids.filter(str) }),
     ...(Array.isArray(o.other_topics) && o.other_topics.some(str) && { otherTopics: o.other_topics.filter(str).map((t: string) => t.trim()) }),
+    ...(strings(o.topic_matches).length > 0 && { topicMatches: strings(o.topic_matches) }),
+    ...(str(o.topic_suggestion) && { topicSuggestion: str(o.topic_suggestion)!.trim() }),
+    ...(checkIns.length > 0 && { checkIns }),
     basedOn,
   };
 }
 
-export async function requestAiReflection(invoke: Invoke, entry: Pick<Entry, 'id' | 'body'>, style: SupportStyle, key = newRequestKey()): Promise<ReflectionResult> {
-  const res = await invoke('generate-reflection', { entry_id: entry.id, style, idempotency_key: key });
+export async function requestAiReflection(invoke: Invoke, entry: Pick<Entry, 'id' | 'body' | 'date'>, style: SupportStyle, key = newRequestKey()): Promise<ReflectionResult> {
+  // Minutes east of UTC, so the server can turn "Thursday" into the date on the user's calendar.
+  const tz = Math.round(-new Date(entry.date).getTimezoneOffset());
+  const res = await invoke('generate-reflection', { entry_id: entry.id, style, idempotency_key: key, tz_offset_minutes: tz });
   if (res === 'offline') return { ok: false, error: 'offline' };
   if (res.status === 200 && isObject(res.body)) {
     if (res.body.status === 'safety') return { ok: false, error: 'safety' };
