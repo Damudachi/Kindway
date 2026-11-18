@@ -17,6 +17,8 @@ export type ProfileRow = {
   weekly_patterns: boolean;
   insights_use_compass: boolean;
   reflection_previews: DemoState['aiConsent'];
+  /** Trail milestones reached, ascending. Only ever grows. */
+  trail_unlocks: number[];
 };
 export type CompassRow = { id: string; area: string; note: string; ai_may_reference: boolean; position: number };
 export type EntryRow = {
@@ -69,6 +71,7 @@ export const linkKey = (l: LinkRow) => `${l.entry_id}|${l.compass_id}`;
 /** The one Tomorrow step has no id of its own; when it was saved identifies it. */
 export const stepId = (s: TomorrowStep) => `t-${new Date(s.savedOn).getTime()}`;
 const iso = (s: string) => new Date(s).toISOString();
+const sortedUnlocks = (a: number[] | null | undefined) => [...new Set(a ?? [])].sort((x, y) => x - y);
 const isSampleInsight = (id: string) => id.startsWith('sample:');
 
 // State -> rows ----------------------------------------------------------------------------
@@ -84,6 +87,7 @@ export function toCloud(state: DemoState): CloudSnapshot {
     weekly_patterns: state.weeklyPatterns,
     insights_use_compass: state.insightsUseCompass,
     reflection_previews: state.aiConsent,
+    trail_unlocks: sortedUnlocks(state.trailUnlocks),
   };
   const compassIds = new Set<string>();
   state.compass.slice(0, 3).forEach((c, position) => {
@@ -151,6 +155,7 @@ export function normalizeRows(rows: {
         weekly_patterns: p.weekly_patterns,
         insights_use_compass: p.insights_use_compass,
         reflection_previews: p.reflection_previews,
+        trail_unlocks: sortedUnlocks(p.trail_unlocks),
       }
     : null;
   for (const c of rows.compass) snap.compass[c.id] = { id: c.id, area: c.area, note: c.note, ai_may_reference: c.ai_may_reference, position: c.position };
@@ -220,7 +225,9 @@ export const changeCount = (c: Changes) =>
  */
 export function mergeSnapshots(base: CloudSnapshot, local: CloudSnapshot, remote: CloudSnapshot): CloudSnapshot {
   const out = emptySnapshot();
-  out.profile = !same(base.profile, local.profile) ? local.profile : (remote.profile ?? local.profile);
+  const profile = !same(base.profile, local.profile) ? local.profile : (remote.profile ?? local.profile);
+  // Unlocks only ever grow, so whichever side wins the other fields, neither side's unlocks are dropped.
+  out.profile = profile && { ...profile, trail_unlocks: sortedUnlocks([...(local.profile?.trail_unlocks ?? []), ...(remote.profile?.trail_unlocks ?? [])]) };
   for (const kind of Object.keys(TABLES) as Kind[]) {
     const b = base[kind] as Record<string, unknown>;
     const l = local[kind] as Record<string, unknown>;
@@ -312,6 +319,7 @@ export function applyCloud(state: DemoState, snap: CloudSnapshot): DemoState {
       weeklyPatterns: p.weekly_patterns,
       insightsUseCompass: p.insights_use_compass,
       aiConsent: p.reflection_previews,
+      trailUnlocks: p.trail_unlocks,
     }),
     compass,
     entries,

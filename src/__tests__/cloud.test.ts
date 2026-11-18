@@ -102,6 +102,29 @@ describe('sync merging', () => {
   });
 });
 
+describe('trail unlocks', () => {
+  it('toCloud sends them sorted, and applyCloud restores them', () => {
+    const snap = toCloud(journal({ trailUnlocks: [30, 7] }));
+    expect(snap.profile?.trail_unlocks).toEqual([7, 30]);
+    const restored = applyCloud({ ...initialState, trailUnlocks: [] }, snap);
+    expect(restored.trailUnlocks).toEqual([7, 30]);
+  });
+
+  it('a merge keeps every unlock from both sides, whichever side wins the other profile fields', () => {
+    const base = toCloud(journal({ trailUnlocks: [7] }));
+    const local = toCloud(journal({ trailUnlocks: [7, 50], supportStyle: 'honest' }));
+    const remote = toCloud(journal({ trailUnlocks: [7, 30] }));
+    expect(mergeSnapshots(base, local, remote).profile?.trail_unlocks).toEqual([7, 30, 50]);
+    const unchangedHere = toCloud(journal({ trailUnlocks: [7] }));
+    expect(mergeSnapshots(base, unchangedHere, remote).profile?.trail_unlocks).toEqual([7, 30]);
+  });
+
+  it('unlocks reached on another device are not lost when this one pulls', () => {
+    const merged = mergeSnapshots(toCloud(journal()), toCloud(journal({ trailUnlocks: [100] })), toCloud(journal({ trailUnlocks: [7, 365] })));
+    expect(applyCloud(journal({ trailUnlocks: [100] }), merged).trailUnlocks).toEqual([7, 100, 365]);
+  });
+});
+
 describe('moving a local-only journal into an account', () => {
   it('uploads into an empty account and verifies it by reading it back', async () => {
     const cloud = fakeCloud();
